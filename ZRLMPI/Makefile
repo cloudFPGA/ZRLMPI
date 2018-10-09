@@ -1,8 +1,8 @@
-CC       = g++
+CC       = gcc
 CPPFLAGS = -D_XOPEN_SOURCE=700
 CFLAGS   = -std=c99 -pedantic -Wall -Wextra -Wconversion -Werror -pthread
 CFLAGS  += -g -fPIC
-#LIBS     = -lpthread
+LIBS     = -lstdc++
 PROG     = zrlmpi_server
 BUILD_TYPE = debug # oder production
 SOURCES = MPI.cpp test.cpp zrlmpi_common.cpp
@@ -17,8 +17,7 @@ clean:
 	rm -rf $(PROG) *.o 
 
 $(PROG): $(OBJS)
-	$(CC) -o $@ $(LDFLAGS) $(OBJS) 
-	@# $(LIBS)
+	$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
 ifeq ($(BUILD_TYPE), production)
 	strip $@
 endif 
