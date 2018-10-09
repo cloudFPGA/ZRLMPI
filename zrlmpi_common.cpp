@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 
-UINT32 littleEndianToInteger(UINT8 *buffer, int lsb)
+/*UINT32 littleEndianToInteger(UINT8 *buffer, int lsb)
 {
   UINT32 tmp = 0;
   tmp  = ((UINT32) buffer[lsb + 3]); 
@@ -14,14 +14,34 @@ UINT32 littleEndianToInteger(UINT8 *buffer, int lsb)
   //printf("LSB: %#1x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
 
   return tmp;
+}*/
+UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
+{
+  UINT32 tmp = 0;
+  tmp  = ((UINT32) buffer[lsb + 0]); 
+  tmp |= ((UINT32) buffer[lsb + 1]) << 8; 
+  tmp |= ((UINT32) buffer[lsb + 2]) << 16; 
+  tmp |= ((UINT32) buffer[lsb + 3]) << 24; 
+
+  //printf("LSB: %#1x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
+
+  return tmp;
 }
 
-void integerToLittleEndian(UINT32 n, UINT8 *bytes)
+/*void integerToLittleEndian(UINT32 n, UINT8 *bytes)
 {
   bytes[0] = (n >> 24) & 0xFF;
   bytes[1] = (n >> 16) & 0xFF;
   bytes[2] = (n >> 8) & 0xFF;
   bytes[3] = n & 0xFF;
+}*/
+
+void integerToBigEndian(UINT32 n, UINT8 *bytes)
+{
+  bytes[3] = (n >> 24) & 0xFF;
+  bytes[2] = (n >> 16) & 0xFF;
+  bytes[1] = (n >> 8) & 0xFF;
+  bytes[0] = n & 0xFF;
 }
 
 
@@ -33,6 +53,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x96)
     {
+      printf("no start seuquence found\n");
       return -1;
     }
   }
@@ -41,6 +62,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x00)
     {
+      printf("empty bytes are not empty\n");
       return -2;
     }
   }
@@ -49,14 +71,15 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x96)
     {
+      printf("no end seuquence found\n");
       return -3;
     }
   }
 
   //convert
-  header.dst_rank = littleEndianToInteger(bytes, 4);
-  header.src_rank = littleEndianToInteger(bytes,8);
-  header.size = littleEndianToInteger(bytes,12);
+  header.dst_rank = bigEndianToInteger(bytes, 4);
+  header.src_rank = bigEndianToInteger(bytes,8);
+  header.size = bigEndianToInteger(bytes,12);
 
   header.call = static_cast<mpiCall>((int) bytes[16]);
 
@@ -73,17 +96,17 @@ void headerToBytes(MPI_Header header, UINT8 bytes[MPIF_HEADER_LENGTH])
     bytes[i] = 0x96;
   }
   UINT8 tmp[4];
-  integerToLittleEndian(header.dst_rank, tmp);
+  integerToBigEndian(header.dst_rank, tmp);
   for(int i = 0; i< 4; i++)
   {
     bytes[4 + i] = tmp[i];
   }
-  integerToLittleEndian(header.src_rank, tmp);
+  integerToBigEndian(header.src_rank, tmp);
   for(int i = 0; i< 4; i++)
   {
     bytes[8 + i] = tmp[i];
   }
-  integerToLittleEndian(header.size, tmp);
+  integerToBigEndian(header.size, tmp);
   for(int i = 0; i< 4; i++)
   {
     bytes[12 + i] = tmp[i];

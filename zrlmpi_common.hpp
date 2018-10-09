@@ -46,8 +46,9 @@
 #define MPIF_HEADER_LENGTH 32
 
 
-UINT32 littleEndianToInteger(UINT8 *buffer, int lsb);
-void integerToLittleEndian(UINT32 n, UINT8 *bytes);
+//UINT32 littleEndianToInteger(UINT8 *buffer, int lsb);
+UINT32 bigEndianToInteger(UINT8 *buffer, int lsb);
+void integerToBigEndian(UINT32 n, UINT8 *bytes);
 int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header);
 void headerToBytes(MPI_Header header, UINT8 bytes[MPIF_HEADER_LENGTH]);
 
