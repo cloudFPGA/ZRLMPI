@@ -46,5 +46,11 @@ void MPI_Finalize();
 //void MPI_Barrier(MPI_Comm communicator);
 
 
+#define MPI_BASE_IP "10.2.200."
+#define MPI_PORT 80
+#define MPI_SERVICE "80"
+#define MPI_CLUSTER_SIZE 2
+#define MPI_OWN_RANK 0
+
 
 #endif

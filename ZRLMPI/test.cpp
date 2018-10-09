@@ -8,21 +8,21 @@
 
 
 //for debugging
-/*
-   void print_int_array(const int *A, size_t width, size_t height)
-   {
-   printf("\n");
-   for(size_t i = 0; i < height; ++i)
-   {
-   for(size_t j = 0; j < width; ++j)
-   {
-   printf("%d ", A[i * width + j]);
-   }
-   printf("\n");
-   }
-   printf("\n");
-   }
-   */
+
+void print_array(const int *A, size_t width, size_t height)
+{
+  printf("\n");
+  for(size_t i = 0; i < height; ++i)
+  {
+    for(size_t j = 0; j < width; ++j)
+    {
+      printf("%d ", A[i * width + j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
 
 
 //int main( int argc, char **argv )
@@ -40,7 +40,6 @@ void app_main()
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
   MPI_Comm_size( MPI_COMM_WORLD, &size );
 
-  //Slaves ...
 
   printf("Here is rank %d, size is %d. \n",rank, size);
 
@@ -62,7 +61,7 @@ void app_main()
 	      }
 	    }
 	
-      //    print_array((const int*) grid, DIM, DIM);
+    print_array((const int*) grid, DIM, DIM);
 
 
 	    printf("Ditstribute data and start client nodes.\n");
@@ -76,7 +75,7 @@ void app_main()
 	      {
 	        first_send_line = (LDIMY-2);
 	      }
-	      MPI_Send(&grid[first_send_line][0], LDIMX*LDIMY, MPI_INTEGER, i, DATA_CHANNEL_TAG, MPI_COMM_WORLD);
+	      MPI_Send(&grid[first_send_line][0], LDIMX*LDIMY, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
 	    }
 
 	    int tmp[LDIMY][LDIMX];
@@ -84,7 +83,7 @@ void app_main()
 	    for(int i = 1; i<size; i++)
 	    {
 	      //collect results
-	      MPI_Recv(tmp, LDIMY*LDIMX, MPI_INTEGER, i, DATA_CHANNEL_TAG, MPI_COMM_WORLD, &status);
+	      MPI_Recv(&tmp[0][0], LDIMY*LDIMX, MPI_INTEGER, i, 0, MPI_COMM_WORLD, &status);
 
         int first_target_line = 0;
 	      if(i == size-1)
@@ -103,6 +102,7 @@ void app_main()
 	    }
 
 	    printf("Done.\n");
+    print_array((const int*) grid, DIM, DIM);
 
       MPI_Finalize();
 
