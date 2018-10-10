@@ -1,7 +1,7 @@
 
 #include "zrlmpi_common.hpp"
 #include <stdint.h>
-
+#include <stdio.h>
 
 /*UINT32 littleEndianToInteger(UINT8 *buffer, int lsb)
 {
