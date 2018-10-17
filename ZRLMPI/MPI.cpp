@@ -22,8 +22,10 @@
 #include <stdint.h>
 
 
-static sockaddr_in rank_socks[3];
+sockaddr_in rank_socks[MPI_CLUSTER_SIZE_MAX + 1];
 int udp_sock = 0;
+int cluster_size = 0;
+int own_rank = 0;
 
 void MPI_Init()
 {
@@ -33,12 +35,12 @@ void MPI_Init()
 
 void MPI_Comm_rank(MPI_Comm communicator, int* rank)
 {
-  *rank = MPI_OWN_RANK;
+  *rank = own_rank;
 }
 
 void MPI_Comm_size( MPI_Comm communicator, int* size)
 {
-  *size = MPI_CLUSTER_SIZE;
+  *size = cluster_size;
 }
 
 
@@ -340,7 +342,7 @@ int resolvehelper(const char* hostname, int family, const char* service, sockadd
 
 static void printUsage(const char* argv0)
 {
-  fprintf(stderr, "Usage: %s <slot-rank-1> <slot-rank-2>\n",argv0);
+  fprintf(stderr, "Usage: %s <cluster-size> <slot-rank-1> <slot-rank-2> <...>\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
   exit(EXIT_FAILURE);
 }
 
@@ -349,11 +351,14 @@ static void printUsage(const char* argv0)
 int main(int argc, char **argv)
 {
 
-  if(argc != 3)
+  if(argc < 3 || atoi(argv[1]) < 2 || atoi(argv[1]) > MPI_CLUSTER_SIZE_MAX)
   {
     printUsage(argv[0]);
   }
 
+  cluster_size = atoi(argv[1]);
+  //own_rank = argv[2];
+  own_rank = MPI_OWN_RANK;
 
   int result = 0;
   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -369,6 +374,7 @@ int main(int argc, char **argv)
   sockaddr_in addrListen = {}; 
   addrListen.sin_family = AF_INET;
   addrListen.sin_port = htons(MPI_PORT);
+  inet_aton("10.2.200.50", (in_addr*) &addrListen.sin_addr.s_addr);
   result = bind(sock, (sockaddr*)&addrListen, sizeof(addrListen));
   if (result == -1)
   {
@@ -377,32 +383,21 @@ int main(int argc, char **argv)
   }
 
 
-  sockaddr_in addrDest_1 = {};
-  sockaddr_in addrDest_2 = {};
-
-  std::string rank1_addr = std::string(MPI_BASE_IP).append(argv[1]);
-  std::string rank2_addr = std::string(MPI_BASE_IP).append(argv[2]);
-
-  std::cout << "rank 1 addr: " << rank1_addr << std::endl;
-  std::cout << "rank 2 addr: " << rank2_addr << std::endl;
-
-
-  result = resolvehelper(rank1_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest_1);
-  if (result != 0)
+  for(int i = 1; i<cluster_size; i++)
   {
-    std::cerr << "getaddrinfo: " << errno;
-    exit(1);
-  }
+    sockaddr_in addrDest = {};
+    std::string rank_addr = std::string(MPI_BASE_IP).append(argv[1 + i]);
+    std::cout << "rank " << i <<" addr: " << rank_addr << std::endl;
+    result = resolvehelper(rank_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest);
+    if (result != 0)
+    {
+      std::cerr << "getaddrinfo: " << errno;
+      exit(1);
+    }
 
-  result = resolvehelper(rank2_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest_2);
-  if (result != 0)
-  {
-    std::cerr << "getaddrinfo: " << errno;
-    exit(1);
-  }
+    rank_socks[i] = addrDest;
 
-  rank_socks[1] = addrDest_1;
-  rank_socks[2] = addrDest_2;
+  }
 
   //call actual MPI code 
   app_main();

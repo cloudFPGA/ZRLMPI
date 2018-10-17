@@ -49,7 +49,7 @@ void MPI_Finalize();
 #define MPI_BASE_IP "10.2.200."
 #define MPI_PORT 80
 #define MPI_SERVICE "80"
-#define MPI_CLUSTER_SIZE 2
+#define MPI_CLUSTER_SIZE_MAX 128
 #define MPI_OWN_RANK 0
 
 
