@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "MPI.hpp"
+#include <mpi.h>
 
 #define USE_INTEGER
 
@@ -18,6 +18,6 @@
 #define CMD_CHANNEL_TAG 2
 
 
-int app_main();
+int main( int argc, char **argv );
 
 #endif

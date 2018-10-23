@@ -2,23 +2,46 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include "MPI.hpp"
+#include "mpi.h"
 #include "test.h"
 
+#ifdef DEBUG
+void print_array(const int *A, size_t width, size_t height)
+{
+  printf("\n");
+  for(size_t i = 0; i < height; ++i)
+  {
+    for(size_t j = 0; j < width; ++j)
+    {
+      printf("%d ", A[i * width + j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+#endif
 
-int app_main()
+int main( int argc, char **argv )
 {
   int        rank, size;
   MPI_Status status;
 
-  MPI_Init();
+  MPI_Init( &argc, &argv );
 
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
   MPI_Comm_size( MPI_COMM_WORLD, &size );
 
+#ifdef DEBUG
+  if(size%2 != 1)
+  {//for now, we need uneven processes
+    printf("ERROR: only uneven numbers of processes are supported!\n"); 
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
+#endif
 
   printf("Here is rank %d, size is %d. \n",rank, size);
 
+#ifdef ZRLMPI_SW_ONLY
   if(rank == 0)
   {// Master ...
     int grid[DIM][DIM];
@@ -39,6 +62,9 @@ int app_main()
       }
     }
 
+#ifdef DEBUG
+    print_array((const int*) grid, DIM, DIM);
+#endif
 
     printf("Ditstribute data and start client nodes.\n");
 
@@ -101,9 +127,13 @@ int app_main()
     }
 
     printf("Done.\n");
+#ifdef DEBUG
+    print_array((const int*) grid, DIM, DIM);
+#endif
 
   } else { 
     //Slaves ... 
+#endif //ZRLMPI_SW_ONLY 
 
     int local_grid[LDIMY + 1][LDIMX];
     int local_new[LDIMY + 1][LDIMX];
@@ -139,7 +169,9 @@ int app_main()
     //print_int_array((const int*) local_new, LDIMX, LDIMY);
 
     //printf("Calculation finished.\n");
+#ifdef ZRLMPI_SW_ONLY
   }
+#endif
 
   MPI_Finalize();
   return 0;
