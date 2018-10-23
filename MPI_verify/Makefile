@@ -8,7 +8,7 @@ all: jacobi
 run: jacobi
 	@#mpirun -np 4 jacobi
 	@#mpirun$(MPI_FLAVOR) -np 3 --hostfile hostfile --rankfile rankfile ./$^
-	mpirun$(MPI_FLAVOR) -np 3 ./$^
+	mpirun$(MPI_FLAVOR) -np 17 ./$^
 
 
 jacobi: $(SRC_FILES)

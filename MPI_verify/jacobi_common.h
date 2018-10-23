@@ -6,9 +6,12 @@
 
 #define USE_INTEGER
 
-#define DIM 16
-#define LDIMX 16
-#define LDIMY 9 // = DIM/2 + 1
+#define DIM 256
+#define LDIMX 256
+#define LDIMY 16
+
+#define PACKETLENGTH 256
+#define CORNER_VALUE_INT 128
 
 #define DATA_CHANNEL_TAG 1 
 #define CMD_CHANNEL_TAG 2
