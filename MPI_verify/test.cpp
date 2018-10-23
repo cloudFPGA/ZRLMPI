@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "mpi.h"
-#include "test.h"
+#include "test.hpp"
 
 #ifdef DEBUG
 void print_array(const int *A, size_t width, size_t height)

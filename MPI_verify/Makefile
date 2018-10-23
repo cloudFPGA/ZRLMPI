@@ -1,4 +1,4 @@
-SRC_FILES=test.c test.h
+SRC_FILES=test.cpp test.hpp
 MPI_FLAVOR=.mpich
 CFLAGS=-DDEBUG -DZRLMPI_SW_ONLY
 #MPI_FLAVOR=.openmpi
