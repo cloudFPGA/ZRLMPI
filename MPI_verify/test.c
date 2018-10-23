@@ -31,14 +31,17 @@ int main( int argc, char **argv )
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
   MPI_Comm_size( MPI_COMM_WORLD, &size );
 
+#ifdef DEBUG
   if(size%2 != 1)
   {//for now, we need uneven processes
     printf("ERROR: only uneven numbers of processes are supported!\n"); 
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
+#endif
 
-  //printf("Here is rank %d, size is %d. \n",rank, size);
+  printf("Here is rank %d, size is %d. \n",rank, size);
 
+#ifdef ZRLMPI_SW_ONLY
   if(rank == 0)
   {// Master ...
     int grid[DIM][DIM];
@@ -130,6 +133,7 @@ int main( int argc, char **argv )
 
   } else { 
     //Slaves ... 
+#endif //ZRLMPI_SW_ONLY 
 
     int local_grid[LDIMY + 1][LDIMX];
     int local_new[LDIMY + 1][LDIMX];
@@ -165,9 +169,9 @@ int main( int argc, char **argv )
     //print_int_array((const int*) local_new, LDIMX, LDIMY);
 
     //printf("Calculation finished.\n");
-
+#ifdef ZRLMPI_SW_ONLY
   }
-
+#endif
 
   MPI_Finalize();
   return 0;

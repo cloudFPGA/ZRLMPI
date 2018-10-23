@@ -1,6 +1,6 @@
 SRC_FILES=test.c test.h
 MPI_FLAVOR=.mpich
-CFLAGS=-DDEBUG
+CFLAGS=-DDEBUG -DZRLMPI_SW_ONLY
 #MPI_FLAVOR=.openmpi
 
 .PHONY: all run clean 
