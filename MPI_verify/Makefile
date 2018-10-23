@@ -1,5 +1,6 @@
-SRC_FILES=jacobi.c jacobi_common.h
+SRC_FILES=test.c test.h
 MPI_FLAVOR=.mpich
+CFLAGS=-DDEBUG
 #MPI_FLAVOR=.openmpi
 
 .PHONY: all run clean 
@@ -12,7 +13,7 @@ run: jacobi
 
 
 jacobi: $(SRC_FILES)
-	mpicc$(MPI_FLAVOR) -o $@ $^ -lm 
+	mpicc$(MPI_FLAVOR) -o $@ $^ -lm $(CFLAGS)
 
 
 clean:

@@ -3,8 +3,23 @@
 #include <stdio.h>
 #include <math.h>
 #include "mpi.h"
-#include "jacobi_common.h"
+#include "test.h"
 
+#ifdef DEBUG
+void print_array(const int *A, size_t width, size_t height)
+{
+  printf("\n");
+  for(size_t i = 0; i < height; ++i)
+  {
+    for(size_t j = 0; j < width; ++j)
+    {
+      printf("%d ", A[i * width + j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+#endif
 
 int main( int argc, char **argv )
 {
@@ -44,8 +59,9 @@ int main( int argc, char **argv )
       }
     }
 
+#ifdef DEBUG
     print_array((const int*) grid, DIM, DIM);
-
+#endif
 
     printf("Ditstribute data and start client nodes.\n");
 
@@ -108,8 +124,9 @@ int main( int argc, char **argv )
     }
 
     printf("Done.\n");
-
+#ifdef DEBUG
     print_array((const int*) grid, DIM, DIM);
+#endif
 
   } else { 
     //Slaves ... 
