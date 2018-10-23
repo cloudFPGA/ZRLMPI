@@ -1,0 +1,9 @@
+#!/bin/bash 
+
+if [ 1 -ne $# ]
+then 
+  echo "USAGE: $0 path/to/SRA/ZRLMPI/folder"
+else 
+  echo "cd $1; make"
+  cd $1; make 
+fi 
