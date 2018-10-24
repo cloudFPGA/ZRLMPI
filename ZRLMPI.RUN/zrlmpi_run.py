@@ -19,7 +19,7 @@ def print_usage(argv0):
             "(openstack credentials are saved.) \n" +
           # "    {0} new openstack_user openstack_pw role-open-stack-image-id number_of_nodes path/to/ZRLMPI/SW/rank0 \n".format(argv0) +
           # "    {0} reuse openstack_user openstack_pw open_stack_cluster_id path/to/ZRLMPI/SW/rank0 \n\n".format(argv0) )
-            "    {0} new role-open-stack-image-id number_of_nodes path/to/ZRLMPI/SW/rank0 \n".format(argv0) +
+            "    {0} new role-open-stack-image-id number_of_FPGA_nodes path/to/ZRLMPI/SW/rank0 \n".format(argv0) +
             "    {0} reuse open_stack_cluster_id path/to/ZRLMPI/SW/rank0 \n\n".format(argv0) )
     exit(1)
 
@@ -28,8 +28,31 @@ def errorReqExit(msg,code):
     exit(1)
 
 
-def create_new_cluster(number_of_nodes, role_image_id):
-    return
+def create_new_cluster(number_of_FPGA_nodes, role_image_id):
+    # build cluster_req structure
+    print("Creating FPGA cluster...")
+    cluster_req = []
+    rank0node = {'image_id': __NON_FPGA_IDENTIFIER__,
+                 'node_id': 0,
+                  'node_ip': __default_rank0_ip__}
+    cluster_req.append(rank0node)
+    size = number_of_FPGA_nodes+1
+    for i in range(1, size):
+        fpgaNode = {
+            'image_id': str(role_image_id),
+            'node_id': i
+        }
+        cluster_req.append(fpgaNode)
+
+    r1 = requests.post("http://"+__cf_manager_url__+"/clusters?username={0}&password={1}&prepare_mpi=1&mpi_size={2}".format(__openstack_user__,__openstack_pw__,size),
+                       json=cluster_req)
+
+    if r1.status_code != 200:
+        # something went horrible wrong
+        return errorReqExit("POST cluster", r1.status_code)
+
+    cluster_data = json.loads(r1.text)
+    return cluster_data
 
 
 def get_cluster_data(cluster_id):
@@ -98,8 +121,9 @@ if __name__ == '__main__':
     start = time.time()
 
     if sys.argv[1] == "new":
-        number_of_nodes = sys.argv[3]
-        cluster = create_new_cluster(number_of_nodes, sys.argv[2])
+        number_of_FPGA_nodes = int(sys.argv[3])
+        number_of_nodes = number_of_FPGA_nodes + 1
+        cluster = create_new_cluster(number_of_FPGA_nodes, sys.argv[2])
         path_to_rank0 = sys.argv[4]
         cluster_id = cluster['cluster_id']
     elif sys.argv[1] == "reuse":
