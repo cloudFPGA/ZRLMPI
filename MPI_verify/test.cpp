@@ -62,9 +62,7 @@ int main( int argc, char **argv )
       }
     }
 
-#ifdef DEBUG
     print_array((const int*) grid, DIM, DIM);
-#endif
 
     printf("Ditstribute data and start client nodes.\n");
 
@@ -81,6 +79,7 @@ int main( int argc, char **argv )
       }
       for(int j = first_send_line; j<=last_send_line; j++)
       {
+        printf("Sending line %d to rank %d.\n", j, i);
         MPI_Send(&grid[j][0], PACKETLENGTH, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
       }
     }
@@ -127,9 +126,7 @@ int main( int argc, char **argv )
     }
 
     printf("Done.\n");
-#ifdef DEBUG
     print_array((const int*) grid, DIM, DIM);
-#endif
 
   } else { 
     //Slaves ... 
@@ -144,8 +141,13 @@ int main( int argc, char **argv )
     {
       number_of_recv_packets--;
     }
-    for(int j = 0; j< number_of_recv_packets; j++)
+
+    for(int j = 0; j< LDIMY + 1; j++)
     {
+      if(j == number_of_recv_packets)
+      {
+        break;
+      }
       MPI_Recv(&local_grid[j][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
     }
 
@@ -153,16 +155,24 @@ int main( int argc, char **argv )
 
     //only one iteration for now
     //treat all borders equal, the additional lines in the middle are cut out from the merge at the server
-    for(int i = 1; i < number_of_recv_packets; i++)
+    for(int i = 1; i < LDIMY + 1; i++)
     {
+      if(i == number_of_recv_packets)
+      {
+        break;
+      }
       for(int j = 1; j<LDIMX-1; j++)
       {
         local_new[i][j] = (local_grid[i][j-1] + local_grid[i][j+1] + local_grid[i-1][j] + local_grid[i+1][j]) / 4.0;
       }
     }
     //MPI_Send(&local_new[0][0], LDIMY*LDIMX, MPI_INTEGER, 0, 0, MPI_COMM_WORLD);
-    for(int j = 0; j< number_of_recv_packets; j++)
+    for(int j = 0; j< LDIMY + 1; j++)
     {
+      if(j == number_of_recv_packets)
+      {
+        break;
+      }
       MPI_Send(&local_new[j][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD);
     }
 
