@@ -5,7 +5,7 @@
 #include "mpi.h"
 #include "test.hpp"
 
-#ifdef DEBUG
+#ifdef ZRLMPI_SW_ONLY
 void print_array(const int *A, size_t width, size_t height)
 {
   printf("\n");
@@ -71,17 +71,21 @@ int main( int argc, char **argv )
     {
       //distribute data ONLY in PACKETLENGTH packets
       int first_send_line = (i-1)*LDIMY;
-      int last_send_line = i*LDIMY + 1;
-      if(i == size-1)
+      if ( first_send_line != 0)
       {
-        //first_send_line = (LDIMY-2);
-        last_send_line--;
+        first_send_line -= 2; //for borders
       }
-      for(int j = first_send_line; j<=last_send_line; j++)
-      {
-        printf("Sending line %d to rank %d.\n", j, i);
-        MPI_Send(&grid[j][0], PACKETLENGTH, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
-      }
+      //int last_send_line = i*LDIMY;
+      //if(i == size-1)
+      //{
+      //  //first_send_line = (LDIMY-2);
+      //  last_send_line--;
+      //}
+      //for(int j = first_send_line; j<=last_send_line; j++)
+      //{
+        printf("Sending line %d to rank %d.\n", first_send_line, i);
+        MPI_Send(&grid[first_send_line][0], PACKETLENGTH, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+      //}
     }
 
     int tmp[LDIMY+1][LDIMX];
@@ -89,15 +93,15 @@ int main( int argc, char **argv )
     for(int i = 1; i<size; i++)
     {
       //collect results
-      int number_of_recv_packets = LDIMY + 1; 
-      if(i == size -1)
-      {
-        number_of_recv_packets--;
-      }
-      for(int j = 0; j< number_of_recv_packets; j++)
-      {
-        MPI_Recv(&tmp[j][0], PACKETLENGTH, MPI_INTEGER, i, 0, MPI_COMM_WORLD, &status);
-      }
+      //int number_of_recv_packets = LDIMY + 1; 
+      //if(i == size -1)
+      //{
+      //  number_of_recv_packets--;
+      //}
+      //for(int j = 0; j< number_of_recv_packets; j++)
+      //{
+       MPI_Recv(&tmp[0][0], PACKETLENGTH, MPI_INTEGER, i, 0, MPI_COMM_WORLD, &status);
+      //}
 
       int first_recv_line = (i-1)*LDIMY;
       //int last_recv_line = i*LDIMY + 1;
@@ -106,17 +110,23 @@ int main( int argc, char **argv )
       //  //first_send_line = (LDIMY-2);
       //  last_recv_line--;
       //}
-
-      for(int y = 0; y < number_of_recv_packets; y++)
+      if ( first_recv_line != 0)
       {
-        if(y == 0 && i == 1)
-        {
-          continue;
-        }
-        if( y == number_of_recv_packets - 1 && i == size - 1)
-        {
-          continue;
-        }
+        first_recv_line -= 1; //for borders
+      }
+
+      //for(int y = 0; y < number_of_recv_packets; y++)
+      //{
+      //  if(y == 0 && i == 1)
+      //  {
+      //    continue;
+      //  }
+      //  if( y == number_of_recv_packets - 1 && i == size - 1)
+      //  {
+      //    continue;
+      //  }
+      for(int y = 1; y< LDIMY - 1; y++)
+      {
         for(int x = 1; x < LDIMX-1; x++)
         {
           grid[first_recv_line + y][x] = tmp[y][x];
@@ -132,49 +142,49 @@ int main( int argc, char **argv )
     //Slaves ... 
 #endif //ZRLMPI_SW_ONLY 
 
-    int local_grid[LDIMY + 1][LDIMX];
-    int local_new[LDIMY + 1][LDIMX];
+    int local_grid[LDIMY][LDIMX];
+    int local_new[LDIMY][LDIMX];
 
     //MPI_Recv(&local_grid[0][0], LDIMY*LDIMX, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
-    int number_of_recv_packets = LDIMY + 1; 
-    if(rank == size -1)
-    {
-      number_of_recv_packets--;
-    }
+    //int number_of_recv_packets = LDIMY + 1; 
+    //if(rank == size -1)
+    //{
+    //  number_of_recv_packets--;
+    //}
 
-    for(int j = 0; j< LDIMY + 1; j++)
-    {
-      if(j == number_of_recv_packets)
-      {
-        break;
-      }
-      MPI_Recv(&local_grid[j][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
-    }
+    //for(int j = 0; j< LDIMY; j++)
+    //{
+      //if(j == number_of_recv_packets)
+      //{
+      //  break;
+      //}
+      MPI_Recv(&local_grid[0][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+    //}
 
     // print_int_array((const int*) local_grid, LDIMX, LDIMY);
 
     //only one iteration for now
     //treat all borders equal, the additional lines in the middle are cut out from the merge at the server
-    for(int i = 1; i < LDIMY + 1; i++)
+    for(int i = 1; i < LDIMY - 1; i++)
     {
-      if(i == number_of_recv_packets)
-      {
-        break;
-      }
+      //if(i == number_of_recv_packets)
+      //{
+      //  break;
+      //}
       for(int j = 1; j<LDIMX-1; j++)
       {
         local_new[i][j] = (local_grid[i][j-1] + local_grid[i][j+1] + local_grid[i-1][j] + local_grid[i+1][j]) / 4.0;
       }
     }
     //MPI_Send(&local_new[0][0], LDIMY*LDIMX, MPI_INTEGER, 0, 0, MPI_COMM_WORLD);
-    for(int j = 0; j< LDIMY + 1; j++)
-    {
-      if(j == number_of_recv_packets)
-      {
-        break;
-      }
-      MPI_Send(&local_new[j][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD);
-    }
+    //for(int j = 0; j< LDIMY; j++)
+    //{
+      //if(j == number_of_recv_packets)
+      //{
+      //  break;
+      //}
+      MPI_Send(&local_new[0][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD);
+    //}
 
     //print_int_array((const int*) local_new, LDIMX, LDIMY);
 
