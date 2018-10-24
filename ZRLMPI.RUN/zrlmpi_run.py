@@ -52,6 +52,7 @@ def create_new_cluster(number_of_FPGA_nodes, role_image_id):
         return errorReqExit("POST cluster", r1.status_code)
 
     cluster_data = json.loads(r1.text)
+    print("Id of new cluster: {}".format(cluster_data['cluster_id']))
     return cluster_data
 
 
@@ -85,16 +86,18 @@ def execute_mpi(path_to_rank0, number_of_nodes, cluster):
     for node in cluster['nodes']:
         if node['image_id'] == __NON_FPGA_IDENTIFIER__:
             continue
-        ping = subprocess.run(["ping", "-w3ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
+        # ping = subprocess.run(["ping", "-w3ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
+        ping = subprocess.call(["ping", "-w3ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
         slot_list[node['node_id']] = str(node['slot_num'])
 
     # run mpi
     arg_list = [path_to_rank0, str(number_of_nodes)]
-    #arg_list.extend(slot_list[1:])
+    arg_list.extend(slot_list[1:])
 
     print("Starting MPI subprocess...\n")
     mpi_start = time.time()
-    mpi_run = subprocess.run(arg_list, stdout=sys.stdout, cwd=os.getcwd())
+    #mpi_run = subprocess.run(arg_list, stdout=sys.stdout, cwd=os.getcwd())
+    mpi_run = subprocess.call(arg_list, stdout=sys.stdout, cwd=os.getcwd())
 
     mpi_stop = time.time()
 

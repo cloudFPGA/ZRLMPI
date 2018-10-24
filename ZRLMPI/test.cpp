@@ -55,6 +55,7 @@ int app_main()
       }
       for(int j = first_send_line; j<=last_send_line; j++)
       {
+				printf("send line %d to rank %d\n", j, i);
         MPI_Send(&grid[j][0], PACKETLENGTH, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
       }
     }
