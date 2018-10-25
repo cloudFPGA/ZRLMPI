@@ -5,6 +5,7 @@ import requests
 import json
 import time
 import resource
+import datetime
 
 __openstack_pw__ = "fpga4all"
 __openstack_user__ = "zrlngl"
@@ -87,14 +88,14 @@ def execute_mpi(path_to_rank0, number_of_nodes, cluster):
         if node['image_id'] == __NON_FPGA_IDENTIFIER__:
             continue
         # ping = subprocess.run(["ping", "-w3ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
-        ping = subprocess.call(["ping", "-w3ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
+        ping = subprocess.call(["ping","-c3" ,"-W2ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
         slot_list[node['node_id']] = str(node['slot_num'])
 
     # run mpi
     arg_list = [path_to_rank0, str(number_of_nodes)]
     arg_list.extend(slot_list[1:])
 
-    print("Starting MPI subprocess...\n")
+    print("Starting MPI subprocess at " + str(datetime.datetime.now()) + "...\n")
     mpi_start = time.time()
     #mpi_run = subprocess.run(arg_list, stdout=sys.stdout, cwd=os.getcwd())
     mpi_run = subprocess.call(arg_list, stdout=sys.stdout, cwd=os.getcwd())
@@ -104,7 +105,7 @@ def execute_mpi(path_to_rank0, number_of_nodes, cluster):
     info = resource.getrusage(resource.RUSAGE_CHILDREN)
 
     elapsed = (mpi_stop - mpi_start)
-    print("\nMPI subprocess finished.\nMPI run elapsed time: {}s \n".format(elapsed))
+    print("\nMPI subprocess finished at "+str(datetime.datetime.now()) + ".\nMPI run elapsed time: {}s \n".format(elapsed))
     print("Time usage of child processes:\n\tUser mode \t{0:10.6f}s\n\tSystem mode \t{1:10.6f}s\n".format(info.ru_utime, info.ru_stime))
 
     return

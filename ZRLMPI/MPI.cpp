@@ -20,7 +20,16 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/time.h>
 
+typedef unsigned long long timestamp_t;
+
+static timestamp_t get_timestamp()
+{
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  return now.tv_usec + (timestamp_t)now.tv_sec*1000000;
+}
 
 sockaddr_in rank_socks[MPI_CLUSTER_SIZE_MAX + 1];
 int udp_sock = 0;
@@ -30,6 +39,9 @@ int own_rank = 0;
 MPI_Header header_recv_cache[MPI_CLUSTER_SIZE_MAX];
 int cache_iter = 0;
 int cache_num = 0;
+
+//clock_t clock_begin = 0;
+timestamp_t t0 = 0;
 
 //returns the size
 int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int buffer_length, uint8_t *buffer)
@@ -152,6 +164,8 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
 void MPI_Init()
 {
+  //clock_begin = clock();
+  t0 = get_timestamp();
   //we are all set 
   return;
 }
@@ -282,6 +296,13 @@ void MPI_Finalize()
 {
   close(udp_sock);
   //TODO 
+  //clock_t clock_end = clock();
+  timestamp_t t1 = get_timestamp();
+  //double elapsed_time = (double)(clock_end - clock_begin) / CLOCKS_PER_SEC;
+  double elapsed_time_secs = (double)(t1 - t0) / 1000000.0L;
+  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
+  printf("\tZRLMPI execution time: %lfs\n", elapsed_time_secs); 
+  printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
   return;
 }
 
