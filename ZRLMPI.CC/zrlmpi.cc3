@@ -6,5 +6,7 @@ then
 else 
   echo "cd $1; make"
   cd $1; make 
-  echo "ZRLMPI SW binary is ready in $1"
+  /bin/echo -e "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+  /bin/echo -e "\t\tZRLMPI SW binary is ready in $1"
+  /bin/echo -e "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
 fi 
