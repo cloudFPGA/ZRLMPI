@@ -5,6 +5,21 @@
 #include "mpi.h"
 #include "test.hpp"
 
+<<<<<<< HEAD
+=======
+#ifdef DEBUG
+#include <sys/time.h>
+typedef unsigned long long timestamp_t;
+
+static timestamp_t get_timestamp ()
+{
+  struct timeval now;
+  gettimeofday (&now, NULL);
+  return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+}
+#endif
+
+>>>>>>> 534d557cf403db0bf83068e5a9dac6aae76ea200
 #ifdef ZRLMPI_SW_ONLY
 void print_array(const int *A, size_t width, size_t height)
 {
@@ -44,6 +59,9 @@ int main( int argc, char **argv )
 #ifdef ZRLMPI_SW_ONLY
   if(rank == 0)
   {// Master ...
+#ifdef DEBUG
+    timestamp_t t0 = get_timestamp();
+#endif
     int grid[DIM][DIM];
 
     //fill with zeros and init borders with 1
@@ -137,6 +155,12 @@ int main( int argc, char **argv )
 
     printf("Done.\n");
     print_array((const int*) grid, DIM, DIM);
+    
+#ifdef DEBUG 
+    timestamp_t t1 = get_timestamp();
+    double secs = (t1 - t0) / 1000000.0L;
+    printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>\tMPI verify runtime: %lfs\n", secs);
+#endif
 
   } else { 
     //Slaves ... 

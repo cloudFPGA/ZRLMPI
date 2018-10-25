@@ -5,6 +5,10 @@
 #include "MPI.hpp"
 #include "test.hpp"
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 534d557cf403db0bf83068e5a9dac6aae76ea200
 void print_array(const int *A, size_t width, size_t height)
 {
   printf("\n");
@@ -127,6 +131,7 @@ int app_main()
 
     printf("Done.\n");
     print_array((const int*) grid, DIM, DIM);
+    
 
   } else { 
     //Slaves ... 
@@ -180,6 +185,61 @@ int app_main()
     //printf("Calculation finished.\n");
   }
 
+<<<<<<< HEAD
+  } else { 
+    //Slaves ... 
+
+    int local_grid[LDIMY][LDIMX];
+    int local_new[LDIMY][LDIMX];
+
+    //MPI_Recv(&local_grid[0][0], LDIMY*LDIMX, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+    //int number_of_recv_packets = LDIMY + 1; 
+    //if(rank == size -1)
+    //{
+    //  number_of_recv_packets--;
+    //}
+
+    //for(int j = 0; j< LDIMY; j++)
+    //{
+      //if(j == number_of_recv_packets)
+      //{
+      //  break;
+      //}
+      MPI_Recv(&local_grid[0][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+    //}
+
+    // print_int_array((const int*) local_grid, LDIMX, LDIMY);
+
+    //only one iteration for now
+    //treat all borders equal, the additional lines in the middle are cut out from the merge at the server
+    for(int i = 1; i < LDIMY - 1; i++)
+    {
+      //if(i == number_of_recv_packets)
+      //{
+      //  break;
+      //}
+      for(int j = 1; j<LDIMX-1; j++)
+      {
+        local_new[i][j] = (local_grid[i][j-1] + local_grid[i][j+1] + local_grid[i-1][j] + local_grid[i+1][j]) / 4.0;
+      }
+    }
+    //MPI_Send(&local_new[0][0], LDIMY*LDIMX, MPI_INTEGER, 0, 0, MPI_COMM_WORLD);
+    //for(int j = 0; j< LDIMY; j++)
+    //{
+      //if(j == number_of_recv_packets)
+      //{
+      //  break;
+      //}
+      MPI_Send(&local_new[0][0], PACKETLENGTH, MPI_INTEGER, 0, 0, MPI_COMM_WORLD);
+    //}
+
+    //print_int_array((const int*) local_new, LDIMX, LDIMY);
+
+    //printf("Calculation finished.\n");
+  }
+
+=======
+>>>>>>> 534d557cf403db0bf83068e5a9dac6aae76ea200
   MPI_Finalize();
   return 0;
 }
