@@ -91,7 +91,7 @@ int main( int argc, char **argv )
         //first_send_line = (LDIMY-2);
         last_send_line--;
       }
-      for(int j = first_send_line; j<=last_send_line; j++)
+      for(int j = first_send_line; j<last_send_line; j++)
       {
         printf("Sending line %d to rank %d.\n", j, i);
         MPI_Send(&grid[j][0], PACKETLENGTH, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
