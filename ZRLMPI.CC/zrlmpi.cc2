@@ -6,4 +6,7 @@ then
 else 
   echo "cd $1; make  pr_only_mpi"
   cd $1; make  pr_only_mpi
+  /bin/echo -e "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+  /bin/echo -e "\t\tZRLMPI FPGA bitstream is ready in $1"
+  /bin/echo -e "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
 fi 
