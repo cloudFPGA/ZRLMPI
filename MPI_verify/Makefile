@@ -1,9 +1,9 @@
 SRC_FILES=test.cpp test.hpp
-MPI_FLAVOR=.mpich
+#MPI_FLAVOR=.mpich
 CFLAGS=-DDEBUG -DZRLMPI_SW_ONLY
-#MPI_FLAVOR=.openmpi
+MPI_FLAVOR=.openmpi
 
-.PHONY: all run clean 
+.PHONY: all run clean rundist
 all: jacobi
 
 run: jacobi
@@ -11,9 +11,12 @@ run: jacobi
 	@#mpirun$(MPI_FLAVOR) -np 3 --hostfile hostfile --rankfile rankfile ./$^
 	mpirun$(MPI_FLAVOR) -np 17 ./$^
 
+rundist: jacobi
+	mpirun$(MPI_FLAVOR) -np 17 --hostfile hostfile --rankfile rankfile ./$^
+
 
 jacobi: $(SRC_FILES)
-	mpicc$(MPI_FLAVOR) -o $@ $^ -lm $(CFLAGS)
+	mpic++$(MPI_FLAVOR) -o $@ $^ -lm $(CFLAGS)
 
 
 clean:
