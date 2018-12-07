@@ -9,10 +9,11 @@ all: jacobi
 run: jacobi
 	@#mpirun -np 4 jacobi
 	@#mpirun$(MPI_FLAVOR) -np 3 --hostfile hostfile --rankfile rankfile ./$^
-	mpirun$(MPI_FLAVOR) -np 17 ./$^
+	mpirun$(MPI_FLAVOR) -np 17 --mca btl ^openib ./$^
 
 rundist: jacobi
-	mpirun$(MPI_FLAVOR) -np 17 --hostfile hostfile --rankfile rankfile ./$^
+	scp ./$< dev2.ngl.zc2.ibm.com:/home/ngl/$<
+	mpirun$(MPI_FLAVOR) -np 17 --hostfile hostfile --rankfile rankfile --mca btl ^openib ./$^ 
 
 
 jacobi: $(SRC_FILES)
