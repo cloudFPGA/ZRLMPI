@@ -2,21 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include "mpi.h"
+#include "MPI.hpp"
 #include "test.hpp"
-#ifdef DEBUG
-#include <sys/time.h>
-typedef unsigned long long timestamp_t;
 
-static timestamp_t get_timestamp ()
-{
-  struct timeval now;
-  gettimeofday (&now, NULL);
-  return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
-}
-#endif
-
-#ifdef ZRLMPI_SW_ONLY
 void print_array(const int *A, size_t width, size_t height)
 {
   printf("\n");
@@ -30,34 +18,22 @@ void print_array(const int *A, size_t width, size_t height)
   }
   printf("\n");
 }
-#endif
 
-int main( int argc, char **argv )
+int app_main()
 {
   int        rank, size;
   MPI_Status status;
 
-  MPI_Init( &argc, &argv );
+  MPI_Init();
 
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
   MPI_Comm_size( MPI_COMM_WORLD, &size );
 
-#ifdef DEBUG
-  if(size%2 != 1)
-  {//for now, we need uneven processes
-    printf("ERROR: only uneven numbers of processes are supported!\n"); 
-    MPI_Abort(MPI_COMM_WORLD, 1);
-  }
-#endif
 
   printf("Here is rank %d, size is %d. \n",rank, size);
 
-#ifdef ZRLMPI_SW_ONLY
   if(rank == 0)
   {// Master ...
-#ifdef DEBUG
-    timestamp_t t0 = get_timestamp();
-#endif
     int grid[DIM][DIM];
 
     //fill with zeros and init borders with 1
@@ -142,15 +118,9 @@ int main( int argc, char **argv )
     printf("Done.\n");
     print_array((const int*) grid, DIM, DIM);
 
-#ifdef DEBUG 
-    timestamp_t t1 = get_timestamp();
-    double secs = (t1 - t0) / 1000000.0L;
-    printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>\tMPI verify runtime: %lfs\n", secs);
-#endif
 
   } else { 
     //Slaves ... 
-#endif //ZRLMPI_SW_ONLY 
 
     int local_grid[LDIMY + 1][LDIMX];
     int local_new[LDIMY + 1][LDIMX];
@@ -199,9 +169,7 @@ int main( int argc, char **argv )
     //print_int_array((const int*) local_new, LDIMX, LDIMY);
 
     //printf("Calculation finished.\n");
-#ifdef ZRLMPI_SW_ONLY
   }
-#endif
 
   MPI_Finalize();
   return 0;
