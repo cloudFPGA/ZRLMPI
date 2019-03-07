@@ -330,7 +330,7 @@ int resolvehelper(const char* hostname, int family, const char* service, sockadd
 
 static void printUsage(const char* argv0)
 {
-  fprintf(stderr, "Usage: %s <cluster-size> <slot-rank-1> <slot-rank-2> <...>\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
+  fprintf(stderr, "Usage: %s <host-address> <cluster-size> <slot-rank-1> <slot-rank-2> <...>\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
   exit(EXIT_FAILURE);
 }
 
@@ -339,12 +339,13 @@ static void printUsage(const char* argv0)
 int main(int argc, char **argv)
 {
 
-  if(argc < 3 || atoi(argv[1]) < 2 || atoi(argv[1]) > MPI_CLUSTER_SIZE_MAX)
+  if(argc < 4 || atoi(argv[1]) < 2 || atoi(argv[1]) > MPI_CLUSTER_SIZE_MAX)
   {
     printUsage(argv[0]);
   }
 
-  cluster_size = atoi(argv[1]);
+  char* host_address = argv[1];
+  cluster_size = atoi(argv[2]);
   //own_rank = argv[2];
   own_rank = MPI_OWN_RANK;
 
@@ -362,7 +363,8 @@ int main(int argc, char **argv)
   sockaddr_in addrListen = {}; 
   addrListen.sin_family = AF_INET;
   addrListen.sin_port = htons(MPI_PORT);
-  inet_aton(HOST_ADDRESS, (in_addr*) &addrListen.sin_addr.s_addr);
+  //inet_aton(HOST_ADDRESS, (in_addr*) &addrListen.sin_addr.s_addr);
+  inet_aton(host_address, (in_addr*) &addrListen.sin_addr.s_addr);
   result = bind(sock, (sockaddr*)&addrListen, sizeof(addrListen));
   if (result == -1)
   {

@@ -52,7 +52,7 @@ void MPI_Finalize();
 #define MPI_CLUSTER_SIZE_MAX 128
 #define MPI_OWN_RANK 0
 
-#define HOST_ADDRESS "10.2.0.3"
+//#define HOST_ADDRESS "10.2.0.4"
 
 
 #endif
