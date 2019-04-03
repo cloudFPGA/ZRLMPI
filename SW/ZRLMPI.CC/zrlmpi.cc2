@@ -1,0 +1,12 @@
+#!/bin/bash 
+
+if [ 1 -ne $# ]
+then 
+  echo "USAGE: $0 path/to/Top/Module/SRA/folder"
+else 
+  echo "cd $1; make  pr_only_mpi"
+  cd $1; make  pr_only_mpi
+  /bin/echo -e "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+  /bin/echo -e "\t\tZRLMPI FPGA bitstream is ready in $1"
+  /bin/echo -e "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+fi 
