@@ -17,12 +17,16 @@ SOURCES = test.cpp
 ### ------------------------------------------
 CC       = gcc
 CPPFLAGS = -D_XOPEN_SOURCE=700
-CFLAGS   = -std=c99 -pedantic -Wall -Wextra -Wconversion -Werror -pthread
+CFLAGS   = -pedantic -Wall  -pthread
+#CFLAGS += -std=c99 -Wextra -Wconversion -Werror
 CFLAGS  += -g -fPIC
 LIBS     = -lstdc++
+ZRLMPI_PATH =../ZRLMPI/SW/ZRLMPI/
+LIBS    += -I$(ZRLMPI_PATH)
+LIBS    += -L$(ZRLMPI_PATH)
 PROG     = zrlmpi_server
 BUILD_TYPE = debug # oder production
-SOURCES += MPI.cpp zrlmpi_common.cpp 
+SOURCES += $(ZRLMPI_PATH)/MPI.cpp $(ZRLMPI_PATH)/zrlmpi_common.cpp 
 OBJS    = $(SOURCES:%.cpp=%.o)
 HAEADS  = $(SOURCES:%.cpp=%.hpp)
 
@@ -33,6 +37,7 @@ MPI_FLAVOR=.openmpi
 #MPI.o: MPI.cpp test.hpp zrlmpi_common.hpp MPI.hpp
 
 .PHONY: all clean help verify_run
+
 
 all: $(PROG)
 
@@ -51,8 +56,8 @@ ifeq ($(BUILD_TYPE), production)
 	strip $@
 endif 
 
-%.o: %.c
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+%.o: %.cpp
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(LIBS) $< -o $@
 
 $(PROG): $(HEADS)
 
