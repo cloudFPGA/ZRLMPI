@@ -46,11 +46,19 @@ cp $cFpRootDir/$1/install/Makefile.SW.template $cFpRootDir/SW/Makefile
 # c) copy ROLE files
 
 # TODO 
-echo -e "\n\tINFO: Please find the ROLE sources in $1/ROLE/ and copy the necessary parts.\n"
+#echo -e "\n\tINFO: Please find the ROLE sources in $1/ROLE/ and copy the necessary parts.\n"
 #mkdir -p $cFpRootDir/ROLE/
 #cp -R $cFpRootDir/$1/ROLE/* $cFpRootDir/ROLE/
 #
 #echo -e '#ZRLMPI updates\nexport roleName1="RoleMPI"\nexport roleName2="RoleMPI_V2"\n\n' >> $cFpRootDir/env/setenv.sh
+
+#TODO:
+# 1. copy mpi_wrapper into Role, all other files (hdl, tcl, Makefiles etc. too, if necessary)
+# 2. copy makefile to SW 
+# 3. create Makefile for ZRLMPI.CC
+# 4. create bash-script for ZRLMPI.CC and ZRLMPI.RUN in cFp?
+# 5. create APP folder
+# mpi verify?
 
 exit 0
 

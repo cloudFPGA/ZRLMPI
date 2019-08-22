@@ -35,6 +35,21 @@ The Software (SW) application should be placed in `<cFp-folder>/SW/`.
 About ZRLMPI
 --------------
 
+### Main Concept
+
+1. develop software in `<cFp-folder>/APP`
+2. call `ZRLMPI.CC`
+  - make sure ZRLMPI.CC is build (unifed etc.)
+  - it creates SW and HW source files and copies them into their destination (`ROLE/hls/mpi_wrapper/` and `SW/`)
+  - it calls all necessary Makefiles
+3. call ZRLMPI.RUN 
+  - it uploads the image
+  - creates/reuse a cluster
+  - etc.
+
+**The user should not be required to change files in this git** (submodule). This git should be only a library to the user, like cFDK.
+
+
 TODO 
 
 
