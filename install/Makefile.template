@@ -36,7 +36,7 @@ assert_env:
 # next line until including (end of cFa placeholder) MUST STAY UNCHANGED
 #cFa addtional targets
 Zrlmpi: assert_env
-	$(MAKE) -C $(ZRLMPI_DIR) hls
+	$(MAKE) -C $(ZRLMPI_DIR) ip
 
 
 

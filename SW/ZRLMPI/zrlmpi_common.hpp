@@ -1,1 +1,1 @@
-../../COMMON/ZRLMPI/zrlmpi_common.hpp
+../../COMMON/zrlmpi_common.hpp

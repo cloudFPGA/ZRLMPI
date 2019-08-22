@@ -34,8 +34,6 @@ MPI_FLAVOR=.openmpi
 
 .PHONY: all clean help verify_run
 
-$(PROG): $(HEADS)
-
 all: $(PROG)
 
 verify_app: $(OBJS)  ## Builds a MPI.$(MPI_FLAVOR) application to verify results
@@ -56,6 +54,7 @@ endif
 %.o: %.c
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
+$(PROG): $(HEADS)
 
 print-%: ## A little make receipt to print a variable (usage example --> 'make print-SHELL_DIR')
 	@echo $* = $($*)

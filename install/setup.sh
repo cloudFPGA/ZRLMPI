@@ -31,7 +31,7 @@ sed -i "19iZRLMPI_DIR=\$(cFpRootDir)/$1/" $cFpRootDir/Makefile
 # 2. insert new target
 #sed -i '40iZrlmpi: assert_env' $cFpRootDir/Makefile
 #sed -i '41i\t$(MAKE) -C $(ZRLMPI_DIR) hls' $cFpRootDir/Makefile
-sed -i '/#cFa addtional targets/aZrlmpi: assert_env\n\t$(MAKE) -C $(ZRLMPI_DIR) hls\n' $cFpRootDir/Makefile
+sed -i '/#cFa addtional targets/aZrlmpi: assert_env\n\t$(MAKE) -C $(ZRLMPI_DIR) ip\n' $cFpRootDir/Makefile
 
 # 3. modify Role target
 sed -i 's/\<Role: assert_env\>/& Zrlmpi /' $cFpRootDir/Makefile
@@ -41,6 +41,16 @@ sed -i 's/\<Role: assert_env\>/& Zrlmpi /' $cFpRootDir/Makefile
 
 mkdir -p $cFpRootDir/SW/
 cp $cFpRootDir/$1/install/Makefile.SW.template $cFpRootDir/SW/Makefile
+
+
+# c) copy ROLE files
+
+# TODO 
+echo -e "\n\tINFO: Please find the ROLE sources in $1/ROLE/ and copy the necessary parts.\n"
+#mkdir -p $cFpRootDir/ROLE/
+#cp -R $cFpRootDir/$1/ROLE/* $cFpRootDir/ROLE/
+#
+#echo -e '#ZRLMPI updates\nexport roleName1="RoleMPI"\nexport roleName2="RoleMPI_V2"\n\n' >> $cFpRootDir/env/setenv.sh
 
 exit 0
 

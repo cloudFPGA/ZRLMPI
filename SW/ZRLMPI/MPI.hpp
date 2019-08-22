@@ -54,5 +54,8 @@ void MPI_Finalize();
 
 //#define HOST_ADDRESS "10.2.0.4"
 
+//forward declaration
+int app_main();
+
 
 #endif
