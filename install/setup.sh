@@ -23,8 +23,8 @@ fi
 echo "Installing $1 into $cFpRootDir ..."
 
 #use absolute pathes, just to be sure...
-# we update the present Makefile (alternative: copy Makefile.template from install folder)
 
+# a) we update the present Makefile (alternative: copy Makefile.template from install folder)
 # 1. add ZRLMPI Dir
 sed -i "19iZRLMPI_DIR=\$(cFpRootDir)/$1/" $cFpRootDir/Makefile
 
@@ -36,6 +36,11 @@ sed -i '/#cFa addtional targets/aZrlmpi: assert_env\n\t$(MAKE) -C $(ZRLMPI_DIR) 
 # 3. modify Role target
 sed -i 's/\<Role: assert_env\>/& Zrlmpi /' $cFpRootDir/Makefile
 
+
+# b) create software folder
+
+mkdir -p $cFpRootDir/SW/
+cp $cFpRootDir/$1/install/Makefile.SW.template $cFpRootDir/SW/Makefile
 
 exit 0
 

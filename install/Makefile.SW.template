@@ -1,0 +1,72 @@
+#  *
+#  *                       cloudFPGA
+#  *     Copyright IBM Research, All Rights Reserved
+#  *    =============================================
+#  *     Created: Aug 2019
+#  *     Authors: FAB, WEI, NGL
+#  *
+#  *     Description:
+#  *       Makefile to build the Sofware (SW) part of the ZRLMPI cFa
+#  * 
+#  *     Synopsis:
+#  *       make [target]  (use 'make help' to list the targets)
+#  * 
+
+### --- PLEASE UPDATE this section accordingly
+SOURCES = test.cpp
+### ------------------------------------------
+CC       = gcc
+CPPFLAGS = -D_XOPEN_SOURCE=700
+CFLAGS   = -std=c99 -pedantic -Wall -Wextra -Wconversion -Werror -pthread
+CFLAGS  += -g -fPIC
+LIBS     = -lstdc++
+PROG     = zrlmpi_server
+BUILD_TYPE = debug # oder production
+SOURCES += MPI.cpp zrlmpi_common.cpp 
+OBJS    = $(SOURCES:%.cpp=%.o)
+HAEADS  = $(SOURCES:%.cpp=%.hpp)
+
+#CFLAGS +=-DDEBUG -DZRLMPI_SW_ONLY
+MPI_FLAVOR=.openmpi
+# ------------------------------------------
+#$(PROG): MPI.hpp zrlmpi_common.hpp zrlmpi_int.hpp test.hpp
+#MPI.o: MPI.cpp test.hpp zrlmpi_common.hpp MPI.hpp
+
+.PHONY: all clean help verify_run
+
+$(PROG): $(HEADS)
+
+all: $(PROG)
+
+verify_app: $(OBJS)  ## Builds a MPI.$(MPI_FLAVOR) application to verify results
+	mpic++$(MPI_FLAVOR) -o $@ $^ -lm $(CFLAGS)
+
+verify_run: verify_app  ## Runs the verify MPI.$(MPI_FLAVOR) application 
+	mpirun$(MPI_FLAVOR) -np 17 --mca btl ^openib ./$^
+
+clean:  ## cleans all builds 
+	rm -rf $(PROG) *.o 
+
+$(PROG): $(OBJS)  ## Builds the Software part to communicate with ZRLMPI on the FPGAs
+	$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+ifeq ($(BUILD_TYPE), production)
+	strip $@
+endif 
+
+%.o: %.c
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+
+
+print-%: ## A little make receipt to print a variable (usage example --> 'make print-SHELL_DIR')
+	@echo $* = $($*)
+
+help: ## Shows this help message
+    # This target is for self documentation of the Makefile. 
+    # Every text starting with '##' and placed after a target will be considered as helper text.
+	@echo
+	@echo 'Usage:'
+	@echo '    make [target]'
+	@echo	
+	@echo 'Targets:'
+	@cat ${MAKEFILE_LIST}  | egrep '^(.+)\:(.+)##\ (.+)' |  column -s ':#' |  sed 's/:.*#/||/' |  column -s '||' -t | sed -e 's/^/    /' 
+	@echo
