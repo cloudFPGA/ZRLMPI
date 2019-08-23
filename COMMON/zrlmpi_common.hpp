@@ -19,7 +19,7 @@
 #define ERROR 5
 #define packetType uint8_t
 
-
+#define ZRLMPI_DEFAULT_PORT 2718
 
 /*
  * MPI-F Interface
