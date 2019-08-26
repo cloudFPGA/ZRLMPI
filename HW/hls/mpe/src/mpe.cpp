@@ -52,7 +52,7 @@ void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes)
 }
 */
 
-void convertAxisToNtsWidth(stream<Axis<8> > &small, Axis<64> &out)
+void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 {
 
   out.tdata = 0;
@@ -82,7 +82,7 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, Axis<64> &out)
 
 }
 
-void convertAxisToMpiWidth(Axis<64> big, stream<Axis<8> > &out)
+void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
 {
 
   int positionOfTlast = 8; 
@@ -214,8 +214,8 @@ void mpe_main(
     //ap_uint<32> ctrlLink[MAX_MRT_SIZE + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS],
 
     // ----- NRC Interface -----
-    stream<NetworkWord>            &siTcpi_data,
-    stream<NetowrkMetaStream>      &siTcp_meta,
+    stream<NetworkWord>            &siTcp_data,
+    stream<NetworkMetaStream>      &siTcp_meta,
     stream<NetworkWord>            &soTcp_data,
     stream<NetworkMetaStream>      &soTcp_meta,
     
@@ -379,7 +379,7 @@ void mpe_main(
 
         //in order not to block the URIF/TRIF core
         metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
-        soTcp_meta.Write(NetworkMetaStream(metaDst));
+        soTcp_meta.write(NetworkMetaStream(metaDst));
 
         //write header
         for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
@@ -398,7 +398,7 @@ void mpe_main(
         //dequeue
         if( !soTcp_data.full() && !sFifoDataTX.empty() )
         {
-          Axis<64> word = Axis<64>();
+          NetworkWord word = NetworkWord();
           convertAxisToNtsWidth(sFifoDataTX, word);
           printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
           soTcp_data.write(word);
@@ -413,10 +413,10 @@ void mpe_main(
       //dequeue
       if( !soTcp_data.full() && !sFifoDataTX.empty() )
       {
-        Axis<64> word = Axis<64>();
+        NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);
         printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        soTcp.write(word);
+        soTcp_data.write(word);
         handshakeLinesCnt--;
 
       }
@@ -432,7 +432,7 @@ void mpe_main(
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
         {
-          Axis<64> tmp = siTcp_data.read();
+          NetworkWord tmp = siTcp_data.read();
 
           /*
           if(tmp.tkeep != 0xFF || tmp.tlast == 1)
@@ -519,7 +519,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
@@ -529,7 +529,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DATA_TYPE;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DATA_TYPE;
           break;
         }
 
@@ -540,7 +540,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
           
@@ -566,7 +566,7 @@ void mpe_main(
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
         {
-          Axis<64> tmp = siTcp.read();
+          NetworkWord tmp = siTcp_data.read();
 
           /* TODO
           if(tmp.tkeep != 0xFF || tmp.tlast == 1)
@@ -651,7 +651,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
@@ -677,7 +677,7 @@ void mpe_main(
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
         {
-          Axis<64> tmp = siTcp_data.read();
+          NetworkWord tmp = siTcp_data.read();
 
           /*
           if(tmp.tkeep != 0xFF || tmp.tlast == 1)
@@ -769,7 +769,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
@@ -779,7 +779,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
         //check data type 
@@ -789,7 +789,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
           
@@ -800,7 +800,7 @@ void mpe_main(
 
         header = MPI_Header(); 
         header.dst_rank = currentInfo.rank;
-        header.src_rank = config[MPE_CONFIG_OWN_RANK];
+        header.src_rank = *own_rank;
         header.size = 0;
         header.call = static_cast<mpiCall>((int) currentInfo.mpi_call);
         header.type = CLEAR_TO_SEND;
@@ -809,7 +809,7 @@ void mpe_main(
 
         //in order not to block the URIF/TRIF core
         metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
-        soTcp_meta.Write(NetworkMetaStream(metaDst));
+        soTcp_meta.write(NetworkMetaStream(metaDst));
 
         //write header
         for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
@@ -828,7 +828,7 @@ void mpe_main(
         //dequeue
         if( !soTcp_data.full() && !sFifoDataTX.empty() )
         {
-          Axis<64> word = Axis<64>();
+          NetworkWord word = NetworkWord();
           convertAxisToNtsWidth(sFifoDataTX, word);
           printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
           soTcp_data.write(word);
@@ -843,7 +843,7 @@ void mpe_main(
       //dequeue
       if( !soTcp_data.full() && !sFifoDataTX.empty() )
       {
-        Axis<64> word = Axis<64>();
+        NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);
         printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         soTcp_data.write(word);
@@ -866,7 +866,7 @@ void mpe_main(
 
         header = MPI_Header(); 
         header.dst_rank = currentInfo.rank;
-        header.src_rank = config[MPE_CONFIG_OWN_RANK];
+        header.src_rank = *own_rank;
         header.size = 0;
         header.call = static_cast<mpiCall>((int) currentInfo.mpi_call);
         header.type = ACK;
@@ -875,7 +875,7 @@ void mpe_main(
 
         //in order not to block the URIF/TRIF core
         metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
-        soTcp_meta.Write(NetworkMetaStream(metaDst));
+        soTcp_meta.write(NetworkMetaStream(metaDst));
 
         //write header
         for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
@@ -894,7 +894,7 @@ void mpe_main(
         //dequeue
         if( !soTcp_data.full() && !sFifoDataTX.empty() )
         {
-          Axis<64> word = Axis<64>();
+          NetworkWord word = NetworkWord();
           convertAxisToNtsWidth(sFifoDataTX, word);
           printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
           soTcp_data.write(word);
@@ -909,7 +909,7 @@ void mpe_main(
       //dequeue
       if( !soTcp_data.full() && !sFifoDataTX.empty() )
       {
-        Axis<64> word = Axis<64>();
+        NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);
         printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         soTcp_data.write(word);
@@ -941,13 +941,13 @@ void mpe_main(
     case WRITE_IDLE: 
       //if ( !siMPIif.empty() && !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
       //if ( !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
-      if ( !siMPI_data.empty() && !sFifoDataTX.full() && !soIP.full() )
+      if ( !siMPI_data.empty() && !sFifoDataTX.full() && !soTcp_meta.full() )
       {
         header = MPI_Header(); 
         //MPI_Interface info = siMPIif.read();
         MPI_Interface info = currentInfo;
         header.dst_rank = info.rank;
-        header.src_rank = config[MPE_CONFIG_OWN_RANK];
+        header.src_rank = *own_rank;
         header.size = info.count;
         header.call = static_cast<mpiCall>((int) info.mpi_call);
         header.type = DATA;
@@ -963,18 +963,8 @@ void mpe_main(
           printf("Writing Header byte: %#02x\n", (int) bytes[i]);
         }
 
-        //look up IP Addr and write meta data
-        /*if(info.rank > MAX_CLUSTER_SIZE)
-          {
-          fsmSendState = WRITE_ERROR;
-          status[MPE_STATUS_WRITE_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_WRITE_ERROR] = TX_INVALID_DST_RANK;
-          break;
-          }*/
-
-        ipDst = localMRT[info.rank];
-        //sFifoIPdstTX.write(IPMeta(ipDst));
-        soIP.write(IPMeta(ipDst));
+        metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
+        soTcp_meta.write(NetworkMetaStream(metaDst));
 
         fsmSendState = WRITE_START;
         tlastOccured = false;
@@ -985,14 +975,14 @@ void mpe_main(
 
     case WRITE_START:
       //if( !soTcp.full() && !soIP.full() )
-      if( !soTcp.full() )
+      if( !soTcp_data.full() )
       {
-        Axis<64> word = Axis<64>();
+        NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);
         printf("tkeep %#03x, tdata %#016llx\n",(int) word.tkeep, (uint64_t) word.tdata);
 
         //soIP.write(sFifoIPdstTX.read());
-        soTcp.write(word);
+        soTcp_data.write(word);
         enqueueCnt -= 8;
         fsmSendState = WRITE_DATA;
       }
@@ -1035,12 +1025,12 @@ void mpe_main(
 
       //dequeue
       printf("enqueueCnt: %d\n", enqueueCnt);
-      if( !soTcp.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlastOccured)) 
+      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlastOccured)) 
       {
-        Axis<64> word = Axis<64>();
+        NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);
         printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        soTcp.write(word);
+        soTcp_data.write(word);
         enqueueCnt -= 8;
 
         if(word.tlast == 1)
@@ -1084,12 +1074,12 @@ void mpe_main(
       break;
     case READ_IDLE: 
       //if( !siTcp.empty() && !siIP.empty() && !sFifoDataRX.full() && !soMPIif.full() )
-      if( !siTcp.empty() && !siIP.empty() && !sFifoDataRX.full() )
+      if( !siTcp_data.empty() && !siTcp_meta.empty() && !sFifoDataRX.full() )
       {
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
         {
-          Axis<64> tmp = siTcp.read();
+          NetworkWord tmp = siTcp_data.read();
 /*
           if(tmp.tkeep != 0xFF || tmp.tlast == 1)
           {
@@ -1136,24 +1126,37 @@ void mpe_main(
           break;
         }
 
-        IPMeta srcIP = siIP.read();
-        ipSrc = localMRT[header.src_rank];
+        metaSrc = siTcp_meta.read().tdata;
 
-        if(srcIP.ipAddress != ipSrc)
-        {
-          printf("header does not match ipAddress. mrt for rank %d: %#010x; IPMeta: %#010x;\n", (int) header.src_rank, (int) ipSrc, (int) srcIP.ipAddress);
-          fsmReceiveState = READ_ERROR;
-          status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
-          break;
-        }
+        //DONE by NRC
+        //if(srcIP.ipAddress != ipSrc)
+        //{
+        //  printf("header does not match ipAddress. mrt for rank %d: %#010x; IPMeta: %#010x;\n", (int) header.src_rank, (int) ipSrc, (int) srcIP.ipAddress);
+        //  fsmReceiveState = READ_ERROR;
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+        //  break;
+        //}
 
-        if(header.dst_rank != config[MPE_CONFIG_OWN_RANK])
+        //if(header.dst_rank != config[MPE_CONFIG_OWN_RANK])
+        //{
+        //  printf("I'm not the right recepient!\n");
+        //  fsmReceiveState = READ_ERROR;
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+        //  break;
+        //}
+        
+        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
+        
+        if(header.src_rank != metaSrc.src_rank)
         {
-          printf("I'm not the right recepient!\n");
-          fsmReceiveState = READ_ERROR;
+          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
+          //TODO
+          fsmMpeState = IDLE;
+          fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
@@ -1162,7 +1165,7 @@ void mpe_main(
           printf("Expected DATA, got %d!\n", header.type);
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
         //check data type 
@@ -1172,7 +1175,7 @@ void mpe_main(
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
           status[MPE_STATUS_READ_ERROR_CNT]++;
-          status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
           
@@ -1196,9 +1199,9 @@ void mpe_main(
 
     case READ_DATA: 
 
-      if( !siTcp.empty() && !sFifoDataRX.full() )
+      if( !siTcp_data.empty() && !sFifoDataRX.full() )
       {
-        Axis<64> word = siTcp.read();
+        NetworkWord word = siTcp_data.read();
         printf("READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         convertAxisToMpiWidth(word, sFifoDataRX);
       }
@@ -1229,14 +1232,14 @@ void mpe_main(
     case READ_ERROR: 
       //empty strings
       printf("Read error occured.\n");
-      if( !siIP.empty())
+      if( !siTcp_meta.empty())
       {
-        siIP.read();
+        siTcp_meta.read();
       }
 
-      if( !siTcp.empty())
+      if( !siTcp_data.empty())
       {
-        siTcp.read();
+        siTcp_data.read();
       } else { 
         //fsmReceiveState = READ_IDLE;
         fsmReceiveState = READ_STANDBY;

@@ -14,6 +14,36 @@
 
 using namespace hls;
 
+#define NUMBER_STATUS_WORDS 16
+
+#define MPE_STATUS_UNUSED_1 1
+#define MPE_STATUS_UNUSED_2 2
+#define MPE_STATUS_UNUSED_3 3
+
+#define MPE_STATUS_WRITE_ERROR_CNT 4
+#define MPE_STATUS_READ_ERROR_CNT 5
+#define MPE_STATUS_SEND_STATE 6
+#define MPE_STATUS_RECEIVE_STATE 7
+#define MPE_STATUS_LAST_WRITE_ERROR 8
+#define MPE_STATUS_LAST_READ_ERROR 9
+#define MPE_STATUS_ERROR_HANDSHAKE_CNT 10
+#define MPE_STATUS_ACK_HANKSHAKE_CNT 11
+#define MPE_STATUS_GLOBAL_STATE 12
+#define MPE_STATUS_READOUT 13
+//and 14 and 15 
+
+//Error types
+#define MPE_TX_INVALID_DST_RANK 0xd
+#define MPE_RX_INCOMPLETE_HEADER 0x1
+#define MPE_RX_INVALID_HEADER 0x2
+#define MPE_RX_IP_MISSMATCH 0x3
+#define MPE_RX_WRONG_DST_RANK 0x4
+#define MPE_RX_WRONG_DATA_TYPE 0x5
+#define MPE_RX_TIMEOUT 0x6
+
+
+//FSM state types
+
 #define WRITE_IDLE 0
 #define WRITE_START 1
 #define WRITE_DATA 2
@@ -47,12 +77,12 @@ using namespace hls;
 #define mpiType uint8_t
 
 
-ap_uint<32> littleEndianToInteger(ap_uint<8> *buffer, int lsb);
-void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes);
+//ap_uint<32> littleEndianToInteger(ap_uint<8> *buffer, int lsb);
+//void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes);
 
 
-void convertAxisToNtsWidth(stream<Axis<8> > &small, Axis<64> &out);
-void convertAxisToMpiWidth(Axis<64> big, stream<Axis<8> > &out);
+void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out);
+void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out);
 //int bytesToHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header);
 //void headerToBytes(MPI_Header header, ap_uint<8> bytes[MPIF_HEADER_LENGTH]);
 
@@ -62,8 +92,8 @@ void mpe_main(
     //ap_uint<32> ctrlLink[MAX_MRT_SIZE + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS],
 
     // ----- NRC Interface -----
-    stream<NetworkWord>            &siTcpi_data,
-    stream<NetowrkMetaStream>      &siTcp_meta,
+    stream<NetworkWord>            &siTcp_data,
+    stream<NetworkMetaStream>      &siTcp_meta,
     stream<NetworkWord>            &soTcp_data,
     stream<NetworkMetaStream>      &soTcp_meta,
     

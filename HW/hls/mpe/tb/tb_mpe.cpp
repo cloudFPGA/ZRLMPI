@@ -9,43 +9,66 @@
 
 using namespace hls;
 
+//test variablen as global data
+bool succeded = true;
+//ap_uint<32> MRT[MAX_CLUSTER_SIZE + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS];
+stream<Axis<64> > siTcp_data, storeSEND_REQ, storeData;
+stream<IPMeta>  siTcp_meta;
+stream<Axis<64> > soTcp_data;
+stream<IPMeta> soTcp_meta;
+
+ap_uint<32> own_rank = 0;
+
+stream<MPI_Interface> MPIif_in;
+//stream<MPI_Interface> MPIif_out;
+stream<Axis<8> > MPI_data_in;
+stream<Axis<8> > MPI_data_out, tmp8Stream;
+
+unsigned int         simCnt;
+
+void stepDut() {
+    mpe_main(
+      //MRT,
+      &siTcp_data, &siTcp_meta,
+      &soTcp_data, &soTcp_meta,
+      &own_rank,
+      &MPIif_in,
+      &MPI_data_in, &MPI_data_out
+      );
+    simCnt++;
+    printf("[%4.4d] STEP DUT \n", simCnt);
+}
+
+
 int main(){
 
-  bool succeded = true;
-  ap_uint<32> MRT[MAX_CLUSTER_SIZE + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS];
-  ap_uint<1> sys_reset = 0b0;
-  stream<Axis<64> > siTcp, storeSEND_REQ, storeData;
-  stream<IPMeta>  siIP;
-  stream<Axis<64> > soTcp;
-  stream<IPMeta> soIP;
 
-  stream<MPI_Interface> MPIif_in;
-  //stream<MPI_Interface> MPIif_out;
-  stream<Axis<8> > MPI_data_in;
-  stream<Axis<8> > MPI_data_out, tmp8Stream;
+  //for(int i = 0; i < MAX_CLUSTER_SIZE + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS; i++)
+  //{
+  //      MRT[i] = 0;
+  //}
 
-  for(int i = 0; i < MAX_CLUSTER_SIZE + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS; i++)
-  {
-        MRT[i] = 0;
-  }
-
-  MRT[0] = 1; //own rank 
-  //routing table
-  MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 0] = 168496129; //10.11.12.1
-  MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 1] = 168496141; //10.11.12.13
-  MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 2] = 168496142; //10.11.12.14
-  mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+  //MRT[0] = 1; //own rank 
+  ////routing table
+  //MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 0] = 168496129; //10.11.12.1
+  //MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 1] = 168496141; //10.11.12.13
+  //MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 2] = 168496142; //10.11.12.14
+  //stepDut();
 
 
   //printf("MRT 3: %d\n",(int) MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 3]);
 
   //check DEBUG copies
-  assert(MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 0] == MRT[NUMBER_CONFIG_WORDS + 0]);
-  assert(MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 1] == MRT[NUMBER_CONFIG_WORDS + 1]);
-  assert(MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 2] == MRT[NUMBER_CONFIG_WORDS + 2]);
+  //assert(MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 0] == MRT[NUMBER_CONFIG_WORDS + 0]);
+  //assert(MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 1] == MRT[NUMBER_CONFIG_WORDS + 1]);
+  //assert(MRT[NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS + 2] == MRT[NUMBER_CONFIG_WORDS + 2]);
+
+  //init?
+  stepDut();
 
   Axis<64> tmp64 = Axis<64>();
   Axis<8>  tmp8 = Axis<8>();
+  own_rank = 1;
 
   //MPI_send() 
 
@@ -70,7 +93,7 @@ int main(){
     printf("write MPI data: %#02x\n", (int) tmp8.tdata);
     MPI_data_in.write(tmp8);
 
-    mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
 
   ap_uint<8> bytes[MPIF_HEADER_LENGTH];
@@ -85,7 +108,7 @@ int main(){
   //while(!soTcp.empty())
   for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   {
-    mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
     tmp64 = soTcp.read();
     printf("MPE out: %#016llx\n", (unsigned long long) tmp64.tdata);
     storeSEND_REQ.write(tmp64);
@@ -133,7 +156,7 @@ int main(){
   
   for(int i = 0; i < 20; i++)
   {
-    mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
 
   //Data 
@@ -143,7 +166,7 @@ int main(){
 
   while(!soTcp.empty())
   {
-    mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
     tmp64 = soTcp.read();
     printf("MPE out: %#016llx\n", (unsigned long long) tmp64.tdata);
     storeData.write(tmp64);
@@ -181,7 +204,7 @@ int main(){
   
   for(int i = 0; i < 20; i++)
   {
-    mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
   
   //MPI_recv()
@@ -190,7 +213,7 @@ int main(){
   MRT[0] = 2;
   for(int i = 0; i < 3; i++)
   {
-    mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
   
   info = MPI_Interface();
@@ -201,7 +224,7 @@ int main(){
   MPIif_in.write(info);
   for(int i = 0; i < 3; i++)
   {
-    mpe_main(sys_reset, MRT, siTcp, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
   //now in WAIT4REQ 
   IPMeta ipMS = IPMeta();
@@ -210,7 +233,7 @@ int main(){
 
   for(int i = 0; i < 20; i++)
   {
-    mpe_main(sys_reset, MRT, storeSEND_REQ, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
   //receive CLEAR_TO_SEND
   ipDst = soIP.read();
@@ -220,7 +243,7 @@ int main(){
   //while(!soTcp.empty())
   for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   {
-    mpe_main(sys_reset, MRT, storeSEND_REQ, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
     tmp64 = soTcp.read();
     printf("MPE out: %#016llx\n", (unsigned long long) tmp64.tdata);
     //storeSEND_REQ.write(tmp64);
@@ -243,7 +266,7 @@ int main(){
 
   for(int i = 0; i < 5; i++)
   {
-    mpe_main(sys_reset, MRT, storeData, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
   //empty data
   //MPI_Interface info_out = MPIif_out.read();
@@ -257,7 +280,7 @@ int main(){
     
     printf("MPI read data: %#02x, i: %d, tlast %d\n", (int) tmp8.tdata, i, (int) tmp8.tlast);
 
-    mpe_main(sys_reset, MRT, storeData, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
 
     // tlast => i=11 
     //assert( !(tmp8.tlast == 1) || i==11);
@@ -271,7 +294,7 @@ int main(){
   //receive ACK 
   for(int i = 0; i < 7; i++)
   {
-    mpe_main(sys_reset, MRT, storeData, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
   }
   ipDst = soIP.read();
   printf("ipDst: %#010x\n", (unsigned int) ipDst.ipAddress);
@@ -280,7 +303,7 @@ int main(){
   //while(!soTcp.empty())
   for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   {
-    mpe_main(sys_reset, MRT, storeSEND_REQ, siIP, soTcp, soIP, MPIif_in, MPI_data_in, MPI_data_out);
+    stepDut();
     tmp64 = soTcp.read();
     printf("MPE out: %#016llx\n", (unsigned long long) tmp64.tdata);
     //storeSEND_REQ.write(tmp64);
