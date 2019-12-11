@@ -35,6 +35,8 @@ sockaddr_in rank_socks[MPI_CLUSTER_SIZE_MAX + 1];
 int udp_sock = 0;
 int cluster_size = 0;
 int own_rank = 0;
+bool use_udp = false;
+bool use_tcp = false; //TODO
 
 MPI_Header header_recv_cache[MPI_CLUSTER_SIZE_MAX];
 int cache_iter = 0;
@@ -112,7 +114,8 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       copyToCache = true;
     }
 
-    if(header.dst_rank != MPI_OWN_RANK)
+    //if(header.dst_rank != MPI_OWN_RANK)
+    if(header.dst_rank != own_rank)
     {
       printf("I'm not the right recepient!\n");
       copyToCache = true;
@@ -193,7 +196,8 @@ void MPI_Send(
   uint8_t bytes[MPIF_HEADER_LENGTH];
   MPI_Header header = MPI_Header(); 
   header.dst_rank = destination;
-  header.src_rank = MPI_OWN_RANK;
+  //header.src_rank = MPI_OWN_RANK;
+  header.src_rank = own_rank;
   header.size = 0;
   header.call = MPI_SEND_INT;
   header.type = SEND_REQUEST;
@@ -212,7 +216,8 @@ void MPI_Send(
   //Send data
   header = MPI_Header(); 
   header.dst_rank = destination;
-  header.src_rank = MPI_OWN_RANK;
+  //header.src_rank = MPI_OWN_RANK;
+  header.src_rank = own_rank;
   header.size = count*4;
   header.call = MPI_SEND_INT;
   header.type = DATA;
@@ -250,7 +255,8 @@ void MPI_Recv(
 
   MPI_Header header = MPI_Header(); 
   header.dst_rank = source;
-  header.src_rank = MPI_OWN_RANK;
+  //header.src_rank = MPI_OWN_RANK;
+  header.src_rank = own_rank;
   header.size = 0;
   header.call = MPI_RECV_INT;
   header.type = CLEAR_TO_SEND;
@@ -279,7 +285,8 @@ void MPI_Recv(
   //send ACK
   header = MPI_Header(); 
   header.dst_rank = source;
-  header.src_rank = MPI_OWN_RANK;
+  //header.src_rank = MPI_OWN_RANK;
+  header.src_rank = own_rank;
   header.size = 0;
   header.call = MPI_RECV_INT;
   header.type = ACK;
@@ -330,7 +337,7 @@ int resolvehelper(const char* hostname, int family, const char* service, sockadd
 
 static void printUsage(const char* argv0)
 {
-  fprintf(stderr, "Usage: %s <host-address> <cluster-size> <slot-rank-1> <slot-rank-2> <...>\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
+  fprintf(stderr, "Usage: %s <tcp|udp> <host-address> <cluster-size> <own-rank> <ip-rank-1> <ip-rank-2> <...>\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
   exit(EXIT_FAILURE);
 }
 
@@ -339,15 +346,39 @@ static void printUsage(const char* argv0)
 int main(int argc, char **argv)
 {
 
-  if(argc < 4 || atoi(argv[1]) < 2 || atoi(argv[1]) > MPI_CLUSTER_SIZE_MAX)
+  if(argc < 6 || atoi(argv[3]) < 2 || atoi(argv[3]) > MPI_CLUSTER_SIZE_MAX)
   {
     printUsage(argv[0]);
   }
 
-  char* host_address = argv[1];
-  cluster_size = atoi(argv[2]);
-  //own_rank = argv[2];
-  own_rank = MPI_OWN_RANK;
+  char[4] protocol = argv[1];
+  char* host_address = argv[2];
+  cluster_size = atoi(argv[3]);
+  own_rank = atoi(argv[4]);
+  //own_rank = MPI_OWN_RANK;
+  if(own_rank < 0)
+  {
+    fprintf(stderr, "invaldi own-rank given.\n");
+    printUsage(argv[0]);
+  }
+
+  if(strncmp("udp",protocol,3) == 0)
+  {
+    printf("using udp...\n");
+    use_udp = true;
+  } else if(strncmp("tcp",protocol,3) == 0)
+  {
+    printf("using tcp...\n");
+    use_tcp = true;
+    
+    printf("   NOT YET IMPLEMENTED   ");
+    exit(EXIT_FAILURE);
+  } else {
+    fprintf(stderr,"invalid protocol.\n");
+    printUsage(argv[0]);
+  }
+
+
 
   int result = 0;
   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -376,7 +407,7 @@ int main(int argc, char **argv)
   for(int i = 1; i<cluster_size; i++)
   {
     sockaddr_in addrDest = {};
-    std::string rank_addr = std::string(MPI_BASE_IP).append(argv[1 + i]);
+    std::string rank_addr = std::string(argv[4 + i]);
     std::cout << "rank " << i <<" addr: " << rank_addr << std::endl;
     result = resolvehelper(rank_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest);
     if (result != 0)

@@ -46,11 +46,11 @@ void MPI_Finalize();
 //void MPI_Barrier(MPI_Comm communicator);
 
 
-#define MPI_BASE_IP "10.12.200."
+//#define MPI_BASE_IP "10.12.200."
 #define MPI_PORT 2718
 #define MPI_SERVICE "2718"
 #define MPI_CLUSTER_SIZE_MAX 128
-#define MPI_OWN_RANK 0
+//#define MPI_OWN_RANK 0
 
 //#define HOST_ADDRESS "10.2.0.4"
 
