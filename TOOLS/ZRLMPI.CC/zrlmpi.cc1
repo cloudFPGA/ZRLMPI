@@ -1,3 +1,4 @@
 #!/bin/bash 
 
+make -C ./unifdef/ 
 python3 ./zrlmpi_cc1.py $1 $2 $3
