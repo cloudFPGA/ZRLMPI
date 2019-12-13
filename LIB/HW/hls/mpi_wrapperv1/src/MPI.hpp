@@ -109,8 +109,6 @@ void MPI_Finalize();
 
 
 void mpi_wrapper(
-    // ----- system reset ---
-    ap_uint<1> sys_reset,
     // ----- FROM SMC -----
     ap_uint<32> role_rank_arg,
     ap_uint<32> cluster_size_arg,

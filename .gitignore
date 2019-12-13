@@ -40,3 +40,9 @@ xpr/
 env/
 dcps/
 
+#ZRLMPI specific files
+
+app_sw.*
+app_hw.*
+
+

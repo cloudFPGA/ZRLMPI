@@ -57,8 +57,17 @@ if __name__ == '__main__':
     if len(sys.argv) != 4:
         print("USAGE: {0} mpi_input hw_output_file sw_output_file".format(sys.argv[0]))
         exit(1)
-    sw_pre = subprocess.run(["./unifdef/unifdef", "./{0}".format(sys.argv[1]), "-DZRLMPI_SW_ONLY", "-UDEBUG"], stdout=subprocess.PIPE, cwd=os.getcwd())
-    hw_pre = subprocess.run(["./unifdef/unifdef", "./{0}".format(sys.argv[1]), "-UZRLMPI_SW_ONLY", "-UDEBUG"], stdout=subprocess.PIPE, cwd=os.getcwd())
+
+    own_dir = os.path.dirname(os.path.realpath(__file__))
+    sw_pre = subprocess.run(["{0}/unifdef/unifdef".format(own_dir), "./{0}".format(sys.argv[1]), "-DZRLMPI_SW_ONLY", "-UDEBUG"], stdout=subprocess.PIPE, cwd=os.getcwd())
+    hw_pre = subprocess.run(["{0}/unifdef/unifdef".format(own_dir), "./{0}".format(sys.argv[1]), "-UZRLMPI_SW_ONLY", "-UDEBUG"], stdout=subprocess.PIPE, cwd=os.getcwd())
+
+    # substitute #include statements
+    file_name = os.path.basename(sys.argv[1])[:-4]
+    __match_regex__.append('#include "{0}.hpp"'.format(file_name))
+    __replace_hw__.append('#include "app_hw.hpp"')
+    __replace_sw__.append('#include "app_sw.hpp"')
+
 
     #with open(sys.argv[1], "r") as inputFile, open(sys.argv[2], "w") as hw_out_file, open(sys.argv[3], "w") as sw_out_file:
     with open(sys.argv[2], "w") as hw_out_file, open(sys.argv[3], "w") as sw_out_file:

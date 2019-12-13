@@ -6,9 +6,9 @@
 #include "ap_utils.h"
 #include <hls_stream.h>
 
-#include "../../../../../cFDK/SRA/LIB/hls/axi_utils.hpp"
-#include "../../../../../cFDK/SRA/LIB/hls/network.hpp"
-#include "../../../../../cFDK/SRA/LIB/hls/cfdk.hpp"
+#include "../../../../../../cFDK/SRA/LIB/hls/axi_utils.hpp"
+#include "../../../../../../cFDK/SRA/LIB/hls/network.hpp"
+#include "../../../../../../cFDK/SRA/LIB/hls/cfdk.hpp"
 
 #include "zrlmpi_common.hpp"
 

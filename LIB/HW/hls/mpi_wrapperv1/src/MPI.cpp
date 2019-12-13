@@ -4,8 +4,7 @@
 #include "ap_utils.h"
 #include <hls_stream.h>
 
-//#include "jacobi2d.hpp"
-#include "test.hpp"
+#include "app_hw.hpp"
 #include "MPI.hpp"
 
 using namespace hls;
@@ -324,8 +323,6 @@ void MPI_Finalize()
 
 
 void mpi_wrapper(
-    // ----- system reset ---
-    ap_uint<1> sys_reset,
     // ----- FROM SMC -----
     ap_uint<32> role_rank_arg,
     ap_uint<32> cluster_size_arg,
@@ -349,23 +346,13 @@ void mpi_wrapper(
 //#pragma HLS INTERFACE axis register both port=siMPIif    //depth=16
 #pragma HLS INTERFACE axis register both port=siMPI_data //depth=2048
 
+#pragma HLS reset variable=my_app_done
+#pragma HLS reset variable=sendCnt
+#pragma HLS reset variable=recvCnt
+#pragma HLS reset variable=app_init
+#pragma HLS reset variable=cluster_size
+#pragma HLS reset variable=role_rank
 
-  //===========================================================
-  // Reset global variables 
-
-  if(sys_reset == 1)
-  {
-    my_app_done = 0;
-    sendCnt = 0;
-    recvCnt = 0;
-    app_init = 0;
-    cluster_size = 0;
-    role_rank = 0;
-    //don't start app in reset state 
-
-    setMMIO_out(MMIO_out);
-    return;
-  }
   //===========================================================
   // Wait for INIT
   // nees do be done here, due to shitty HLS
