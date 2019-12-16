@@ -58,8 +58,8 @@ set_top       mpi_wrapper
 
 
 # for Debug
-add_files     ${srcDir}/test.hpp -cflags "-DCOSIM"
-add_files     ${srcDir}/test.cpp -cflags "-DCOSIM"
+add_files     ${srcDir}/app_hw.hpp -cflags "-DCOSIM"
+add_files     ${srcDir}/app_hw.cpp -cflags "-DCOSIM"
 #add_files     ${srcDir}/${appName}.hpp -cflags "-DCOSIM"
 #add_files     ${srcDir}/${appName}.cpp -cflags "-DCOSIM"
 add_files     ${srcDir}/MPI.hpp -cflags "-DCOSIM"
