@@ -16,11 +16,12 @@
 #-------------------------------------------------------------------------------
 # Xilinx Project Settings
 #-------------------------------------------------------------------------------
-set xprName      "roleFMKU60_MPI"
+set xprName      "roleFMKU60_Themisto"
 set xilPartName  "xcku060-ffva1156-2-i"
 
-set topName      "Role_MPIv0_x2Mp"
-set topFile      "roleMPI.vhdl"
+set topName      "Role_Themisto"
+set topFile      "Role.vhdl"
+
 
 #-------------------------------------------------------------------------------
 # TOP  Project Settings  
