@@ -351,7 +351,8 @@ int main(int argc, char **argv)
     printUsage(argv[0]);
   }
 
-  char[4] protocol = argv[1];
+  char protocol[4];
+  protocol[0] = *argv[1];
   char* host_address = argv[2];
   cluster_size = atoi(argv[3]);
   own_rank = atoi(argv[4]);
