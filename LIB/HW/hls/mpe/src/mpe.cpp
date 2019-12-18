@@ -336,8 +336,8 @@ void mpe_main(
 
   switch(fsmMpeState) {
     case IDLE: 
-      if ( !siMPIif.empty() ) 
-      {
+      //if ( !siMPIif.empty() ) try to fix combinatorial loop
+      //{
         currentInfo = siMPIif.read();
         switch(currentInfo.mpi_call)
         {
@@ -363,7 +363,7 @@ void mpe_main(
             //TODO not yet implemented 
             break;
         }
-      }
+      //}
       break;
     case START_SEND: 
       if ( !soTcp_meta.full() && !sFifoDataTX.full() )
@@ -1044,10 +1044,10 @@ void mpe_main(
     case WRITE_ERROR:
       //empty all input streams 
       printf("Write error occured.\n");
-      if( !siMPIif.empty())
-      {
+      //if( !siMPIif.empty()) try to fix combinatorial loops...
+      //{
         siMPIif.read();
-      }
+      //}
 
       if( !siMPI_data.empty())
       {
@@ -1206,7 +1206,8 @@ void mpe_main(
         convertAxisToMpiWidth(word, sFifoDataRX);
       }
 
-      if( !sFifoDataRX.empty() && !soMPI_data.full() )
+      //if( !sFifoDataRX.empty() && !soMPI_data.full() )
+      if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
       {
         Axis<8> tmp = sFifoDataRX.read();
         soMPI_data.write(tmp);
