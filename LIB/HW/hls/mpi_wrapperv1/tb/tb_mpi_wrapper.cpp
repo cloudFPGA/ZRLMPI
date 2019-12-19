@@ -7,7 +7,7 @@
 
 
 #include "../src/MPI.hpp"
-#include "../src/test.hpp"
+#include "../src/app_hw.hpp"
 
 int main(){
 
@@ -15,12 +15,12 @@ int main(){
   bool succeded = true;
     
   // ----- system reset ---
-    ap_uint<1> sys_reset = 0;
+    //ap_uint<1> sys_reset = 0;
     //EMIF Registers
     ap_uint<16> MMIO_in = 0;
     ap_uint<16> MMIO_out = 0;
     // ----- MPI_Interface -----
-    stream<MPI_Interface> siMPIif;
+    //stream<MPI_Interface> siMPIif;
     stream<MPI_Interface> soMPIif;
     stream<Axis<8> > siMPI_data;
     stream<Axis<8> > soMPI_data;
@@ -34,7 +34,7 @@ int main(){
     //c_testbench_access(&MMIO_in, &MMIO_out, &siMPIif, &soMPIif, &siMPI_data, &soMPI_data);
     
     //test reset 
-    mpi_wrapper(1, role_rank, cluster_size, &MMIO_out, &soMPIif, &soMPI_data, &siMPI_data);
+    //mpi_wrapper(1, role_rank, cluster_size, &MMIO_out, &soMPIif, &soMPI_data, &siMPI_data);
 
 
     int grid[DIM][DIM];
@@ -59,10 +59,10 @@ int main(){
 
   MPI_Interface info = MPI_Interface();
   info.mpi_call = MPI_SEND_INT;
-  info.count = LDIMY*LDIMX*4;
+  info.count = (DIM/cluster_size + 1)*4;
   info.rank = 0;
 
-  siMPIif.write(info);
+  //siMPIif.write(info);
 
   char* data = (char* ) grid;
 
@@ -83,7 +83,7 @@ int main(){
 
 
     //mpi_wrapper(sys_reset, role_rank, cluster_size);
-   mpi_wrapper(sys_reset, role_rank, cluster_size, &MMIO_out, &soMPIif, &soMPI_data, &siMPI_data);
+   mpi_wrapper(role_rank, cluster_size, &MMIO_out, &soMPIif, &soMPI_data, &siMPI_data);
 
     //empty streams
     info = soMPIif.read();

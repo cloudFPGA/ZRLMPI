@@ -183,7 +183,7 @@ void MPI_Comm_size( MPI_Comm communicator, int* size)
   *size = cluster_size;
 }
 
-void send_intern(
+void send_internal(
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -253,11 +253,11 @@ void MPI_Send(
     {
       count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
     }
-    send_intern(&data[i], count_of_this_message, datatype, destination, tag, communicator);
+    send_internal(&data[i], count_of_this_message, datatype, destination, tag, communicator);
   }
 }
 
-void recv_intern(
+void recv_internal(
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -337,7 +337,7 @@ void MPI_Recv(
     {
       count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
     }
-    recv_intern(&data[i], count_of_this_message, datatype, source, tag, communicator, status);
+    recv_internal(&data[i], count_of_this_message, datatype, source, tag, communicator, status);
   }
 }
 

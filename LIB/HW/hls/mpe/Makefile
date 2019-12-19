@@ -1,4 +1,7 @@
-DEPS := $(shell find ./src/ -type f)
+
+
+#DEPS := $(shell find ./src/ -type f)
+DEPS := $(shell find ./src/ )
 
 .PHONY: all sim cosim cosim_view clean
 all: mpe_prj/solution1/impl/ip

@@ -3,7 +3,8 @@
 appName =mpi_wrapper
 ipName =${appName}v1
 
-DEPS := $(shell find ./src/ -type f)
+#DEPS := $(shell find ./src/ -type f)
+DEPS := $(shell find ./src/ )
 
 .PHONY: all sim cosim cosim_view
 all: ${ipName}_prj/solution1/impl/ip

@@ -66,9 +66,10 @@ void MPI_Comm_size(MPI_Comm communicator, int* size)
 }
 
 int send_internal(
-	stream<MPI_Interface> *soMPIif,
-	stream<Axis<8> > *soMPI_data,
+  stream<MPI_Interface> *soMPIif,
+  stream<Axis<8> > *soMPI_data,
     uint8_t* data,
+    int start_addres,
     int count,
     MPI_Datatype datatype,
     int destination)
@@ -77,6 +78,7 @@ int send_internal(
   MPI_Interface info = MPI_Interface();
   info.rank = destination;
 
+  //TODO: handle tag
   //tag is not yet implemented
 
   int typeWidth = 1;
@@ -103,7 +105,7 @@ int send_internal(
       if(!soMPIif->full())
       {
         soMPIif->write(info);
-        send_i = 0;
+        send_i = start_addres;
         sendState = SEND_WRITE_DATA;
       }
       break;
@@ -142,10 +144,10 @@ int send_internal(
 }
 
 void MPI_Send(
-	// ----- MPI_Interface -----
-	stream<MPI_Interface> *soMPIif,
-	stream<Axis<8> > *soMPI_data,
-	// ----- MPI Signature -----
+  // ----- MPI_Interface -----
+  stream<MPI_Interface> *soMPIif,
+  stream<Axis<8> > *soMPI_data,
+  // ----- MPI Signature -----
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -166,20 +168,30 @@ void MPI_Send(
     bytes[i*4 + 3] = data[i] & 0xFF;
   }
 
-  //DUE TO SHITTY HLS...
-  sendState = SEND_WRITE_INFO;
-  send_i = 0;
-  while(send_internal(soMPIif, soMPI_data, bytes,count,datatype,destination) != 1)
+  //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
+  for(int i = 0; i < 4*count; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
   {
-    ap_wait_n(WAIT_CYCLES);
+    int count_of_this_message = 4*count - i; //important for last message
+    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+    {
+      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
+    }
+    //DUE TO SHITTY HLS...
+    sendState = SEND_WRITE_INFO;
+    send_i = 0;
+    while(send_internal(soMPIif, soMPI_data, bytes, i, count_of_this_message, datatype, destination) != 1)
+    {
+      ap_wait_n(WAIT_CYCLES);
+    }
   }
 
 }
 
 int recv_internal(
-	stream<MPI_Interface> *soMPIif,
-	stream<Axis<8> > *siMPI_data,
+  stream<MPI_Interface> *soMPIif,
+  stream<Axis<8> > *siMPI_data,
     uint8_t* data,
+    int start_addres,
     int count,
     MPI_Datatype datatype,
     int source,
@@ -189,6 +201,7 @@ int recv_internal(
   MPI_Interface info = MPI_Interface();
   info.rank = source;
 
+  //TODO: handle tag
   //tag is not yet implemented
 
   int typeWidth = 1;
@@ -217,7 +230,7 @@ int recv_internal(
       {
         soMPIif->write(info);
         recvState = RECV_READ_DATA;
-        recv_i = 0;
+        recv_i = start_addres;
       }
       break;
     case RECV_READ_DATA:
@@ -269,10 +282,10 @@ int recv_internal(
 
 
 void MPI_Recv(
-	// ----- MPI_Interface -----
-	stream<MPI_Interface> *soMPIif,
-	stream<Axis<8> > *siMPI_data,
-	// ----- MPI Signature -----
+  // ----- MPI_Interface -----
+  stream<MPI_Interface> *soMPIif,
+  stream<Axis<8> > *siMPI_data,
+  // ----- MPI Signature -----
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -287,12 +300,21 @@ void MPI_Recv(
   uint8_t bytes[4*count];
 #pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
 
-  //DUE TO SHITTY HLS...
-  recvState = RECV_WRITE_INFO;
-  recv_i = 0;
-  while( recv_internal(soMPIif, siMPI_data, bytes, count, datatype, source, status) != 1)
+  //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
+  for(int i = 0; i < 4*count; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
   {
-    ap_wait_n(WAIT_CYCLES);
+    int count_of_this_message = 4*count - i; //important for last message
+    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+    {
+      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
+    }
+    //DUE TO SHITTY HLS...
+    recvState = RECV_WRITE_INFO;
+    recv_i = 0;
+    while( recv_internal(soMPIif, siMPI_data, bytes, i, count_of_this_message, datatype, source, status) != 1)
+    {
+      ap_wait_n(WAIT_CYCLES);
+    }
   }
 
   for(int i=0; i<count; i++)
@@ -326,13 +348,13 @@ void mpi_wrapper(
     // ----- FROM SMC -----
     ap_uint<32> role_rank_arg,
     ap_uint<32> cluster_size_arg,
-	// ----- TO SMC ------
-	ap_uint<16> *MMIO_out,
-	// ----- MPI_Interface -----
-	//stream<MPI_Interface> *siMPIif,
-	stream<MPI_Interface> *soMPIif,
-	stream<Axis<8> > *soMPI_data,
-	stream<Axis<8> > *siMPI_data
+  // ----- TO SMC ------
+  ap_uint<16> *MMIO_out,
+  // ----- MPI_Interface -----
+  //stream<MPI_Interface> *siMPIif,
+  stream<MPI_Interface> *soMPIif,
+  stream<Axis<8> > *soMPI_data,
+  stream<Axis<8> > *siMPI_data
     )
 {
 //#pragma HLS INTERFACE ap_ctrl_none port=return

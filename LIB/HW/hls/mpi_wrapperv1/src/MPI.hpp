@@ -8,6 +8,8 @@
 #include "ap_utils.h"
 #include <hls_stream.h>
 
+#include "zrlmpi_common.hpp"
+
 using namespace hls;
 
 #define WAIT_CYCLES 10
@@ -41,23 +43,23 @@ struct Axis {
   Axis(ap_uint<D> single_data) : tdata((ap_uint<D>)single_data), tkeep(1), tlast(1) {}
 };
 
-#define MPI_SEND_INT 0
-#define MPI_RECV_INT 1
-#define MPI_SEND_FLOAT 2
-#define MPI_RECV_FLOAT 3
-#define MPI_BARRIER 4
-#define mpiCall uint8_t
-
-/*
- * MPI-F Interface
- */
-struct MPI_Interface {
-  ap_uint<8>     mpi_call;
-  ap_uint<32>    count;
-  ap_uint<32>    rank;
-  MPI_Interface() {}
-};
-
+//#define MPI_SEND_INT 0
+//#define MPI_RECV_INT 1
+//#define MPI_SEND_FLOAT 2
+//#define MPI_RECV_FLOAT 3
+//#define MPI_BARRIER 4
+//#define mpiCall uint8_t
+//
+///*
+// * MPI-F Interface
+// */
+//struct MPI_Interface {
+//  ap_uint<8>     mpi_call;
+//  ap_uint<32>    count;
+//  ap_uint<32>    rank;
+//  MPI_Interface() {}
+//};
+//
 
 #define MPI_Status uint8_t
 #define MPI_Comm   uint8_t
