@@ -408,6 +408,7 @@ architecture Flash of Role_Themisto is
       soTcp_meta_TDATA : OUT STD_LOGIC_VECTOR (79 downto 0);
       soTcp_meta_TKEEP : OUT STD_LOGIC_VECTOR (9 downto 0);
       soTcp_meta_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
+      poROL_NRC_Rx_ports_V : OUT STD_LOGIC_VECTOR (31 downto 0);
       piFMC_rank_V : IN STD_LOGIC_VECTOR (31 downto 0);
       siMPIif_V_mpi_call_V_TDATA : IN STD_LOGIC_VECTOR (7 downto 0);
       siMPIif_V_count_V_TDATA : IN STD_LOGIC_VECTOR (31 downto 0);
@@ -420,6 +421,7 @@ architecture Flash of Role_Themisto is
       soMPI_data_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
       ap_clk : IN STD_LOGIC;
       ap_rst_n : IN STD_LOGIC;
+      poROL_NRC_Rx_ports_V_ap_vld : OUT STD_LOGIC;
       siMPIif_V_mpi_call_V_TVALID : IN STD_LOGIC;
       siMPIif_V_mpi_call_V_TREADY : OUT STD_LOGIC;
       siMPIif_V_count_V_TVALID : IN STD_LOGIC;
@@ -569,6 +571,7 @@ begin
         soTcp_meta_TREADY   =>  soROLE_Nrc_Udp_Meta_TREADY ,
         soTcp_meta_TKEEP    =>  soROLE_Nrc_Udp_Meta_TKEEP  ,
         soTcp_meta_TLAST    =>  sMetaOutTlastAsVector_Udp,
+        poROL_NRC_Rx_ports_V => poROL_Nrc_Udp_Rx_ports,
         piFMC_rank_V        =>  piFMC_ROLE_rank,
         piFMC_rank_V_ap_vld =>  '1',
         siMPIif_V_mpi_call_V_TDATA    => sAPP_MPE_MPIif_mpi_call_TDATA  ,

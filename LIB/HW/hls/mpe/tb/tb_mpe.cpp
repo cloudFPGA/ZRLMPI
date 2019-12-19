@@ -18,6 +18,7 @@ stream<NetworkWord> soTcp_data;
 stream<NetworkMetaStream> soTcp_meta;
 
 ap_uint<32> own_rank = 0;
+ap_uint<32> poMPE_rx_ports = 0;
 
 stream<MPI_Interface> MPIif_in;
 //stream<MPI_Interface> MPIif_out;
@@ -40,7 +41,7 @@ void stepDut() {
       //MRT,
       siTcp_data, siTcp_meta,
       soTcp_data, soTcp_meta,
-      &own_rank,
+      &poMPE_rx_ports, &own_rank,
       MPIif_in,
       MPI_data_in, MPI_data_out
       );
@@ -78,6 +79,7 @@ int main(){
 
   //init?
   stepDut(); //1
+  assert(poMPE_rx_ports == 1);
 
   NetworkWord tmp64 = NetworkWord();
   Axis<8>  tmp8 = Axis<8>();

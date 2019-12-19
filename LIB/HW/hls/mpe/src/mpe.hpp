@@ -96,6 +96,7 @@ void mpe_main(
     stream<NetworkMetaStream>      &siTcp_meta,
     stream<NetworkWord>            &soTcp_data,
     stream<NetworkMetaStream>      &soTcp_meta,
+    ap_uint<32>                   *po_rx_ports,
     
     ap_uint<32> *own_rank,
 

@@ -218,6 +218,7 @@ void mpe_main(
     stream<NetworkMetaStream>      &siTcp_meta,
     stream<NetworkWord>            &soTcp_data,
     stream<NetworkMetaStream>      &soTcp_meta,
+    ap_uint<32>                   *po_rx_ports,
     
     ap_uint<32> *own_rank,
 
@@ -235,6 +236,7 @@ void mpe_main(
 #pragma HLS INTERFACE axis register both port=siTcp_meta
 #pragma HLS INTERFACE axis register both port=soTcp_data
 #pragma HLS INTERFACE axis register both port=soTcp_meta
+#pragma HLS INTERFACE ap_ovld register port=po_rx_ports name=poROL_NRC_Rx_ports
 // TODO: removed for now, FIXME: add to Management Companion Core in Middleware
 //#pragma HLS INTERFACE s_axilite depth=512 port=ctrlLink bundle=piSMC_MPE_ctrlLink_AXI
 //#pragma HLS INTERFACE s_axilite port=return bundle=piSMC_MPE_ctrlLink_AXI
@@ -268,6 +270,9 @@ void mpe_main(
 //#pragma HLS reset variable=currentPacketType
 #pragma HLS reset variable=currentDataType
 #pragma HLS reset variable=handshakeLinesCnt
+
+  *po_rx_ports = 0x1; //currently work only with default ports...
+
 
   if(!tablesInitialized)
   {
