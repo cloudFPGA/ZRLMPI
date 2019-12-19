@@ -41,7 +41,7 @@ env/
 dcps/
 
 #ZRLMPI specific files
-
+zrlmpi_cpu_app
 app_sw.*
 app_hw.*
 

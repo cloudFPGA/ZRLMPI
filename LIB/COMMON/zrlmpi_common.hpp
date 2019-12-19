@@ -21,6 +21,12 @@
 
 #define ZRLMPI_DEFAULT_PORT 2718
 
+//UDP Header + MPIF Header = 74
+//1496 Bytes are 187 8 Byte lines
+//1422 is not divideable by 4 (size of MPI_Datatype)
+#define ZRLMPI_MAX_MESSAGE_SIZE_BYTES 1420   //Bytes
+#define ZRLMPI_MAX_MESSAGE_SIZE_WORDS 355    //int or float
+
 /*
  * MPI-F Interface
  */
@@ -43,7 +49,7 @@
   packetType type;
   MPI_Header() {}
  };
-#define MPIF_HEADER_LENGTH 32
+#define MPIF_HEADER_LENGTH 32 //Bytes
 
 
 //UINT32 littleEndianToInteger(UINT8 *buffer, int lsb);

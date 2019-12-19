@@ -183,8 +183,7 @@ void MPI_Comm_size( MPI_Comm communicator, int* size)
   *size = cluster_size;
 }
 
-
-void MPI_Send(
+void send_intern(
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -192,7 +191,6 @@ void MPI_Send(
     int tag,
     MPI_Comm communicator)
 {
-
   uint8_t bytes[MPIF_HEADER_LENGTH];
   MPI_Header header = MPI_Header(); 
   header.dst_rank = destination;
@@ -235,10 +233,31 @@ void MPI_Send(
   ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, MPI_RECV_INT, destination, 0, 0);
   printf("Got ACK\n");
 
-
 }
 
-void MPI_Recv(
+void MPI_Send(
+    int* data,
+    int count,
+    MPI_Datatype datatype,
+    int destination,
+    int tag,
+    MPI_Comm communicator)
+{
+  //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
+  //for now, only datatypes of size 4
+  //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
+  for(int i = 0; i < count; i+=ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+  {
+    int count_of_this_message = count - i; //important for last message
+    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+    {
+      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
+    }
+    send_intern(&data[i], count_of_this_message, datatype, destination, tag, communicator);
+  }
+}
+
+void recv_intern(
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -299,6 +318,30 @@ void MPI_Recv(
 
 }
 
+void MPI_Recv(
+    int* data,
+    int count,
+    MPI_Datatype datatype,
+    int source,
+    int tag,
+    MPI_Comm communicator,
+    MPI_Status* status)
+{
+  //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
+  //for now, only datatypes of size 4
+  //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
+  for(int i = 0; i < count; i+=ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+  {
+    int count_of_this_message = count - i; //important for last message
+    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+    {
+      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
+    }
+    recv_intern(&data[i], count_of_this_message, datatype, source, tag, communicator, status);
+  }
+}
+
+
 void MPI_Finalize()
 {
   close(udp_sock);
@@ -351,7 +394,8 @@ int main(int argc, char **argv)
     printUsage(argv[0]);
   }
 
-  char[4] protocol = argv[1];
+  //char protocol[4];
+  char *protocol = argv[1];
   char* host_address = argv[2];
   cluster_size = atoi(argv[3]);
   own_rank = atoi(argv[4]);
@@ -374,7 +418,7 @@ int main(int argc, char **argv)
     printf("   NOT YET IMPLEMENTED   ");
     exit(EXIT_FAILURE);
   } else {
-    fprintf(stderr,"invalid protocol.\n");
+    fprintf(stderr,"invalid protocol given: %s.\n",protocol);
     printUsage(argv[0]);
   }
 

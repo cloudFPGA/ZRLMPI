@@ -3,8 +3,8 @@
 HW_TARGET_C=$1/$4/hls/mpi_wrapperv1/src/app_hw.cpp
 HW_TARGET_H=$1/$4/hls/mpi_wrapperv1/src/app_hw.hpp
 
-SW_TARGET_C=$1/ZRLMPI/LIB/SW/ZRLMPI/app_sw.cpp
-SW_TARGET_H=$1/ZRLMPI/LIB/SW/ZRLMPI/app_sw.hpp
+SW_TARGET_C=$1/SW/app_sw.cpp
+SW_TARGET_H=$1/SW/app_sw.hpp
 
 OWN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
