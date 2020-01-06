@@ -70,7 +70,7 @@ int send_internal(
   stream<Axis<8> > *soMPI_data,
     uint8_t* data,
     int start_addres,
-    int count,
+    int byte_count,
     MPI_Datatype datatype,
     int destination)
 {
@@ -81,24 +81,25 @@ int send_internal(
   //TODO: handle tag
   //tag is not yet implemented
 
-  int typeWidth = 1;
+  //int typeWidth = 1;
 
   switch(datatype)
   {
     case MPI_INTEGER:
       info.mpi_call = MPI_SEND_INT;
-      typeWidth = 4;
+      //typeWidth = 4; //TODO: move to upper function?
       break;
     case MPI_FLOAT:
       info.mpi_call = MPI_SEND_FLOAT;
-      typeWidth = 4;
+      //typeWidth = 4; //TODO: move to upper function?
       break;
     default:
       //not yet implemented 
       return 1;
   }
 
-  info.count = typeWidth * count;
+  //info.count = typeWidth * count;
+  info.count = byte_count;
 
   switch(sendState) {
     case SEND_WRITE_INFO:
@@ -192,7 +193,7 @@ int recv_internal(
   stream<Axis<8> > *siMPI_data,
     uint8_t* data,
     int start_addres,
-    int count,
+    int byte_count,
     MPI_Datatype datatype,
     int source,
     MPI_Status* status)
@@ -204,24 +205,25 @@ int recv_internal(
   //TODO: handle tag
   //tag is not yet implemented
 
-  int typeWidth = 1;
+  //int typeWidth = 1;
 
   switch(datatype)
   {
     case MPI_INTEGER:
       info.mpi_call = MPI_RECV_INT;
-      typeWidth = 4;
+      //typeWidth = 4;  //TODO: move to upper function?
       break;
     case MPI_FLOAT:
       info.mpi_call = MPI_RECV_FLOAT;
-      typeWidth = 4;
+      //typeWidth = 4;  //TODO: move to upper function?
       break;
     default:
       //not yet implemented 
       return 1;
   }
 
-  info.count = typeWidth * count;
+  //info.count = typeWidth * count;
+  info.count = byte_count;
 
   switch(recvState) {
 

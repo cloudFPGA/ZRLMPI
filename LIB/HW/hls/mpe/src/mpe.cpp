@@ -937,16 +937,18 @@ void mpe_main(
 #pragma HLS STREAM variable=sFifoDataTX depth=2048
 //#pragma HLS STREAM variable=sFifoIPdstTX depth=1
 
-  int cnt = 0;
+  //int cnt = 0;
 
   switch(fsmSendState) {
+    default:
     case WRITE_STANDBY:
       //global fsm is doing the job. 
       break;
     case WRITE_IDLE: 
       //if ( !siMPIif.empty() && !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
       //if ( !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
-      if ( !siMPI_data.empty() && !sFifoDataTX.full() && !soTcp_meta.full() )
+      //if ( !siMPI_data.empty() && !sFifoDataTX.full() && !soTcp_meta.full() )
+      if ( !sFifoDataTX.full() && !soTcp_meta.full() )
       {
         header = MPI_Header(); 
         //MPI_Interface info = siMPIif.read();
@@ -980,7 +982,7 @@ void mpe_main(
 
     case WRITE_START:
       //if( !soTcp.full() && !soIP.full() )
-      if( !soTcp_data.full() )
+      if( !soTcp_data.full() && !sFifoDataTX.empty() )
       {
         NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);
@@ -992,41 +994,45 @@ void mpe_main(
         fsmSendState = WRITE_DATA;
       }
 
-      cnt = 0;
-      while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8)
+      //cnt = 0;
+      //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlastOccured)
+      if( !siMPI_data.empty() && !sFifoDataTX.full() )
       {
         Axis<8> tmp = siMPI_data.read();
         sFifoDataTX.write(tmp);
-        cnt++;
+        //cnt++;
         if(tmp.tlast == 1)
         {
           tlastOccured = true;
           printf("tlast Occured.\n");
           printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) tmp.tdata, (int) tmp.tkeep, (int) tmp.tlast);
         }
+        enqueueCnt++;
       }
-      enqueueCnt += cnt;
-      printf("cnt: %d\n", cnt);
+      //enqueueCnt += cnt;
+      //printf("cnt: %d\n", cnt);
       printf("enqueueCnt: %d\n", enqueueCnt);
       break; 
 
     case WRITE_DATA: 
       //enqueue 
-      cnt = 0;
-      while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8)
+      //cnt = 0;
+      //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlastOccured)
+      if( !siMPI_data.empty() && !sFifoDataTX.full() )
       {
         Axis<8> tmp = siMPI_data.read();
         sFifoDataTX.write(tmp);
-        cnt++;
+        //cnt++;
         if(tmp.tlast == 1)
         {
           tlastOccured = true;
           printf("tlast Occured.\n");
           printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) tmp.tdata, (int) tmp.tkeep, (int) tmp.tlast);
         }
+        enqueueCnt++;
       }
-      enqueueCnt += cnt;
-      printf("cnt: %d\n", cnt);
+      //enqueueCnt += cnt;
+      //printf("cnt: %d\n", cnt);
 
       //dequeue
       printf("enqueueCnt: %d\n", enqueueCnt);
@@ -1046,22 +1052,22 @@ void mpe_main(
       }
       break; 
 
-    case WRITE_ERROR:
-      //empty all input streams 
-      printf("Write error occured.\n");
-      //if( !siMPIif.empty()) try to fix combinatorial loops...
-      //{
-        siMPIif.read();
-      //}
+    //case WRITE_ERROR:
+    //  //empty all input streams 
+    //  printf("Write error occured.\n");
+    //  //if( !siMPIif.empty()) try to fix combinatorial loops...
+    //  //{
+    //  //  siMPIif.read(); TODO: there should be no further data on the IF...
+    //  //}
 
-      if( !siMPI_data.empty())
-      {
-        siMPI_data.read();
-      } else { 
-        //fsmSendState = WRITE_IDLE;
-        fsmSendState = WRITE_STANDBY;
-      }
-      break;
+    //  if( !siMPI_data.empty())
+    //  {
+    //    siMPI_data.read();
+    //  } else { 
+    //    //fsmSendState = WRITE_IDLE;
+    //    fsmSendState = WRITE_STANDBY;
+    //  }
+    //  break;
   }
 
   printf("fsmSendState after FSM: %d\n", fsmSendState);
@@ -1074,6 +1080,7 @@ void mpe_main(
 #pragma HLS STREAM variable=sFifoDataRX depth=2048
 
   switch(fsmReceiveState) { 
+    default:
     case READ_STANDBY:
       //global fsm is doing the job 
       break;
