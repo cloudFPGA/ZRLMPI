@@ -102,6 +102,8 @@ void mpe_main(
 
     // ----- Memory -----
     //ap_uint<8> *MEM, TODO: maybe later
+    // ----- To Coaxium ------
+    ap_uint<32> *MMIO_out,
 
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,

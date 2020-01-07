@@ -224,6 +224,8 @@ void mpe_main(
 
     // ----- Memory -----
     //ap_uint<8> *MEM, TODO: maybe later
+    // ----- To Coaxium ------
+    ap_uint<32> *MMIO_out,
 
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,
@@ -242,6 +244,8 @@ void mpe_main(
 //#pragma HLS INTERFACE s_axilite port=return bundle=piSMC_MPE_ctrlLink_AXI
 
 #pragma HLS INTERFACE ap_vld register port=own_rank name=piFMC_rank
+
+#pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 
 #pragma HLS INTERFACE axis register both port=siMPIif
 //#pragma HLS INTERFACE axis register both port=soMPIif
@@ -323,7 +327,15 @@ void mpe_main(
 //  status[MPE_STATUS_SEND_STATE] = (ap_uint<32>) fsmSendState;
 //  status[MPE_STATUS_RECEIVE_STATE] = (ap_uint<32>) fsmReceiveState;
 //  status[MPE_STATUS_GLOBAL_STATE] = (ap_uint<32>) fsmMpeState;
-//
+
+    uint32_t debug_out = 0;
+    debug_out = fsmReceiveState;
+    debug_out |= ((uint32_t) fsmSendState) << 8;
+    debug_out |= ((uint32_t) fsmMpeState) << 16;
+    debug_out |= 0xAC000000;
+
+    *MMIO_out = (ap_uint<32>) debug_out;
+
 //  //TODO: some consistency check for tables? (e.g. every IP address only once...)
 // 
 //
