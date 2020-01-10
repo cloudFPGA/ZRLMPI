@@ -71,7 +71,8 @@ zrlmpi_cpu_app\n\
 app_sw.*\n\
 app_hw.*\n\n" >> $cFpRootDir/.gitignore
 
-
+# e) add to git...if existing
+[ -d {}/.git/ ] && (git add $usedRoleDir)
 
 #TODO:
 # 4. create bash-script for ZRLMPI.CC and ZRLMPI.RUN in cFp?
