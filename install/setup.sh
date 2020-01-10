@@ -60,6 +60,7 @@ cp $cFpRootDir/$1/install/Makefile.SW.template $cFpRootDir/SW/Makefile
 mkdir -p $usedRoleDir
 cp -R $cFpRootDir/$1/templates/ROLE/* $usedRoleDir
 
+mkdir -p $usedRoleDir/hls/
 ln -s $cFpRootDir/$1/LIB/HW/hls/mpe/ $usedRoleDir/hls/mpe 
 ln -s $cFpRootDir/$1/LIB/HW/hls/mpi_wrapperv1/ $usedRoleDir/hls/mpi_wrapperv1 
 
