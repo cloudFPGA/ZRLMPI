@@ -42,7 +42,6 @@ sed -i '/#cFa addtional targets/ampi_run: assert_env   ## Launches the CPU parts
 mpi_verify: assert_env  ## Launches the MPI application in openMPI\n\t$(MAKE) -C APP/ make run\n\n\
 update_mpi_app: assert_env   ## launches the ZRLMPI cross-compiler\n\t$(ZRLMPI_DIR)/TOOLS/ZRLMPI.CC/zrlmpi.cc  $(cFpRootDir) ./APP/*.cpp ./APP/*.hpp $(usedRoleDir)\n\n\
 pr_mpi: assert_env update_mpi_app pr  ## cross-compiles the application and builds the PR bitstream\n\n\
-\n\n\
 mono_mpi: assert_env update_mpi_app monolithic  ## cross-compiles the application and builds a monolithic bitstream\n\n' $cFpRootDir/Makefile
 
 
@@ -58,12 +57,11 @@ cp $cFpRootDir/$1/install/Makefile.SW.template $cFpRootDir/SW/Makefile
 
 
 # c) copy ROLE files and LINK HLS cores
+mkdir -p $usedRoleDir
+cp -R $cFpRootDir/$1/templates/ROLE/* $usedRoleDir
 
-mkdir -p $cFpRoleDir
-cp -R $cFpRootDir/$1/templates/ROLE/* $cFpRoleDir
-
-ln -s $cFpRootDir/$1/LIB/HW/hls/mpe/ $cFpRoleDir/hls/mpe 
-ln -s $cFpRootDir/$1/LIB/HW/hls/mpi_wrapperv1/ $cFpRoleDir/hls/mpi_wrapperv1 
+ln -s $cFpRootDir/$1/LIB/HW/hls/mpe/ $usedRoleDir/hls/mpe 
+ln -s $cFpRootDir/$1/LIB/HW/hls/mpi_wrapperv1/ $usedRoleDir/hls/mpi_wrapperv1 
 
 # d) update .gitignores
 
