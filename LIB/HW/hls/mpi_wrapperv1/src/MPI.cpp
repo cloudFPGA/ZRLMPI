@@ -336,7 +336,7 @@ void MPI_Finalize()
 {
   //TODO: send something like DONE packets?
   my_app_done = 1;
-  app_init = 0;
+  //app_init = 0;
   //setMMIO_out(MMIO_out);
 }
 
@@ -365,6 +365,7 @@ void mpi_wrapper(
 #pragma HLS INTERFACE ap_vld register port=cluster_size_arg name=piSMC_to_ROLE_size
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 #pragma HLS INTERFACE axis register both port=soMPIif    //depth=16
+  //TODO: add DATA_PACK to Interface
 #pragma HLS INTERFACE axis register both port=soMPI_data //depth=2048
 //#pragma HLS INTERFACE axis register both port=siMPIif    //depth=16
 #pragma HLS INTERFACE axis register both port=siMPI_data //depth=2048
@@ -380,6 +381,8 @@ void mpi_wrapper(
   // Wait for INIT
   // nees do be done here, due to shitty HLS
 
+  if(app_init == 0)
+  {
   if(cluster_size_arg == 0)
   {
     //not yet initialized
@@ -396,6 +399,7 @@ void mpi_wrapper(
   app_init = 1;
 
   setMMIO_out(MMIO_out);
+  }
 
   //===========================================================
   // Start main program 

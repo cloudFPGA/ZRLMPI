@@ -44,32 +44,37 @@ using namespace hls;
 
 //FSM state types
 
-#define WRITE_IDLE 0
-#define WRITE_START 1
-#define WRITE_DATA 2
-#define WRITE_ERROR 3
-#define WRITE_STANDBY 4
-#define sendState uint8_t 
-
-
-#define READ_IDLE 0
-#define READ_DATA 2
-#define READ_ERROR 3
-#define READ_STANDBY 4
-#define receiveState uint8_t
+//#define WRITE_IDLE 0
+//#define WRITE_START 1
+//#define WRITE_DATA 2
+//#define WRITE_ERROR 3
+//#define WRITE_STANDBY 4
+//#define sendState uint8_t 
+//
+//
+//#define READ_IDLE 0
+//#define READ_DATA 2
+//#define READ_ERROR 3
+//#define READ_STANDBY 4
+//#define receiveState uint8_t
 
 
 #define IDLE 0
 #define START_SEND 1
-#define SEND_REQ 9
-#define WAIT4CLEAR 2 
-#define SEND_DATA 3
-#define WAIT4ACK 4
-//#define START_RECEIVE 5
-#define WAIT4REQ 6
+#define SEND_REQ 2
+#define WAIT4CLEAR 3
+#define SEND_DATA_START 4
+#define SEND_DATA_RD 5
+#define SEND_DATA_WRD 6
+#define WAIT4ACK 7
+//#define START_RECEIVE 8
+#define WAIT4REQ 9
 #define SEND_CLEAR 10
-#define RECV_DATA 7
-#define SEND_ACK 8
+#define RECV_DATA_START 11
+#define RECV_DATA_READ 12
+#define RECV_DATA_DONE 13
+#define RECV_DATA_ERROR 14
+#define SEND_ACK 15
 #define mpeState uint8_t
 
 #define MPI_INT 0

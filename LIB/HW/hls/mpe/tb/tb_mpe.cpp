@@ -117,6 +117,7 @@ int main(){
   ap_uint<8> bytes[MPIF_HEADER_LENGTH];
   MPI_Header header = MPI_Header(); 
 
+  stepDut();
   //SEND_REQUEST expected 
   NetworkMeta out_meta = soTcp_meta.read().tdata;
   printf("Dst node id: %d\n", (unsigned int) out_meta.dst_rank);
@@ -174,7 +175,7 @@ int main(){
   NetworkMeta meta_1 = NetworkMeta(1,2718,2,2718,0);
   siTcp_meta.write(NetworkMetaStream(meta_1));
   
-  for(int i = 0; i < 20; i++)
+  for(int i = 0; i < 40; i++)
   {
     stepDut();
   }
