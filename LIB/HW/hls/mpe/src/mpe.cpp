@@ -332,6 +332,7 @@ void mpe_main(
 
     bool word_tlast_occured = false;
     Axis<8> current_read_byte = Axis<8>();
+    uint8_t cnt = 0;
 
   switch(fsmMpeState) {
     case IDLE: 
@@ -558,26 +559,27 @@ void mpe_main(
       break;
     case SEND_DATA_RD:
       //enqueue 
-      //cnt = 0;
+      cnt = 0;
       //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
       //if( !siMPI_data.empty() && !sFifoDataTX.full() )
-      //{
-        current_read_byte = siMPI_data.read();
+      while( cnt<=8 && !tlast_occured_TX)
+      {
+        current_read_byte = siMPI_data.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
         sFifoDataTX.write(current_read_byte);
-        //cnt++;
+        cnt++;
         if(current_read_byte.tlast == 1)
         {
           tlast_occured_TX = true;
           printf("tlast Occured.\n");
           printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) current_read_byte.tdata, (int) current_read_byte.tkeep, (int) current_read_byte.tlast);
-          fsmMpeState = SEND_DATA_WRD;
+          //fsmMpeState = SEND_DATA_WRD;
         }
         enqueueCnt++;
-      //}
+      }
       //enqueueCnt += cnt;
       //printf("cnt: %d\n", cnt);
 
-      //fsmMpeState = SEND_DATA_WRD;
+      fsmMpeState = SEND_DATA_WRD;
       break;
     case SEND_DATA_WRD:
       //dequeue
@@ -594,17 +596,17 @@ void mpe_main(
         if(word.tlast == 1)
         {
           printf("SEND_DATA finished writing.\n");
-          fsmMpeState = WAIT4ACK;
+          //fsmMpeState = WAIT4ACK;
           word_tlast_occured = true;
         }
       }
       
-      //if(word_tlast_occured)
-      //{
-      //  fsmMpeState = WAIT4ACK;
-      //} else {
-      //  fsmMpeState = SEND_DATA_RD;
-      //}
+      if(word_tlast_occured)
+      {
+        fsmMpeState = WAIT4ACK;
+      } else {
+        fsmMpeState = SEND_DATA_RD;
+      }
       break;
     case WAIT4ACK: 
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
