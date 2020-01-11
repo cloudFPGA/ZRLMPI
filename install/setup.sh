@@ -62,8 +62,14 @@ cp -R $cFpRootDir/$1/templates/ROLE/* $usedRoleDir
 
 #link HLS cores 
 mkdir -p $usedRoleDir/hls/
-ln -s $cFpRootDir/$1/LIB/HW/hls/mpe/ $usedRoleDir/hls/mpe 
-ln -s $cFpRootDir/$1/LIB/HW/hls/mpi_wrapperv1/ $usedRoleDir/hls/mpi_wrapperv1 
+# RELATIVE links!
+rel_LIBhls=$(realpath --relative-to=$usedRoleDir/hls/ $cFpRootDir/$1/LIB/HW/hls/)
+old_wd=$(pwd)
+#ln -s $cFpRootDir/$1/LIB/HW/hls/mpe/ $usedRoleDir/hls/mpe 
+cd $usedRoleDir/hls; ln -s $rel_LIBhls/mpe  ./mpe 
+#ln -s $cFpRootDir/$1/LIB/HW/hls/mpi_wrapperv1/ $usedRoleDir/hls/mpi_wrapperv1 
+cd $usedRoleDir/hls; ln -s $rel_LIBhls/mpi_wrapperv1  ./mpi_wrapperv1
+cd $old_wd
 
 #copy example application
 cp -R $cFpRootDir/cFDK/APP/hls/triangle_app/ $usedRoleDir/hls/
