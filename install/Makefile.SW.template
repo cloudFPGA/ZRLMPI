@@ -13,7 +13,8 @@
 #  * 
 
 ### --- 
-SOURCES = app_sw.cpp app_sw.hpp
+SOURCES = app_sw.cpp
+HEADS = app_sw.hpp
 ### ------------------------------------------
 CC       = gcc
 CPPFLAGS = -D_XOPEN_SOURCE=700
@@ -29,7 +30,7 @@ PROG     = zrlmpi_cpu_app
 BUILD_TYPE = debug # oder production
 SOURCES += $(ZRLMPI_PATH)/MPI.cpp $(ZRLMPI_PATH)/zrlmpi_common.cpp 
 OBJS    = $(SOURCES:%.cpp=%.o)
-HAEADS  = $(SOURCES:%.cpp=%.hpp)
+HAEADS  += $(SOURCES:%.cpp=%.hpp)
 
 CFLAGS +=-DDEBUG -DZRLMPI_SW_ONLY
 MPI_FLAVOR=.openmpi
@@ -55,16 +56,15 @@ verify_run: verify_app  ## Runs the verify MPI.$(MPI_FLAVOR) application
 clean:  ## cleans all builds 
 	rm -rf $(PROG) *.o 
 
-$(PROG): $(OBJS) 
+$(PROG): $(OBJS) $(HEADS)
 	$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
 ifeq ($(BUILD_TYPE), production)
 	strip $@
 endif 
 
-%.o: %.cpp 
+%.o: %.cpp $(foreach a,%.hpp,$(if $(findstring irrelevant,$a),,$a))
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(LIBS) $< -o $@
 
-$(PROG): $(HEADS) 
 
 print-%: ## A little make receipt to print a variable (usage example --> 'make print-SHELL_DIR')
 	@echo $* = $($*)
