@@ -71,10 +71,11 @@ using namespace hls;
 #define WAIT4REQ 9
 #define SEND_CLEAR 10
 #define RECV_DATA_START 11
-#define RECV_DATA_READ 12
-#define RECV_DATA_DONE 13
-#define RECV_DATA_ERROR 14
-#define SEND_ACK 15
+#define RECV_DATA_RD 12
+#define RECV_DATA_WRD 13
+#define RECV_DATA_DONE 14
+#define RECV_DATA_ERROR 15
+#define SEND_ACK 16
 #define mpeState uint8_t
 
 #define MPI_INT 0

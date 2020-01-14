@@ -12,8 +12,8 @@
 
 using namespace hls;
 
-//#define WAIT_CYCLES 10
-#define WAIT_CYCLES 1
+#define WAIT_CYCLES 10
+
 //Display0
 #define RECV_CNT_SHIFT 8
 #define SEND_CNT_SHIFT 4
