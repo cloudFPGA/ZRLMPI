@@ -84,9 +84,13 @@ app_hw.*\n\n" >> $cFpRootDir/.gitignore
 # e) add to git...if existing
 [ -d {}/.git/ ] && (git add $usedRoleDir)
 
-#TODO:
-# 4. create bash-script for ZRLMPI.CC and ZRLMPI.RUN in cFp?
-# 5. create APP folder
+# 4. install virual env
+cd $cFpRootDir/$1/
+pv=$(which python3)
+virtualenv py_zrlmpi -p $pv
+source py_zrlmpi/bin/activate && pip install -r requirements.txt
+
+# done?
 
 /bin/echo -e "\n\nThe ZRLMPI tools assume that the MPI application code is in \n  $cFpRootDir/APP/  \nPlease move it there."
 
