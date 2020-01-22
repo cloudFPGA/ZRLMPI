@@ -44,5 +44,6 @@ dcps/
 zrlmpi_cpu_app
 app_sw.*
 app_hw.*
-
+user.json
+py_zrlmpi/
 
