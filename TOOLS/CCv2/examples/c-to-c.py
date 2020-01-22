@@ -15,15 +15,26 @@ import sys
 #
 sys.path.extend(['.', '..'])
 
-from pycparser import parse_file, c_parser, c_generator
+from pycparser import parse_file, c_parser, c_generator, c_ast
 
 
 def translate_to_c(filename):
     """ Simply use the c_generator module to emit a parsed AST.
     """
     ast = parse_file(filename, use_cpp=True)
+    for e in ast.ext[-1].body.block_items:
+        if type(e) == c_ast.Decl:
+            print(e.name)
+        elif type(e) == c_ast.FuncCall:
+            print(e.name.name)
     generator = c_generator.CGenerator()
-    print(generator.visit(ast))
+    ast_main_function = ast.ext[-1]
+    parsed_ast = str(generator.visit(ast))
+    split_ast = parsed_ast.split("int main(int argc, char **argv);")
+
+    print(split_ast[-1])
+
+
 
 
 def _zz_test_translate():

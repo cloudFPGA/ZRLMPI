@@ -38,6 +38,7 @@
 #define DATA_CHANNEL_TAG 1 
 #define CMD_CHANNEL_TAG 2
 
+using namespace hls;
 
 int app_main(
     // ----- MPI_Interface -----

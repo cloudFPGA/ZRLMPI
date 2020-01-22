@@ -36,7 +36,9 @@ def get_cursor_id(cursor, cursor_list = []):
     return len(cursor_list) - 1
 
 def get_info(node, depth=0):
-    if opts.maxDepth is not None and depth >= opts.maxDepth:
+    if "app_hw" not in str(node.extent.start.file):
+        children = None
+    elif opts.maxDepth is not None and depth >= opts.maxDepth:
         children = None
     else:
         children = [get_info(c, depth+1)
@@ -74,12 +76,35 @@ def main():
         parser.error('invalid number arguments')
 
     index = Index.create()
-    tu = index.parse(None, args)
+    args2 = []
+    args2.append('I/home/ngl/gitrepos/cloudFPGA/ZRLMPI/LIB/HW/hls/mpi_wrapperv1/src')
+    args2.append('I/opt/Xilinx/Vivado/2017.4/include/')
+    # tu = index.parse(None, args, options=0)
+    tu = index.parse(args[0], args2, options=0)
     if not tu:
         parser.error("unable to load input")
 
     # pprint(('diags', map(get_diag_info, tu.diagnostics)))
+
     pprint(('nodes', get_info(tu.cursor)))
+
+    # c_code = ""
+    # newline_trigger = []
+    # newline_trigger.append(';')
+    # newline_trigger.append('#')
+    # for t in tu.get_tokens(extent=tu.cursor.extent):
+    #     #print(t.kind)
+    #     if "COMMENT" in str(t.kind):
+    #         continue
+    #     c_code += t.spelling
+    #     #if str(t.kind) == 'TokenKind.IDENTIFIER':
+    #     #    c_code += ' '
+    #     #for tr in newline_trigger:
+    #     #    if tr in t.spelling:
+    #     #        c_code += '\n'
+    #     #        break
+
+    # print(c_code)
 
 if __name__ == '__main__':
     main()

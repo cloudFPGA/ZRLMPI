@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #include "zrlmpi_int.hpp"
-#include "zrlmpi_common.hpp"
+//#include "zrlmpi_common.hpp"
 
 #define MPI_Status uint8_t
 #define MPI_Comm   uint8_t
