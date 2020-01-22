@@ -305,7 +305,7 @@ int main(){
   
   siTcp_meta.write(NetworkMetaStream(meta_2));
 
-  for(int i = 0; i < 5; i++)
+  for(int i = 0; i < 15; i++)
   {
     if(!storeData.empty())
     {

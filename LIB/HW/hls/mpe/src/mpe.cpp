@@ -958,12 +958,12 @@ void mpe_main(
         soMPIif.write(info);*/
 
         //fsmReceiveState = READ_DATA;
-          fsmMpeState = RECV_DATA_READ;
+          fsmMpeState = RECV_DATA_RD;
         //read_timeout_cnt = 0;
       }
 
       break;
-    case RECV_DATA_READ:
+    case RECV_DATA_RD:
       if( !siTcp_data.empty() && !sFifoDataRX.full() )
       {
         NetworkWord word = siTcp_data.read();
@@ -971,19 +971,28 @@ void mpe_main(
         convertAxisToMpiWidth(word, sFifoDataRX);
       }
 
+      fsmMpeState = RECV_DATA_WRD;
+      break;
+    case RECV_DATA_WRD:
+
       //if( !sFifoDataRX.empty() && !soMPI_data.full() )
-      if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
+      word_tlast_occured = false;
+      cnt = 0;
+      while( cnt < 8 && !word_tlast_occured)
       {
-        Axis<8> tmp = sFifoDataRX.read();
+      //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
+      //{
+        Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
         soMPI_data.write(tmp);
+        cnt++;
         printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
 
         if(tmp.tlast == 1)
         {
-          //fsmReceiveState = READ_IDLE;
-          //fsmReceiveState = READ_STANDBY;
-          fsmMpeState = RECV_DATA_DONE;
+          //fsmMpeState = RECV_DATA_DONE;
+          word_tlast_occured = true;
         }
+      //}
       }
       //read_timeout_cnt++;
       //if(read_timeout_cnt >= MPE_READ_TIMEOUT)
@@ -995,6 +1004,12 @@ void mpe_main(
 
       //}
 
+      if(word_tlast_occured)
+      {
+        fsmMpeState = RECV_DATA_DONE;
+      } else {
+        fsmMpeState = RECV_DATA_RD;
+      }
       break;
     case RECV_DATA_DONE:
       //if(fsmReceiveState == READ_STANDBY && !soTcp_meta.full() && !sFifoDataTX.full() )
