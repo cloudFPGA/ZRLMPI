@@ -8,7 +8,7 @@ using namespace hls;
 // TODO: removed for now, FIXME: add to Management Companion Core in Middleware
 //ap_uint<32> localMRT[MAX_MRT_SIZE];
 //ap_uint<32> config[NUMBER_CONFIG_WORDS];
-//ap_uint<32> status[NUMBER_STATUS_WORDS];
+ap_uint<32> status[NUMBER_STATUS_WORDS];
 
 //sendState fsmSendState = WRITE_STANDBY;
 static stream<Axis<8> > sFifoDataTX("sFifoDataTX");
@@ -25,7 +25,7 @@ MPI_Interface currentInfo = MPI_Interface();
 mpiType currentDataType = MPI_INT;
 int handshakeLinesCnt = 0;
 
-//bool tablesInitialized = false;
+bool tablesInitialized = false;
 
 //ap_uint<32> read_timeout_cnt = 0;
 
@@ -248,7 +248,6 @@ void mpe_main(
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 
 #pragma HLS INTERFACE axis register both port=siMPIif
-  //TODO: add DATA_PACK to Interface
 //#pragma HLS INTERFACE axis register both port=soMPIif
 #pragma HLS INTERFACE axis register both port=siMPI_data
 #pragma HLS INTERFACE axis register both port=soMPI_data
@@ -262,7 +261,7 @@ void mpe_main(
 #pragma HLS DATAFLOW 
 #pragma HLS STREAM variable=sFifoDataTX depth=2048
 #pragma HLS STREAM variable=sFifoDataRX depth=2048
-#pragma HLS INTERFACE ap_ctrl_none port=return
+//#pragma HLS INTERFACE ap_ctrl_none port=return
 
 //===========================================================
 // Core-wide variables
@@ -276,7 +275,7 @@ void mpe_main(
 //===========================================================
 // Reset global variables 
 
-//#pragma HLS reset variable=tablesInitialized
+#pragma HLS reset variable=tablesInitialized
 //#pragma HLS reset variable=fsmSendState
 //#pragma HLS reset variable=fsmReceiveState
 #pragma HLS reset variable=fsmMpeState
@@ -287,29 +286,55 @@ void mpe_main(
   *po_rx_ports = 0x1; //currently work only with default ports...
 
 
-//  if(!tablesInitialized)
-//  {
-//    //for(int i = 0; i < MAX_MRT_SIZE; i++)
-//    //{
-//    //  localMRT[i] = 0;
-//    //}
-//    //for(int i = 0; i < NUMBER_CONFIG_WORDS; i++)
-//    //{
-//    //  config[i] = 0;
-//    //}
-//  //  for(int i = 0; i < NUMBER_STATUS_WORDS; i++)
-//  //  {
-//  //   //status[i] = 0;
-//  //  }
-//    
-//    //variables with constructors 
-//    currentInfo = MPI_Interface(); //TODO: better to do this way?
-//
-//    tablesInitialized = true;
-//  }
+  if(!tablesInitialized)
+  {
+    //for(int i = 0; i < MAX_MRT_SIZE; i++)
+    //{
+    //  localMRT[i] = 0;
+    //}
+    //for(int i = 0; i < NUMBER_CONFIG_WORDS; i++)
+    //{
+    //  config[i] = 0;
+    //}
+    for(int i = 0; i < NUMBER_STATUS_WORDS; i++)
+    {
+      status[i] = 0;
+    }
+    
+    //variables with constructors 
+    currentInfo = MPI_Interface(); //TODO: better to do this way?
+
+    tablesInitialized = true;
+  }
 
 //
-////===============
+////===========================================================
+//// MRT
+// TODO: removed for now, FIXME: add to Management Companion Core in Middleware
+//
+//  //copy MRT axi Interface
+//  //MRT data are after possible config DATA
+//  for(int i = 0; i < MAX_MRT_SIZE; i++)
+//  {
+//        //localMRT[i] = MRT[i];
+//    localMRT[i] = ctrlLink[i + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS];
+//  }
+//  for(int i = 0; i < NUMBER_CONFIG_WORDS; i++)
+//  {
+//    config[i] = ctrlLink[i];
+//  }
+//
+//  //DEBUG
+//  //ctrlLink[3 + NUMBER_CONFIG_WORDS + NUMBER_STATUS_WORDS] = 42;
+//
+//  //copy routing nodes 0 - 2 FOR DEBUG
+//  status[0] = localMRT[0];
+//  status[1] = localMRT[1];
+//  status[2] = localMRT[2];
+//
+//  status[MPE_STATUS_SEND_STATE] = (ap_uint<32>) fsmSendState;
+//  status[MPE_STATUS_RECEIVE_STATE] = (ap_uint<32>) fsmReceiveState;
+//  status[MPE_STATUS_GLOBAL_STATE] = (ap_uint<32>) fsmMpeState;
 
     uint32_t debug_out = 0;
     //debug_out = fsmReceiveState;
@@ -319,25 +344,25 @@ void mpe_main(
 
     *MMIO_out = (ap_uint<32>) debug_out;
 
+//  //TODO: some consistency check for tables? (e.g. every IP address only once...)
+// 
+//
 ////===========================================================
-////  update//status TODO
+////  update status
 //  for(int i = 0; i < NUMBER_STATUS_WORDS; i++)
 //  {
-//    ctrlLink[NUMBER_CONFIG_WORDS + i] =//status[i];
+//    ctrlLink[NUMBER_CONFIG_WORDS + i] = status[i];
 //  }
 //
 
 //===========================================================
 // MPE GLOBAL STATE 
 
-    bool word_tlast_occured = false;
-    Axis<8> current_read_byte = Axis<8>();
-    uint8_t cnt = 0;
 
   switch(fsmMpeState) {
     case IDLE: 
-      //if ( !siMPIif.empty() ) //TODO: try to fix combinatorial loop
-      //{
+      if ( !siMPIif.empty() ) //TODO: try to fix combinatorial loop
+      {
         currentInfo = siMPIif.read();
         switch(currentInfo.mpi_call)
         {
@@ -363,7 +388,7 @@ void mpe_main(
             //TODO not yet implemented 
             break;
         }
-      //}
+      }
       break;
     case START_SEND: 
       if ( !soTcp_meta.full() && !sFifoDataTX.full() )
@@ -441,8 +466,8 @@ void mpe_main(
             //TODO
             fsmMpeState = IDLE;
             fsmReceiveState = READ_ERROR; //to clear streams?
-           //status[MPE_STATUS_READ_ERROR_CNT]++;
-           //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
+            status[MPE_STATUS_READ_ERROR_CNT]++;
+            status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
             break;
           }*/
 
@@ -462,48 +487,74 @@ void mpe_main(
           //TODO
           fsmMpeState = RECV_DATA_ERROR;
           //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
           //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
           //status[MPE_STATUS_LAST_READ_ERROR] = ret;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
+          status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
+          status[MPE_STATUS_READOUT] = 0;
+          status[MPE_STATUS_READOUT + 1] = 0;
+          status[MPE_STATUS_READOUT + 2] = 0;
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
+          }
           break;
         }
 
         metaSrc = siTcp_meta.read().tdata;
 
+        //DONE by NRC
+        //if(srcIP.ipAddress != ipSrc)
+        //{
+        //  printf("header does not match ipAddress. mrt for rank %d: %#010x; IPMeta: %#010x;\n", (int) header.src_rank, (int) ipSrc, (int) srcIP.ipAddress);
+        //  //TODO
+        //  fsmMpeState = IDLE;
+        //  fsmReceiveState = READ_ERROR; //to clear streams?
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+        //  break;
+        //}
+
+        //DONE by NRC
+        //if(header.dst_rank != *own_rank)
+        //{
+        //  printf("I'm not the right recepient!\n");
+        //  //TODO
+        //  fsmMpeState = IDLE;
+        //  fsmReceiveState = READ_ERROR; //to clear streams?
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+        //  break;
+        //}
+        
         //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
         
         if(header.src_rank != metaSrc.src_rank)
         {
           printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
           //TODO
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          fsmMpeState = RECV_DATA_ERROR;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
         if(header.type != CLEAR_TO_SEND)
         {
           printf("Expected CLEAR_TO_SEND, got %d!\n", (int) header.type);
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DATA_TYPE;
+          fsmMpeState = RECV_DATA_ERROR;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DATA_TYPE;
           break;
         }
 
@@ -511,9 +562,10 @@ void mpe_main(
         if((currentDataType == MPI_INT && header.call != MPI_RECV_INT) || (currentDataType == MPI_FLOAT && header.call != MPI_RECV_FLOAT))
         {
           printf("receiver expects different data type: %d.\n", (int) header.call);
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+          fsmMpeState = RECV_DATA_ERROR;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
           
@@ -521,10 +573,15 @@ void mpe_main(
         //got CLEAR_TO_SEND 
         printf("Got CLEAR to SEND\n");
         fsmMpeState = SEND_DATA_START; 
+        //activate subFSM 
+        //fsmSendState = WRITE_IDLE;
       }
 
       break;
     case SEND_DATA_START:
+      //if ( !siMPIif.empty() && !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
+      //if ( !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
+      //if ( !siMPI_data.empty() && !sFifoDataTX.full() && !soTcp_meta.full() )
       if ( !sFifoDataTX.full() && !soTcp_meta.full() )
       {
         header = MPI_Header(); 
@@ -552,39 +609,31 @@ void mpe_main(
 
         tlast_occured_TX = false;
         enqueueCnt = MPIF_HEADER_LENGTH;
-        //fsmMpeState = SEND_DATA_WRITE;
-        //fsmMpeState = SEND_DATA_WRD;
-        fsmMpeState = SEND_DATA_RD;
+        fsmMpeState = SEND_DATA_WRITE;
       }
       break;
-    case SEND_DATA_RD:
+    case SEND_DATA_WRITE:
       //enqueue 
-      cnt = 0;
+      //cnt = 0;
       //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
-      //if( !siMPI_data.empty() && !sFifoDataTX.full() )
-      while( cnt<=8 && !tlast_occured_TX)
+      if( !siMPI_data.empty() && !sFifoDataTX.full() )
       {
-        current_read_byte = siMPI_data.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
-        sFifoDataTX.write(current_read_byte);
-        cnt++;
-        if(current_read_byte.tlast == 1)
+        Axis<8> tmp = siMPI_data.read();
+        sFifoDataTX.write(tmp);
+        //cnt++;
+        if(tmp.tlast == 1)
         {
           tlast_occured_TX = true;
           printf("tlast Occured.\n");
-          printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) current_read_byte.tdata, (int) current_read_byte.tkeep, (int) current_read_byte.tlast);
-          //fsmMpeState = SEND_DATA_WRD;
+          printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) tmp.tdata, (int) tmp.tkeep, (int) tmp.tlast);
         }
         enqueueCnt++;
       }
       //enqueueCnt += cnt;
       //printf("cnt: %d\n", cnt);
 
-      fsmMpeState = SEND_DATA_WRD;
-      break;
-    case SEND_DATA_WRD:
       //dequeue
       printf("enqueueCnt: %d\n", enqueueCnt);
-      word_tlast_occured = false;
       if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlast_occured_TX)) 
       {
         NetworkWord word = NetworkWord();
@@ -596,17 +645,10 @@ void mpe_main(
         if(word.tlast == 1)
         {
           printf("SEND_DATA finished writing.\n");
-          //fsmMpeState = WAIT4ACK;
-          word_tlast_occured = true;
+          fsmMpeState = WAIT4ACK;
         }
       }
-      
-      if(word_tlast_occured)
-      {
-        fsmMpeState = WAIT4ACK;
-      } else {
-        fsmMpeState = SEND_DATA_RD;
-      }
+
       break;
     case WAIT4ACK: 
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
@@ -622,8 +664,9 @@ void mpe_main(
              printf("unexpected uncomplete read.\n");
           //TODO
           fsmMpeState = IDLE;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
+          fsmReceiveState = READ_ERROR; //to clear streams?
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
           break;
           }*/
 
@@ -641,29 +684,53 @@ void mpe_main(
         {
           printf("invalid header.\n");
           //TODO
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
+          fsmMpeState = RECV_DATA_ERROR;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
+          status[MPE_STATUS_READ_ERROR_CNT]++;
           //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
+          status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
+          status[MPE_STATUS_READOUT] = 0;
+          status[MPE_STATUS_READOUT + 1] = 0;
+          status[MPE_STATUS_READOUT + 2] = 0;
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
+          }
           break;
         }
 
         metaSrc = siTcp_meta.read().tdata;
+
+        //DONE by NRC
+        //if(srcIP.ipAddress != ipSrc)
+        //{
+        //  printf("header does not match ipAddress. mrt for rank %d: %#010x; IPMeta: %#010x;\n", (int) header.src_rank, (int) ipSrc, (int) srcIP.ipAddress);
+        //  //TODO
+        //  fsmMpeState = IDLE;
+        //  fsmReceiveState = READ_ERROR; //to clear streams?
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+        //  break;
+        //}
+
+        //if(header.dst_rank != config[MPE_CONFIG_OWN_RANK])
+        //{
+        //  printf("I'm not the right recepient!\n");
+        //  //TODO
+        //  fsmMpeState = IDLE;
+        //  fsmReceiveState = READ_ERROR; //to clear streams?
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+        //  break;
+        //}
 
         //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
 
@@ -672,8 +739,9 @@ void mpe_main(
           printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
           //TODO
           fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
@@ -682,10 +750,10 @@ void mpe_main(
         {
           printf("Expected CLEAR_TO_SEND, got %d!\n",(int) header.type);
           //TODO ERROR? 
-         //status[MPE_STATUS_ERROR_HANDSHAKE_CNT]++;
+          status[MPE_STATUS_ERROR_HANDSHAKE_CNT]++;
         } else {
           printf("ACK received.\n");
-         //status[MPE_STATUS_ACK_HANKSHAKE_CNT]++;
+          status[MPE_STATUS_ACK_HANKSHAKE_CNT]++;
         }
         fsmMpeState = IDLE;
       }
@@ -708,8 +776,8 @@ void mpe_main(
           //TODO
           fsmMpeState = IDLE;
           fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
           break;
           }*/
 
@@ -736,27 +804,51 @@ void mpe_main(
           printf("invalid header.\n");
           //TODO
           fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
+          status[MPE_STATUS_READ_ERROR_CNT]++;
           //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
           //status[MPE_STATUS_LAST_READ_ERROR] = ret;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
+          status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
+          status[MPE_STATUS_READOUT] = 0;
+          status[MPE_STATUS_READOUT + 1] = 0;
+          status[MPE_STATUS_READOUT + 2] = 0;
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
+          }
           break;
         }
+
+        //DONE by NRC
+        //if(srcIP.ipAddress != ipSrc)
+        //{
+        //  printf("header does not match ipAddress. mrt for rank %d: %#010x; IPMeta: %#010x;\n", (int) header.src_rank, (int) ipSrc, (int) srcIP.ipAddress);
+        //  //TODO
+        //  fsmMpeState = IDLE;
+        //  fsmReceiveState = READ_ERROR; //to clear streams?
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+        //  break;
+        //}
+
+        //if(header.dst_rank != config[MPE_CONFIG_OWN_RANK])
+        //{
+        //  printf("I'm not the right recepient!\n");
+        //  //TODO
+        //  fsmMpeState = IDLE;
+        //  fsmReceiveState = READ_ERROR; //to clear streams?
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+        //  break;
+        //}
 
         //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
 
@@ -766,8 +858,8 @@ void mpe_main(
           //TODO
           fsmMpeState = RECV_DATA_ERROR;
           //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
@@ -776,8 +868,8 @@ void mpe_main(
           printf("Expected SEND_REQUEST, got %d!\n", header.type);
           fsmMpeState = RECV_DATA_ERROR;
           //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
         //check data type 
@@ -786,8 +878,8 @@ void mpe_main(
           printf("receiver expects different data type: %d.\n", header.call);
           fsmMpeState = RECV_DATA_ERROR;
           //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
           
@@ -859,8 +951,7 @@ void mpe_main(
       break;
     case RECV_DATA_START:
       //if( !siTcp.empty() && !siIP.empty() && !sFifoDataRX.full() && !soMPIif.full() )
-      //if( !siTcp_data.empty() && !siTcp_meta.empty() && !sFifoDataRX.full() )
-      if( !siTcp_data.empty() && !siTcp_meta.empty() )
+      if( !siTcp_data.empty() && !siTcp_meta.empty() && !sFifoDataRX.full() )
       {
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
@@ -871,8 +962,8 @@ void mpe_main(
           {
             printf("unexpected uncomplete read.\n");
             fsmReceiveState = READ_ERROR;
-           //status[MPE_STATUS_READ_ERROR_CNT]++;
-           //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
+            status[MPE_STATUS_READ_ERROR_CNT]++;
+            status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
             break;
           }*/
 
@@ -891,30 +982,49 @@ void mpe_main(
           printf("invalid header.\n");
           //fsmReceiveState = READ_ERROR;
           fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
           //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
           //status[MPE_STATUS_LAST_READ_ERROR] = ret;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
+          status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
+          status[MPE_STATUS_READOUT] = 0;
+          status[MPE_STATUS_READOUT + 1] = 0;
+          status[MPE_STATUS_READOUT + 2] = 0;
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
+          }
+          for(int i = 0; i< 4; i++)
+          {
+            status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
+          }
           break;
         }
 
         metaSrc = siTcp_meta.read().tdata;
 
+        //DONE by NRC
+        //if(srcIP.ipAddress != ipSrc)
+        //{
+        //  printf("header does not match ipAddress. mrt for rank %d: %#010x; IPMeta: %#010x;\n", (int) header.src_rank, (int) ipSrc, (int) srcIP.ipAddress);
+        //  fsmReceiveState = READ_ERROR;
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+        //  break;
+        //}
+
+        //if(header.dst_rank != config[MPE_CONFIG_OWN_RANK])
+        //{
+        //  printf("I'm not the right recepient!\n");
+        //  fsmReceiveState = READ_ERROR;
+        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+        //  break;
+        //}
+        
         //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
         
         if(header.src_rank != metaSrc.src_rank)
@@ -922,18 +1032,20 @@ void mpe_main(
           printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
           //TODO
           fsmMpeState = IDLE;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
           fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
           break;
         }
 
         if(header.type != DATA)
         {
           printf("Expected DATA, got %d!\n", header.type);
+          //fsmReceiveState = READ_ERROR; //to clear streams?
           fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
         //check data type 
@@ -941,9 +1053,10 @@ void mpe_main(
         {
           printf("receiver expects different data type: %d.\n", header.call);
           fsmMpeState = IDLE;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
           fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+          status[MPE_STATUS_READ_ERROR_CNT]++;
+          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           break;
         }
           
@@ -958,12 +1071,12 @@ void mpe_main(
         soMPIif.write(info);*/
 
         //fsmReceiveState = READ_DATA;
-          fsmMpeState = RECV_DATA_RD;
+          fsmMpeState = RECV_DATA_READ;
         //read_timeout_cnt = 0;
       }
 
       break;
-    case RECV_DATA_RD:
+    case RECV_DATA_READ:
       if( !siTcp_data.empty() && !sFifoDataRX.full() )
       {
         NetworkWord word = siTcp_data.read();
@@ -971,45 +1084,30 @@ void mpe_main(
         convertAxisToMpiWidth(word, sFifoDataRX);
       }
 
-      fsmMpeState = RECV_DATA_WRD;
-      break;
-    case RECV_DATA_WRD:
-
       //if( !sFifoDataRX.empty() && !soMPI_data.full() )
-      word_tlast_occured = false;
-      cnt = 0;
-      while( cnt < 8 && !word_tlast_occured)
+      if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
       {
-      //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
-      //{
-        Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
+        Axis<8> tmp = sFifoDataRX.read();
         soMPI_data.write(tmp);
-        cnt++;
         printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
 
         if(tmp.tlast == 1)
         {
-          //fsmMpeState = RECV_DATA_DONE;
-          word_tlast_occured = true;
+          //fsmReceiveState = READ_IDLE;
+          //fsmReceiveState = READ_STANDBY;
+          fsmMpeState = RECV_DATA_DONE;
         }
-      //}
       }
       //read_timeout_cnt++;
       //if(read_timeout_cnt >= MPE_READ_TIMEOUT)
       //{
       //    //fsmReceiveState = READ_ERROR; //to clear streams?
       //    fsmReceiveState = READ_STANDBY;
-      //   //status[MPE_STATUS_READ_ERROR_CNT]++;
-      //   //status[MPE_STATUS_LAST_READ_ERROR] = RX_TIMEOUT;
+      //    status[MPE_STATUS_READ_ERROR_CNT]++;
+      //    status[MPE_STATUS_LAST_READ_ERROR] = RX_TIMEOUT;
 
       //}
 
-      if(word_tlast_occured)
-      {
-        fsmMpeState = RECV_DATA_DONE;
-      } else {
-        fsmMpeState = RECV_DATA_RD;
-      }
       break;
     case RECV_DATA_DONE:
       //if(fsmReceiveState == READ_STANDBY && !soTcp_meta.full() && !sFifoDataTX.full() )
@@ -1092,6 +1190,340 @@ void mpe_main(
   }
 
   printf("fsmMpeState after FSM: %d\n", fsmMpeState);
+
+  //===========================================================
+  // MPI TX PATH
+  //{
+//#pragma HLS DATAFLOW 
+//#pragma HLS STREAM variable=sFifoDataTX depth=2048
+//#pragma HLS STREAM variable=sFifoIPdstTX depth=1
+
+ // //int cnt = 0;
+
+ // switch(fsmSendState) {
+ //   default:
+ //   case WRITE_STANDBY:
+ //     //global fsm is doing the job. 
+ //     break;
+ //   case WRITE_IDLE: 
+ //     //if ( !siMPIif.empty() && !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
+ //     //if ( !siMPI_data.empty() && !sFifoDataTX.full() && !sFifoIPdstTX.full() )
+ //     //if ( !siMPI_data.empty() && !sFifoDataTX.full() && !soTcp_meta.full() )
+ //     if ( !sFifoDataTX.full() && !soTcp_meta.full() )
+ //     {
+ //       header = MPI_Header(); 
+ //       //MPI_Interface info = siMPIif.read();
+ //       MPI_Interface info = currentInfo;
+ //       header.dst_rank = info.rank;
+ //       header.src_rank = *own_rank;
+ //       header.size = info.count;
+ //       header.call = static_cast<mpiCall>((int) info.mpi_call);
+ //       header.type = DATA;
+
+ //       headerToBytes(header, bytes);
+
+ //       //write header
+ //       for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+ //       {
+ //         Axis<8> tmp = Axis<8>(bytes[i]);
+ //         tmp.tlast = 0;
+ //         sFifoDataTX.write(tmp);
+ //         printf("Writing Header byte: %#02x\n", (int) bytes[i]);
+ //       }
+
+ //       metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
+ //       soTcp_meta.write(NetworkMetaStream(metaDst));
+
+ //       fsmSendState = WRITE_START;
+ //       tlast_occured_TX = false;
+ //       enqueueCnt = MPIF_HEADER_LENGTH;
+
+ //     }
+ //     break; 
+
+ //   case WRITE_START:
+ //     //if( !soTcp.full() && !soIP.full() )
+ //     if( !soTcp_data.full() && !sFifoDataTX.empty() )
+ //     {
+ //       NetworkWord word = NetworkWord();
+ //       convertAxisToNtsWidth(sFifoDataTX, word);
+ //       printf("tkeep %#03x, tdata %#016llx\n",(int) word.tkeep, (uint64_t) word.tdata);
+
+ //       //soIP.write(sFifoIPdstTX.read());
+ //       soTcp_data.write(word);
+ //       enqueueCnt -= 8;
+ //       fsmSendState = WRITE_DATA;
+ //     }
+
+ //     //cnt = 0;
+ //     //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
+ //     if( !siMPI_data.empty() && !sFifoDataTX.full() )
+ //     {
+ //       Axis<8> tmp = siMPI_data.read();
+ //       sFifoDataTX.write(tmp);
+ //       //cnt++;
+ //       if(tmp.tlast == 1)
+ //       {
+ //         tlast_occured_TX = true;
+ //         printf("tlast Occured.\n");
+ //         printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) tmp.tdata, (int) tmp.tkeep, (int) tmp.tlast);
+ //       }
+ //       enqueueCnt++;
+ //     }
+ //     //enqueueCnt += cnt;
+ //     //printf("cnt: %d\n", cnt);
+ //     printf("enqueueCnt: %d\n", enqueueCnt);
+ //     break; 
+
+ //   case WRITE_DATA: 
+ //     //enqueue 
+ //     //cnt = 0;
+ //     //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
+ //     if( !siMPI_data.empty() && !sFifoDataTX.full() )
+ //     {
+ //       Axis<8> tmp = siMPI_data.read();
+ //       sFifoDataTX.write(tmp);
+ //       //cnt++;
+ //       if(tmp.tlast == 1)
+ //       {
+ //         tlast_occured_TX = true;
+ //         printf("tlast Occured.\n");
+ //         printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) tmp.tdata, (int) tmp.tkeep, (int) tmp.tlast);
+ //       }
+ //       enqueueCnt++;
+ //     }
+ //     //enqueueCnt += cnt;
+ //     //printf("cnt: %d\n", cnt);
+
+ //     //dequeue
+ //     printf("enqueueCnt: %d\n", enqueueCnt);
+ //     if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlast_occured_TX)) 
+ //     {
+ //       NetworkWord word = NetworkWord();
+ //       convertAxisToNtsWidth(sFifoDataTX, word);
+ //       printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+ //       soTcp_data.write(word);
+ //       enqueueCnt -= 8;
+
+ //       if(word.tlast == 1)
+ //       {
+ //         //fsmSendState = WRITE_IDLE;
+ //         fsmSendState = WRITE_STANDBY;
+ //       }
+ //     }
+ //     break; 
+
+ //   //case WRITE_ERROR:
+ //   //  //empty all input streams 
+ //   //  printf("Write error occured.\n");
+ //   //  //if( !siMPIif.empty()) try to fix combinatorial loops...
+ //   //  //{
+ //   //  //  siMPIif.read(); TODO: there should be no further data on the IF...
+ //   //  //}
+
+ //   //  if( !siMPI_data.empty())
+ //   //  {
+ //   //    siMPI_data.read();
+ //   //  } else { 
+ //   //    //fsmSendState = WRITE_IDLE;
+ //   //    fsmSendState = WRITE_STANDBY;
+ //   //  }
+ //   //  break;
+ // }
+
+ // printf("fsmSendState after FSM: %d\n", fsmSendState);
+  //}
+
+  //===========================================================
+  // MPI RX PATH
+  //{
+  //#pragma HLS DATAFLOW 
+//#pragma HLS STREAM variable=sFifoDataRX depth=2048
+
+//  switch(fsmReceiveState) { 
+//    default:
+//    case READ_STANDBY:
+//      //global fsm is doing the job 
+//      break;
+//    case READ_IDLE: 
+//      //if( !siTcp.empty() && !siIP.empty() && !sFifoDataRX.full() && !soMPIif.full() )
+//      if( !siTcp_data.empty() && !siTcp_meta.empty() && !sFifoDataRX.full() )
+//      {
+//        //read header
+//        for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
+//        {
+//          NetworkWord tmp = siTcp_data.read();
+///*
+//          if(tmp.tkeep != 0xFF || tmp.tlast == 1)
+//          {
+//            printf("unexpected uncomplete read.\n");
+//            fsmReceiveState = READ_ERROR;
+//            status[MPE_STATUS_READ_ERROR_CNT]++;
+//            status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
+//            break;
+//          }*/
+//
+//          for(int j = 0; j<8; j++)
+//          {
+//            bytes[i*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+//            //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+//          }
+//        }
+//
+//        header = MPI_Header();
+//        int ret = bytesToHeader(bytes, header);
+//
+//        if(ret != 0)
+//        {
+//          printf("invalid header.\n");
+//          fsmReceiveState = READ_ERROR;
+//          status[MPE_STATUS_READ_ERROR_CNT]++;
+//          //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
+//          //status[MPE_STATUS_LAST_READ_ERROR] = ret;
+//          status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
+//          status[MPE_STATUS_READOUT] = 0;
+//          status[MPE_STATUS_READOUT + 1] = 0;
+//          status[MPE_STATUS_READOUT + 2] = 0;
+//          for(int i = 0; i< 4; i++)
+//          {
+//            status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
+//          }
+//          for(int i = 0; i< 4; i++)
+//          {
+//            status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
+//          }
+//          for(int i = 0; i< 4; i++)
+//          {
+//            status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
+//          }
+//          break;
+//        }
+//
+//        metaSrc = siTcp_meta.read().tdata;
+//
+//        //DONE by NRC
+//        //if(srcIP.ipAddress != ipSrc)
+//        //{
+//        //  printf("header does not match ipAddress. mrt for rank %d: %#010x; IPMeta: %#010x;\n", (int) header.src_rank, (int) ipSrc, (int) srcIP.ipAddress);
+//        //  fsmReceiveState = READ_ERROR;
+//        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+//        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_IP_MISSMATCH;
+//        //  break;
+//        //}
+//
+//        //if(header.dst_rank != config[MPE_CONFIG_OWN_RANK])
+//        //{
+//        //  printf("I'm not the right recepient!\n");
+//        //  fsmReceiveState = READ_ERROR;
+//        //  status[MPE_STATUS_READ_ERROR_CNT]++;
+//        //  status[MPE_STATUS_LAST_READ_ERROR] = RX_WRONG_DST_RANK;
+//        //  break;
+//        //}
+//        
+//        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
+//        
+//        if(header.src_rank != metaSrc.src_rank)
+//        {
+//          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
+//          //TODO
+//          fsmMpeState = IDLE;
+//          fsmReceiveState = READ_ERROR; //to clear streams?
+//          status[MPE_STATUS_READ_ERROR_CNT]++;
+//          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+//          break;
+//        }
+//
+//        if(header.type != DATA)
+//        {
+//          printf("Expected DATA, got %d!\n", header.type);
+//          fsmReceiveState = READ_ERROR; //to clear streams?
+//          status[MPE_STATUS_READ_ERROR_CNT]++;
+//          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+//          break;
+//        }
+//        //check data type 
+//        if((currentDataType == MPI_INT && header.call != MPI_SEND_INT) || (currentDataType == MPI_FLOAT && header.call != MPI_SEND_FLOAT))
+//        {
+//          printf("receiver expects different data type: %d.\n", header.call);
+//          fsmMpeState = IDLE;
+//          fsmReceiveState = READ_ERROR; //to clear streams?
+//          status[MPE_STATUS_READ_ERROR_CNT]++;
+//          status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+//          break;
+//        }
+//          
+//
+//        //valid header && valid source
+//
+//        /*MPI_Interface info = MPI_Interface();
+//        //info.mpi_call = static_cast<int>(header.call); 
+//        info.mpi_call = currentInfo.mpi_call; //TODO
+//        info.count = header.size; 
+//        info.rank = header.src_rank;
+//        soMPIif.write(info);*/
+//
+//        fsmReceiveState = READ_DATA;
+//        //read_timeout_cnt = 0;
+//      }
+//      break; 
+//
+//      /* case READ_HEADER: 
+//         break; */
+//
+//    case READ_DATA: 
+//
+//      if( !siTcp_data.empty() && !sFifoDataRX.full() )
+//      {
+//        NetworkWord word = siTcp_data.read();
+//        printf("READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+//        convertAxisToMpiWidth(word, sFifoDataRX);
+//      }
+//
+//      //if( !sFifoDataRX.empty() && !soMPI_data.full() )
+//      if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
+//      {
+//        Axis<8> tmp = sFifoDataRX.read();
+//        soMPI_data.write(tmp);
+//        printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
+//
+//        if(tmp.tlast == 1)
+//        {
+//          //fsmReceiveState = READ_IDLE;
+//          fsmReceiveState = READ_STANDBY;
+//        }
+//      }
+//      //read_timeout_cnt++;
+//      //if(read_timeout_cnt >= MPE_READ_TIMEOUT)
+//      //{
+//      //    //fsmReceiveState = READ_ERROR; //to clear streams?
+//      //    fsmReceiveState = READ_STANDBY;
+//      //    status[MPE_STATUS_READ_ERROR_CNT]++;
+//      //    status[MPE_STATUS_LAST_READ_ERROR] = RX_TIMEOUT;
+//
+//      //}
+//      break;
+//
+//    case READ_ERROR: 
+//      //empty strings
+//      printf("Read error occured.\n");
+//      if( !siTcp_meta.empty())
+//      {
+//        siTcp_meta.read();
+//      }
+//
+//      if( !siTcp_data.empty())
+//      {
+//        siTcp_data.read();
+//      } else { 
+//        //fsmReceiveState = READ_IDLE;
+//        fsmReceiveState = READ_STANDBY;
+//      }
+//      break;
+//  }
+//
+//  printf("fsmReceiveState after FSM: %d\n",fsmReceiveState);
+//
+  //}
 
   return;
 }

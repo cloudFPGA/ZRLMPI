@@ -18,6 +18,7 @@ stream<NetworkWord> soTcp_data;
 stream<NetworkMetaStream> soTcp_meta;
 
 ap_uint<32> own_rank = 0;
+ap_uint<32> po_MMIO= 0;
 ap_uint<32> poMPE_rx_ports = 0;
 
 stream<MPI_Interface> MPIif_in;
@@ -42,6 +43,7 @@ void stepDut() {
       siTcp_data, siTcp_meta,
       soTcp_data, soTcp_meta,
       &poMPE_rx_ports, &own_rank,
+      &po_MMIO,
       MPIif_in,
       MPI_data_in, MPI_data_out
       );
@@ -115,6 +117,7 @@ int main(){
   ap_uint<8> bytes[MPIF_HEADER_LENGTH];
   MPI_Header header = MPI_Header(); 
 
+  stepDut();
   //SEND_REQUEST expected 
   NetworkMeta out_meta = soTcp_meta.read().tdata;
   printf("Dst node id: %d\n", (unsigned int) out_meta.dst_rank);
@@ -172,7 +175,7 @@ int main(){
   NetworkMeta meta_1 = NetworkMeta(1,2718,2,2718,0);
   siTcp_meta.write(NetworkMetaStream(meta_1));
   
-  for(int i = 0; i < 20; i++)
+  for(int i = 0; i < 40; i++)
   {
     stepDut();
   }
@@ -302,7 +305,7 @@ int main(){
   
   siTcp_meta.write(NetworkMetaStream(meta_2));
 
-  for(int i = 0; i < 5; i++)
+  for(int i = 0; i < 15; i++)
   {
     if(!storeData.empty())
     {

@@ -70,7 +70,7 @@ int send_internal(
   stream<Axis<8> > *soMPI_data,
     uint8_t* data,
     int start_addres,
-    int count,
+    int byte_count,
     MPI_Datatype datatype,
     int destination)
 {
@@ -81,24 +81,25 @@ int send_internal(
   //TODO: handle tag
   //tag is not yet implemented
 
-  int typeWidth = 1;
+  //int typeWidth = 1;
 
   switch(datatype)
   {
     case MPI_INTEGER:
       info.mpi_call = MPI_SEND_INT;
-      typeWidth = 4;
+      //typeWidth = 4; //TODO: move to upper function?
       break;
     case MPI_FLOAT:
       info.mpi_call = MPI_SEND_FLOAT;
-      typeWidth = 4;
+      //typeWidth = 4; //TODO: move to upper function?
       break;
     default:
       //not yet implemented 
       return 1;
   }
 
-  info.count = typeWidth * count;
+  //info.count = typeWidth * count;
+  info.count = byte_count;
 
   switch(sendState) {
     case SEND_WRITE_INFO:
@@ -158,6 +159,7 @@ void MPI_Send(
   //INT Version, so datatype should always be MPI_INTEGER
 
   uint8_t bytes[4*count];
+  //uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
 #pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
 
   for(int i=0; i<count; i++)
@@ -192,7 +194,7 @@ int recv_internal(
   stream<Axis<8> > *siMPI_data,
     uint8_t* data,
     int start_addres,
-    int count,
+    int byte_count,
     MPI_Datatype datatype,
     int source,
     MPI_Status* status)
@@ -204,24 +206,25 @@ int recv_internal(
   //TODO: handle tag
   //tag is not yet implemented
 
-  int typeWidth = 1;
+  //int typeWidth = 1;
 
   switch(datatype)
   {
     case MPI_INTEGER:
       info.mpi_call = MPI_RECV_INT;
-      typeWidth = 4;
+      //typeWidth = 4;  //TODO: move to upper function?
       break;
     case MPI_FLOAT:
       info.mpi_call = MPI_RECV_FLOAT;
-      typeWidth = 4;
+      //typeWidth = 4;  //TODO: move to upper function?
       break;
     default:
       //not yet implemented 
       return 1;
   }
 
-  info.count = typeWidth * count;
+  //info.count = typeWidth * count;
+  info.count = byte_count;
 
   switch(recvState) {
 
@@ -298,6 +301,7 @@ void MPI_Recv(
   //INT Version, so datatype should always be MPI_INTEGER
 
   uint8_t bytes[4*count];
+ // uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
 #pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
 
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
@@ -334,7 +338,7 @@ void MPI_Finalize()
 {
   //TODO: send something like DONE packets?
   my_app_done = 1;
-  app_init = 0;
+  //app_init = 0;
   //setMMIO_out(MMIO_out);
 }
 
@@ -363,6 +367,7 @@ void mpi_wrapper(
 #pragma HLS INTERFACE ap_vld register port=cluster_size_arg name=piSMC_to_ROLE_size
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 #pragma HLS INTERFACE axis register both port=soMPIif    //depth=16
+  //TODO: add DATA_PACK to Interface
 #pragma HLS INTERFACE axis register both port=soMPI_data //depth=2048
 //#pragma HLS INTERFACE axis register both port=siMPIif    //depth=16
 #pragma HLS INTERFACE axis register both port=siMPI_data //depth=2048
@@ -374,10 +379,15 @@ void mpi_wrapper(
 #pragma HLS reset variable=cluster_size
 #pragma HLS reset variable=role_rank
 
+
+//#pragma HLS loop_flatten off 
+
   //===========================================================
   // Wait for INIT
   // nees do be done here, due to shitty HLS
 
+  if(app_init == 0)
+  {
   if(cluster_size_arg == 0)
   {
     //not yet initialized
@@ -394,6 +404,7 @@ void mpi_wrapper(
   app_init = 1;
 
   setMMIO_out(MMIO_out);
+  }
 
   //===========================================================
   // Start main program 

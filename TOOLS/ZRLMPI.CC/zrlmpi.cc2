@@ -2,11 +2,18 @@
 
 if [ 1 -ne $# ]
 then 
-  echo "USAGE: $0 path/to/Top/Module/SRA/folder"
+  echo "USAGE: $0 path/to/cFpRootDir"
 else 
-  echo "cd $1; make  pr_only_mpi"
-  cd $1; make  pr_only_mpi
+#  echo "cd $1; make  pr_only_mpi"
+#  cd $1; make  pr_only_mpi
+#  /bin/echo -e "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+#  /bin/echo -e "\t\tZRLMPI FPGA bitstream is ready in $1"
+#  /bin/echo -e "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+
   /bin/echo -e "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-  /bin/echo -e "\t\tZRLMPI FPGA bitstream is ready in $1"
+  /bin/echo -e "\tTo start FPGA build process go to $1 and execute 'make mono_mpi' or 'make pr_mpi'"
+  /bin/echo -e "\tdepending on your current flow. (Automatic build is disabled for the moment)"
   /bin/echo -e "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
-fi 
+
+fi
+

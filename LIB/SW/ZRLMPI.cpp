@@ -448,10 +448,14 @@ int main(int argc, char **argv)
   }
 
 
-  for(int i = 1; i<cluster_size; i++)
+  for(int i = 0; i<cluster_size; i++)
   {
+    if(i == own_rank)
+    {
+   	continue;
+    }
     sockaddr_in addrDest = {};
-    std::string rank_addr = std::string(argv[4 + i]);
+    std::string rank_addr = std::string(argv[5 + i]);
     std::cout << "rank " << i <<" addr: " << rank_addr << std::endl;
     result = resolvehelper(rank_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest);
     if (result != 0)

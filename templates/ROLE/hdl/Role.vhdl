@@ -288,6 +288,9 @@ architecture Flash of Role_Themisto is
 
   signal active_low_reset  : std_logic;
 
+  signal sAPP_Debug : std_logic_vector(15 downto 0);
+  signal sMPE_Debug : std_logic_vector(31 downto 0);
+
   -- I hate Vivado HLS 
   signal sReadTlastAsVector : std_logic_vector(0 downto 0);
   signal sWriteTlastAsVector : std_logic_vector(0 downto 0);
@@ -410,6 +413,7 @@ architecture Flash of Role_Themisto is
       soTcp_meta_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
       poROL_NRC_Rx_ports_V : OUT STD_LOGIC_VECTOR (31 downto 0);
       piFMC_rank_V : IN STD_LOGIC_VECTOR (31 downto 0);
+      poMMIO_V : OUT STD_LOGIC_VECTOR (31 downto 0);
       siMPIif_V_mpi_call_V_TDATA : IN STD_LOGIC_VECTOR (7 downto 0);
       siMPIif_V_count_V_TDATA : IN STD_LOGIC_VECTOR (31 downto 0);
       siMPIif_V_rank_V_TDATA : IN STD_LOGIC_VECTOR (31 downto 0);
@@ -440,8 +444,8 @@ architecture Flash of Role_Themisto is
       siTcp_meta_TREADY : OUT STD_LOGIC;
       piFMC_rank_V_ap_vld : IN STD_LOGIC;
       soMPI_data_TVALID : OUT STD_LOGIC;
-      soMPI_data_TREADY : IN STD_LOGIC;
-      ap_start : IN STD_LOGIC);
+      soMPI_data_TREADY : IN STD_LOGIC);
+      --ap_start : IN STD_LOGIC);
   end component;
 
 
@@ -524,7 +528,7 @@ begin
          piSMC_to_ROLE_rank_V_ap_vld  => '1',
          piSMC_to_ROLE_size_V         => piFMC_ROLE_size,
          piSMC_to_ROLE_size_V_ap_vld  => '1',
-         poMMIO_V                     => poSHL_Mmio_RdReg,
+         poMMIO_V                     => sAPP_Debug,
          soMPIif_V_mpi_call_V_TDATA   =>  sAPP_MPE_MPIif_mpi_call_TDATA ,
          soMPIif_V_mpi_call_V_TVALID  =>  sAPP_MPE_MPIif_mpi_call_TVALID,
          soMPIif_V_mpi_call_V_TREADY  =>  sAPP_MPE_MPIif_mpi_call_TREADY,
@@ -550,7 +554,7 @@ begin
     port map (
         ap_clk              => piSHL_156_25Clk,
         ap_rst_n            => active_low_reset, 
-        ap_start            => piMMIO_Ly7_En,
+        --ap_start            => piMMIO_Ly7_En,
         siTcp_data_TDATA    =>  siNRC_Udp_Data_tdata ,
         siTcp_data_TKEEP    =>  siNRC_Udp_Data_tkeep ,
         siTcp_data_TVALID   =>  siNRC_Udp_Data_tvalid,
@@ -574,6 +578,7 @@ begin
         poROL_NRC_Rx_ports_V => poROL_Nrc_Udp_Rx_ports,
         piFMC_rank_V        =>  piFMC_ROLE_rank,
         piFMC_rank_V_ap_vld =>  '1',
+        poMMIO_V            =>  sMPE_Debug,
         siMPIif_V_mpi_call_V_TDATA    => sAPP_MPE_MPIif_mpi_call_TDATA  ,
         siMPIif_V_mpi_call_V_TVALID   => sAPP_MPE_MPIif_mpi_call_TVALID ,
         siMPIif_V_mpi_call_V_TREADY   => sAPP_MPE_MPIif_mpi_call_TREADY ,
@@ -594,7 +599,11 @@ begin
         soMPI_data_TKEEP              => sMPE_APP_MPI_data_TKEEP   ,
         soMPI_data_TLAST              => sMPE_APP_MPI_data_TLAST   
      );
- 
+
+    --debug swith 
+    poSHL_Mmio_RdReg <= sAPP_Debug  when (unsigned(piSHL_Mmio_WrReg) = 0) else 
+                        sMPE_Debug(15 downto 0) when (unsigned(piSHL_Mmio_WrReg) = 1) else 
+                        sMPE_Debug(31 downto 16);
   
   --################################################################################
   --#                                                                              #

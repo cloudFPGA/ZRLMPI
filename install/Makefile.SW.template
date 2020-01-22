@@ -2,7 +2,7 @@
 #  *                       cloudFPGA
 #  *     Copyright IBM Research, All Rights Reserved
 #  *    =============================================
-#  *     Created: Aug 2019
+#  *     Created: Dec 2019
 #  *     Authors: FAB, WEI, NGL
 #  *
 #  *     Description:
@@ -12,8 +12,9 @@
 #  *       make [target]  (use 'make help' to list the targets)
 #  * 
 
-### --- PLEASE UPDATE this section accordingly
-SOURCES = test.cpp
+### --- 
+SOURCES = app_sw.cpp
+HEADS = app_sw.hpp
 ### ------------------------------------------
 CC       = gcc
 CPPFLAGS = -D_XOPEN_SOURCE=700
@@ -21,25 +22,30 @@ CFLAGS   = -pedantic -Wall  -pthread
 #CFLAGS += -std=c99 -Wextra -Wconversion -Werror
 CFLAGS  += -g -fPIC
 LIBS     = -lstdc++
-ZRLMPI_PATH =../ZRLMPI/SW/ZRLMPI/
+#ZRLMPI_PATH =../ZRLMPI/LIB/SW/
+ZRLMPI_PATH =$(zrlmpiDir)/LIB/SW/
 LIBS    += -I$(ZRLMPI_PATH)
 LIBS    += -L$(ZRLMPI_PATH)
-PROG     = zrlmpi_server
+PROG     = zrlmpi_cpu_app
 BUILD_TYPE = debug # oder production
 SOURCES += $(ZRLMPI_PATH)/MPI.cpp $(ZRLMPI_PATH)/zrlmpi_common.cpp 
 OBJS    = $(SOURCES:%.cpp=%.o)
-HAEADS  = $(SOURCES:%.cpp=%.hpp)
+HAEADS  += $(SOURCES:%.cpp=%.hpp)
 
-#CFLAGS +=-DDEBUG -DZRLMPI_SW_ONLY
+CFLAGS +=-DDEBUG -DZRLMPI_SW_ONLY
 MPI_FLAVOR=.openmpi
 # ------------------------------------------
 #$(PROG): MPI.hpp zrlmpi_common.hpp zrlmpi_int.hpp test.hpp
 #MPI.o: MPI.cpp test.hpp zrlmpi_common.hpp MPI.hpp
 
-.PHONY: all clean help verify_run
+.PHONY: all clean help verify_run assert_env
 
 
-all: $(PROG)
+all: assert_env $(PROG) ## Builds the Software part of ZRLMPI to communicate with the FPGAs
+
+# assert ENVIRONMENT
+assert_env: 
+	../cFDK/SRA/LIB/bash/assert_envs.sh
 
 verify_app: $(OBJS)  ## Builds a MPI.$(MPI_FLAVOR) application to verify results
 	mpic++$(MPI_FLAVOR) -o $@ $^ -lm $(CFLAGS)
@@ -50,16 +56,15 @@ verify_run: verify_app  ## Runs the verify MPI.$(MPI_FLAVOR) application
 clean:  ## cleans all builds 
 	rm -rf $(PROG) *.o 
 
-$(PROG): $(OBJS)  ## Builds the Software part to communicate with ZRLMPI on the FPGAs
+$(PROG): $(OBJS) $(HEADS)
 	$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
 ifeq ($(BUILD_TYPE), production)
 	strip $@
 endif 
 
-%.o: %.cpp
+%.o: %.cpp $(foreach a,%.hpp,$(if $(findstring irrelevant,$a),,$a))
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(LIBS) $< -o $@
 
-$(PROG): $(HEADS)
 
 print-%: ## A little make receipt to print a variable (usage example --> 'make print-SHELL_DIR')
 	@echo $* = $($*)
