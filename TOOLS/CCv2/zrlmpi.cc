@@ -1,4 +1,17 @@
 #!/bin/bash 
+#  *
+#  *                       cloudFPGA
+#  *     Copyright IBM Research, All Rights Reserved
+#  *    =============================================
+#  *     Created: Dec 2019
+#  *     Authors: FAB, WEI, NGL
+#  *
+#  *     Description:
+#  *       Main bash script of ZRLMPIcc
+#  *
+#  *
+
+
 
 HW_TARGET_C=$4/hls/mpi_wrapperv1/src/app_hw.cpp
 HW_TARGET_H=$4/hls/mpi_wrapperv1/src/app_hw.hpp
