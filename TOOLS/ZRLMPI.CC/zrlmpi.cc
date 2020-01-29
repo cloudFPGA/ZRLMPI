@@ -22,7 +22,6 @@ else
   echo "./zrlmpi.cc1 $3 $HW_TARGET_H $SW_TARGET_H"
   $OWN_DIR/zrlmpi.cc1 $3 $HW_TARGET_H $SW_TARGET_H
   fi
-#./zrlmpi.cc2 $1/FMKU60/TOP/TopFlash
-#  ./zrlmpi.cc3 $1/SW/ZRLMPI/
-  echo "make of HW and SW currently not implemented"
+  ./zrlmpi.cc2 $1
+  ./zrlmpi.cc3 $1
 fi 
