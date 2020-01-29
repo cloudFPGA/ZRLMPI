@@ -158,8 +158,8 @@ void MPI_Send(
 {
   //INT Version, so datatype should always be MPI_INTEGER
 
-  uint8_t bytes[4*count];
-  //uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
+  //uint8_t bytes[4*count];
+  uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
 #pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
 
   for(int i=0; i<count; i++)
@@ -300,8 +300,8 @@ void MPI_Recv(
 
   //INT Version, so datatype should always be MPI_INTEGER
 
-  uint8_t bytes[4*count];
- // uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
+ // uint8_t bytes[4*count];
+  uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
 #pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
 
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
