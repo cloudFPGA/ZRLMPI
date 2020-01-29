@@ -448,14 +448,20 @@ int main(int argc, char **argv)
   }
 
 
+  int offset = 0;
   for(int i = 0; i<cluster_size; i++)
   {
     if(i == own_rank)
     {
-   	continue;
+      offset = -1;
+      continue;
+    }
+    if(i+5+offset >= argc)
+    { //if CPU is rank0, avoid out_of_bounce reference (nullptr)
+      break;
     }
     sockaddr_in addrDest = {};
-    std::string rank_addr = std::string(argv[5 + i]);
+    std::string rank_addr = std::string(argv[5 + i + offset]);
     std::cout << "rank " << i <<" addr: " << rank_addr << std::endl;
     result = resolvehelper(rank_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest);
     if (result != 0)

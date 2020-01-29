@@ -22,6 +22,6 @@ else
   echo "./zrlmpi.cc1 $3 $HW_TARGET_H $SW_TARGET_H"
   $OWN_DIR/zrlmpi.cc1 $3 $HW_TARGET_H $SW_TARGET_H
   fi
-  ./zrlmpi.cc2 $1
-  ./zrlmpi.cc3 $1
+  $OWN_DIR/zrlmpi.cc2 $1
+  $OWN_DIR/zrlmpi.cc3 $1
 fi 

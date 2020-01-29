@@ -1,3 +1,15 @@
+#  *
+#  *                       cloudFPGA
+#  *     Copyright IBM Research, All Rights Reserved
+#  *    =============================================
+#  *     Created: Dec 2019
+#  *     Authors: FAB, WEI, NGL
+#  *
+#  *     Description:
+#  *        ZRLMPIrun script
+#  *
+#  *
+
 import os
 import sys
 import subprocess
@@ -18,7 +30,7 @@ __openstack_user_template__['credentials'] = {}
 __openstack_user_template__['credentials']['user'] = "your user name"
 __openstack_user_template__['credentials']['pw'] = "your user password"
 
-__cf_manager_url__ = "10.12.0.132:8080"
+__cf_manager_url__ = "10.14.0.132:8080"
 __NON_FPGA_IDENTIFIER__ = "NON_FPGA"
 
 
@@ -97,8 +109,9 @@ def execute_mpi(path_to_sw_binary, protocol, host_address, number_of_nodes, clus
             sw_node_id = node['node_id']
             slot_ip_list[sw_node_id] = __NON_FPGA_IDENTIFIER__
             continue
-        # ping = subprocess.call(["ping","-c3" ,"-W2ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
-        subprocess.call(["ping","-c3" ,"-W2ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
+#        subprocess.call(["/usr/bin/ping","-c3" ,"-W2ms", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
+        subprocess.call(["/usr/bin/ping","-I{}".format(host_address) , "-c3", "{0}".format(node['node_ip'])], stdout=subprocess.PIPE, cwd=os.getcwd())
+        # print("/usr/bin/ping","-I{}".format(str(host_address)) , "-c3", "{0}".format(node['node_ip']))
         slot_ip_list[node['node_id']] = str(node['node_ip'])
 
     # run mpi
@@ -187,7 +200,7 @@ if __name__ == '__main__':
         print_usage(sys.argv[0])
 
     ready = time.time()
-    execute_mpi(path_to_sw_binary, protocol, host_address, number_of_nodes, cluster)
+    execute_mpi(path_to_sw_binary, protocol, str(host_address), number_of_nodes, cluster)
 
     done = time.time()
     elapsed1 = (ready - start)
