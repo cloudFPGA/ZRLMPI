@@ -34,13 +34,17 @@ __TMP_DIR__ = "/cc_delme/"
 
 # include "mpi"
 __match_regex_BEFORE_CC__.append('#include "mpi.h"')
-__replace_hw_BEFORE_CC__.append('#include "MPI.hpp"')
-__replace_sw_BEFORE_CC__.append('#include "MPI.hpp"')
+# __replace_hw_BEFORE_CC__.append('#include "MPI.hpp"')
+# __replace_sw_BEFORE_CC__.append('#include "MPI.hpp"')
+__replace_hw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
+__replace_sw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
 
 # include <mpi>
 __match_regex_BEFORE_CC__.append('#include <mpi.h>')
-__replace_hw_BEFORE_CC__.append('#include "MPI.hpp"')
-__replace_sw_BEFORE_CC__.append('#include "MPI.hpp"')
+# __replace_hw_BEFORE_CC__.append('#include "MPI.hpp"')
+# __replace_sw_BEFORE_CC__.append('#include "MPI.hpp"')
+__replace_hw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
+__replace_sw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
 
 # Main
 __match_regex__.append('int main( int argc, char **argv )')
@@ -165,7 +169,7 @@ if __name__ == '__main__':
     # tmp3_hw_file_h = own_dir + "/tmp_hw3.h" # header will not change
 
     main_ast = get_main_ast(parsed_file)
-    ast_processing.process_ast(main_ast, cluster_description, tmp_hw_file_c, tmp3_hw_file_c)
+    zrlmpi_max_buffer_size = ast_processing.process_ast(main_ast, cluster_description, tmp_hw_file_c, tmp3_hw_file_c)
 
     # substitute #include statements
     file_name = os.path.basename(sys.argv[1])[:-4]

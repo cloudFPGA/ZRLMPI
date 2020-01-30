@@ -6,7 +6,7 @@
 #  *     Authors: FAB, WEI, NGL
 #  *
 #  *     Description:
-#  *        Visitor searching for all buffers that are used in context of MPI calls.
+#  *        Visitor searching for buffer definitions and compare values of variables
 #  *
 #  *
 
@@ -17,11 +17,10 @@
 
 from pycparser import c_ast
 
-__mpi_api_signatures_buffers__ = ['MPI_Send', 'MPI_Recv']
-__mpi_api_signatures_rank__ = ['MPI_Comm_rank']
+__c_int_compare_operators__ = ["==", "<=", ">=", ">", "<", "!="]
 
 
-class MpiSignatureNameSearcher(object):
+class MpiAffectedStatementSearcher(object):
     """
      A base NodeVisitor class for visiting c_ast nodes.
         Subclass it and define your own visit_XXX methods, where
@@ -51,20 +50,15 @@ class MpiSignatureNameSearcher(object):
 
     _method_cache = None
 
-    def __init__(self):
+    def __init__(self, conditions_to_search):
         # Statements start with indentation of self.indent_level spaces, using
         # the _make_indent method
         #
-        self.found_buffers_obj = []
-        self.found_buffers_names = []
-        self.found_rank_obj = []
-        self.found_rank_names = []
+        self.conditions_to_search = conditions_to_search
+        self.found_statements = []
 
-    def get_results_buffers(self):
-        return self.found_buffers_names, self.found_buffers_obj
-
-    def get_results_ranks(self):
-        return self.found_rank_names, self.found_rank_obj
+    def get_found_statements(self):
+        return self.found_statements
 
     def visit(self, node):
         """ Visit a node.
@@ -108,51 +102,50 @@ class MpiSignatureNameSearcher(object):
     #     sref = self._parenthesize_unless_simple(n.name)
     #     return sref + n.type + self.visit(n.field)
 
-    def visit_FuncCall(self, n):
-        func_name = n.name.name
-        # print("visiting FuncCall {}\n".format(func_name))
-        if func_name in __mpi_api_signatures_buffers__:
-            # it's always the first argument
-            arg_0 = n.args.exprs[0]
-            # print("found 1st arg: {}\n".format(str(arg_0)))
-            buffer_name = ""
-            current_obj = arg_0
-            while True:
-               if hasattr(current_obj, 'name'):
-                   # buffer_name = current_obj.name
-                   buffer_name = current_obj.name.name
-                   break
-               elif hasattr(current_obj, 'expr'):
-                   current_obj = current_obj.expr
-               elif hasattr(current_obj, 'stmt'):
-                   current_obj = current_obj.stmt
-               else:
-                   break
-            # print("found buffer name {}\n".format(buffer_name))
-            if buffer_name not in self.found_buffers_names:
-                self.found_buffers_names.append(buffer_name)
-                self.found_buffers_obj.append(arg_0)
-        elif func_name in __mpi_api_signatures_rank__:
-            # it's always the second argument
-            arg_1 = n.args.exprs[1]
-            # print("found 2nd arg: {}\n".format(str(arg_1)))
-            rank_name = ""
-            current_obj = arg_1
-            while True:
-                if hasattr(current_obj, 'name'):
-                    rank_name = current_obj.name
-                    break
-                elif hasattr(current_obj, 'expr'):
-                    current_obj = current_obj.expr
-                elif hasattr(current_obj, 'stmt'):
-                    current_obj = current_obj.stmt
-                else:
-                    break
-            # print("found rank name {}\n".format(rank_name))
-            if rank_name not in self.found_rank_names:
-                self.found_rank_names.append(rank_name)
-                self.found_rank_obj.append(arg_1)
-        return
+    #def visit_FuncCall(self, n):
+    #    func_name = n.name.name
+    #    # print("visiting FuncCall {}\n".format(func_name))
+    #    if func_name in __mpi_api_signatures_buffers__:
+    #        # it's always the first argument
+    #        arg_0 = n.args.exprs[0]
+    #        # print("found 1st arg: {}\n".format(str(arg_0)))
+    #        buffer_name = ""
+    #        current_obj = arg_0
+    #        while True:
+    #           if hasattr(current_obj, 'name'):
+    #               buffer_name = current_obj.name
+    #               break
+    #           elif hasattr(current_obj, 'expr'):
+    #               current_obj = current_obj.expr
+    #           elif hasattr(current_obj, 'stmt'):
+    #               current_obj = current_obj.stmt
+    #           else:
+    #               break
+    #        # print("found buffer name {}\n".format(buffer_name))
+    #        if buffer_name not in self.found_buffers_names:
+    #            self.found_buffers_names.append(buffer_name)
+    #            self.found_buffers_obj.append(arg_0)
+    #    elif func_name in __mpi_api_signatures_rank__:
+    #        # it's always the second argument
+    #        arg_1 = n.args.exprs[1]
+    #        # print("found 2nd arg: {}\n".format(str(arg_1)))
+    #        rank_name = ""
+    #        current_obj = arg_1
+    #        while True:
+    #            if hasattr(current_obj, 'name'):
+    #                rank_name = current_obj.name
+    #                break
+    #            elif hasattr(current_obj, 'expr'):
+    #                current_obj = current_obj.expr
+    #            elif hasattr(current_obj, 'stmt'):
+    #                current_obj = current_obj.stmt
+    #            else:
+    #                break
+    #        # print("found rank name {}\n".format(rank_name))
+    #        if rank_name not in self.found_rank_names:
+    #            self.found_rank_names.append(rank_name)
+    #            self.found_rank_obj.append(arg_1)
+    #    return
 
     # def visit_UnaryOp(self, n):
     #     operand = self._parenthesize_unless_simple(n.expr)
@@ -166,14 +159,28 @@ class MpiSignatureNameSearcher(object):
     #         return 'sizeof(%s)' % self.visit(n.expr)
     #     else:
     #         return '%s%s' % (n.op, operand)
-    #
-    # def visit_BinaryOp(self, n):
-    #     lval_str = self._parenthesize_if(n.left,
-    #                                      lambda d: not self._is_simple_node(d))
-    #     rval_str = self._parenthesize_if(n.right,
-    #                                      lambda d: not self._is_simple_node(d))
-    #     return '%s %s %s' % (lval_str, n.op, rval_str)
-    #
+
+    #def visit_BinaryOp(self, n):
+    #    if n.op in __c_int_compare_operators__:
+    #        new_compare = {}
+    #        if hasattr(n.left, 'name') and n.left.name in self.variable_names_to_comapre:
+    #            new_compare['name'] = n.left.name
+    #            new_compare['other'] = n.right
+    #            new_compare['position'] = "left"
+    #        elif hasattr(n.right, 'name') and n.right.name in self.variable_names_to_comapre:
+    #            new_compare['name'] = n.right.name
+    #            new_compare['other'] = n.left
+    #            new_compare['position'] = "right"
+
+    #        if 'other' in new_compare.keys() and type(new_compare['other']) == c_ast.Constant:
+    #            new_compare['c_value'] = new_compare['other'].value
+    #            new_compare['c_type'] = new_compare['other'].type
+
+    #        if 'other' in new_compare.keys():
+    #            new_compare['op'] = n.op
+    #            new_compare['operator_object'] = n
+    #            self.found_compares.append(new_compare)
+
     # def visit_Assignment(self, n):
     #     rval_str = self._parenthesize_if(
     #         n.rvalue,
@@ -190,24 +197,21 @@ class MpiSignatureNameSearcher(object):
     #         return '(' + self.visit(n) + ')'
     #     else:
     #         return self.visit(n)
-    #
+
     # def visit_Decl(self, n, no_type=False):
-    #     # no_type is used when a Decl is part of a DeclList, where the type is
-    #     # explicitly only for the first declaration in a list.
-    #     #
-    #     s = n.name if no_type else self._generate_decl(n)
-    #     if n.bitsize: s += ' : ' + self.visit(n.bitsize)
-    #     if n.init:
-    #         s += ' = ' + self._visit_expr(n.init)
-    #     return s
-    #
+    #     if n.name in self.buffer_names_to_search:
+    #         try:
+    #             dim = n.type.dim
+    #             self.found_buffer_definition[n.name] = dim
+    #         except Exception as e:
+    #             print(e)
+    #             print("FAILED to determine buffer dimension of declaration at {}\n".format(str(n.coord)))
+
     # def visit_DeclList(self, n):
-    #     s = self.visit(n.decls[0])
-    #     if len(n.decls) > 1:
-    #         s += ', ' + ', '.join(self.visit_Decl(decl, no_type=True)
-    #                               for decl in n.decls[1:])
-    #     return s
-    #
+    #     #TODO
+    #     print("visit of DeclList NOT YET IMPLEMENTED")
+    #     return
+
     # def visit_Typedef(self, n):
     #     s = ''
     #     if n.storage: s += ' '.join(n.storage) + ' '
@@ -296,23 +300,33 @@ class MpiSignatureNameSearcher(object):
     #
     # def visit_Continue(self, n):
     #     return 'continue;'
-    #
-    # def visit_TernaryOp(self, n):
-    #     s  = '(' + self._visit_expr(n.cond) + ') ? '
-    #     s += '(' + self._visit_expr(n.iftrue) + ') : '
-    #     s += '(' + self._visit_expr(n.iffalse) + ')'
-    #     return s
-    #
-    # def visit_If(self, n):
-    #     s = 'if ('
-    #     if n.cond: s += self.visit(n.cond)
-    #     s += ')\n'
-    #     s += self._generate_stmt(n.iftrue, add_indent=True)
-    #     if n.iffalse:
-    #         s += self._make_indent() + 'else\n'
-    #         s += self._generate_stmt(n.iffalse, add_indent=True)
-    #     return s
-    #
+
+    def visit_TernaryOp(self, n):
+        for e in self.conditions_to_search:
+            if n.cond == e['operator_object']:
+                new_found = {}
+                new_found['old'] = n
+                if e['fpga_decision_value'] == "True":
+                    new_found['new'] = n.iftrue
+                else:
+                    new_found['new'] = n.iffalse
+                self.found_statements.append(new_found)
+
+    def visit_If(self, n):
+        for e in self.conditions_to_search:
+            if n.cond == e['operator_object']:
+                new_found = {}
+                result_value = -1
+                new_found['old'] = n
+                if e['fpga_decision_value'] == "True":
+                    new_found['new'] = n.iftrue
+                    result_value = 1
+                else:
+                    new_found['new'] = n.iffalse
+                    result_value = 0
+                self.found_statements.append(new_found)
+                n.cond = c_ast.Constant('int', str(result_value))
+
     # def visit_For(self, n):
     #     s = 'for ('
     #     if n.init: s += self.visit(n.init)
@@ -338,12 +352,12 @@ class MpiSignatureNameSearcher(object):
     #     if n.cond: s += self.visit(n.cond)
     #     s += ');'
     #     return s
-    #
-    # def visit_Switch(self, n):
-    #     s = 'switch (' + self.visit(n.cond) + ')\n'
-    #     s += self._generate_stmt(n.stmt, add_indent=True)
-    #     return s
-    #
+
+    def visit_Switch(self, n):
+        for e in self.conditions_to_search:
+            if n.cond == e['operator_object']:
+                print("A switch statement has a rank condition: NOT YET IMPLEMENTED\n".format(n.cond))
+
     # def visit_Case(self, n):
     #     s = 'case ' + self.visit(n.expr) + ':\n'
     #     for stmt in n.stmts:
