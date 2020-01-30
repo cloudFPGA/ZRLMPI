@@ -12,6 +12,10 @@
 A simple command line tool for dumping a source file using the Clang Index
 Library.
 """
+# TODO: important!
+# environment MUST BE
+# LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:/usr/local/lib64:/usr/lib64:/usr/local/lib/
+# PYTHONPATH=/home/ngl/gitrepos/cloudFPGA/hccs_tvm//python:/home/ngl/gitrepos/cloudFPGA/hccs_tvm//topi/python:/home/ngl/gitrepos/cloudFPGA/hccs_tvm//nnvm/python:/home/ngl/gitrepos/cloudFPGA/hccs_tvm//vta/python:/home/ngl/gitrepos/llvm-project/clang/bindings/python:
 
 def get_diag_info(diag):
     return { 'severity' : diag.severity,
