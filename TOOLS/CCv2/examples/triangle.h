@@ -6,7 +6,7 @@
 #include <mpi.h>
 
 #define ITERATIONS 5
-#define MSG_SIZE 1000
+#define MSG_SIZE 1
 
 int main( int argc, char **argv );
 

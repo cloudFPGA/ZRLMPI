@@ -17,6 +17,8 @@ from pycparser import c_ast, c_generator
 import lib.mpi_signature_name_visitor as name_visitor
 import lib.mpi_variable_value_visitor as value_visitor
 import lib.mpi_affected_statement_visitor as statement_visitor
+import lib.mpi_replace_visitor as replace_visitor
+
 
 __fallback_max_buffer_size__ = 1500  # we have to find one
 
@@ -120,6 +122,8 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         # #for e in affected_nodes:
         # #    replacement = e['new']
         # #    e['old'] = replacement
+        replace_stmt_visitor = replace_visitor.MpiStatementReplaceVisitor(affected_nodes)
+        replace_stmt_visitor.visit(new_ast)
     else:
         print("No invariant rank statement for FPGAs found.")
         new_ast = c_ast_orig
