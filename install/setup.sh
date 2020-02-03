@@ -90,6 +90,12 @@ pv=$(which python3)
 virtualenv py_zrlmpi -p $pv
 source py_zrlmpi/bin/activate && pip install -r requirements.txt
 
+# 5. get submodules 
+
+cd $cFpRootDir/$1/
+git submodule init
+git submodule update
+
 # done?
 
 /bin/echo -e "\n\nThe ZRLMPI tools assume that the MPI application code is in \n  $cFpRootDir/APP/  \nPlease move it there."

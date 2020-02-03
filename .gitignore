@@ -46,4 +46,6 @@ app_sw.*
 app_hw.*
 user.json
 py_zrlmpi/
+cc_delme/
+
 

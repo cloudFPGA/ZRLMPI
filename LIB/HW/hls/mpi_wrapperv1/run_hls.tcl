@@ -62,8 +62,8 @@ add_files     ${srcDir}/app_hw.hpp -cflags "-DCOSIM"
 add_files     ${srcDir}/app_hw.cpp -cflags "-DCOSIM"
 #add_files     ${srcDir}/${appName}.hpp -cflags "-DCOSIM"
 #add_files     ${srcDir}/${appName}.cpp -cflags "-DCOSIM"
-add_files     ${srcDir}/MPI.hpp -cflags "-DCOSIM"
-add_files     ${srcDir}/MPI.cpp -cflags "-DCOSIM"
+add_files     ${srcDir}/ZRLMPI.hpp -cflags "-DCOSIM"
+add_files     ${srcDir}/ZRLMPI.cpp -cflags "-DCOSIM"
 add_files     ${srcDir}/zrlmpi_common.hpp
 add_files     ${srcDir}/zrlmpi_common.cpp
 add_files     ${srcDir}/zrlmpi_int.hpp
