@@ -19,8 +19,12 @@ import lib.mpi_variable_value_visitor as value_visitor
 import lib.mpi_affected_statement_visitor as statement_visitor
 import lib.mpi_replace_visitor as replace_visitor
 
+from lib.util import get_line_number_of_occurence
+
 
 __fallback_max_buffer_size__ = 1500  # we have to find one
+
+__size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
 def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name):
@@ -36,26 +40,25 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     # 3. determine buffer size (and return them)
     get_value_visitor = value_visitor.MpiVariableValueSearcher(buffer_variable_names, rank_variable_names)
     get_value_visitor.visit(c_ast_orig)
-    found_compares = get_value_visitor.get_results_compares()
     found_buffer_dims = get_value_visitor.get_results_buffers()
     # print(found_buffer_dims)
     list_of_dims = []
     for e in found_buffer_dims.keys():
         if type(found_buffer_dims[e]) == c_ast.Constant:
-            list_of_dims.append(int(found_buffer_dims[e].value)) # we can trust that buffer sizes are ints..
+            list_of_dims.append(int(found_buffer_dims[e].value)*int(__size_of_c_type__[found_buffer_dims[e].type]))
         else:
             print("Found NON CONSTANT BUFFER DECLARATION in {} : This is NOT YET SUPPORTED".format(str(e)))
-    max_dimension = 0
+    max_dimension_bytes = 0
     if len(list_of_dims) == 0:
-        print("[WARNING] Did not found a maximumx buffer size, this could lead to a failing HLS synthesis")
-        max_dimension = __fallback_max_buffer_size__
+        print("[WARNING] Did not found a maximum buffer size, this could lead to a failing HLS synthesis")
+        max_dimension_bytes = __fallback_max_buffer_size__
     else:
-        max_dimension = max(list_of_dims)
-    print("Found max MPI buffer size: {}\n".format(max_dimension))
+        max_dimension_bytes = max(list_of_dims)
+    print("Found max MPI buffer size: {} bytes".format(max_dimension_bytes))
 
     # 4. detect FPGA parts based on rank (from cluster description)
     found_compares = get_value_visitor.get_results_compares()
-    print("Found {} compares of the rank variable.\n".format(len(found_compares)))
+    print("Found {} compares of the rank variable.".format(len(found_compares)))
     # print(found_compares)
     max_rank = 0
     for e in cluster_description['nodes']['cpu']:
@@ -97,31 +100,11 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
             compares_invariant_for_fpgas.append(new_result)
 
     # 5. modify AST with constant values (i.e. copy into new)
-    # TODO: build visitor that copies all nodes into new ast
-    # TODO: but in case of the compares in compares_invariant_for_fpgas, replace the node with the resulting block
-    # visitors can't change the ast...so we want to have a list of statements to change...
     if len(compares_invariant_for_fpgas) > 0:
         find_affected_node_visitor = statement_visitor.MpiAffectedStatementSearcher(compares_invariant_for_fpgas)
         find_affected_node_visitor.visit(c_ast_orig)
         affected_nodes = find_affected_node_visitor.get_found_statements()
         new_ast = c_ast_orig
-        # number_of_replacements = len(affected_nodes)
-        # print("Start to replace {} nodes.\n".format(number_of_replacements))
-        # # nodes_to_visit = new_ast.children()
-        # nodes_to_visit = [new_ast]
-        # while (len(nodes_to_visit) > 0) and (number_of_replacements > 0):
-        #     current_node = nodes_to_visit[0]
-        #     for e in affected_nodes:
-        #         if current_node == e['old']:
-        #             current_node = e['new']
-        #             number_of_replacements -= 1
-        #         else:
-        #             for c in current_node.children():
-        #                 nodes_to_visit.extend(c[1])
-        #     del nodes_to_visit[0]
-        # #for e in affected_nodes:
-        # #    replacement = e['new']
-        # #    e['old'] = replacement
         replace_stmt_visitor = replace_visitor.MpiStatementReplaceVisitor(affected_nodes)
         replace_stmt_visitor.visit(new_ast)
     else:
@@ -130,25 +113,10 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
 
     # 5. generate C code again
     # 6. append original header lines and save in file
-
     generator = c_generator.CGenerator()
     generated_c = str(generator.visit(new_ast))
 
-    awk_command = "awk '/int.*main\(/{ print NR; exit }'  " + str(hw_file_pre_parsing)
-    print(awk_command)
-    awk_out = subprocess.check_output(awk_command, shell=True)
-    bytes_to_convert = []
-    for e in awk_out:
-        if e != 0xa:
-            bytes_to_convert.append(e)
-    # line_number = int(chr(awk_out[0]))
-    line_number = 0
-    r = 0
-    for n in reversed(bytes_to_convert):
-        line_number += int(chr(n))*(10**r)
-        r += 1
-    # print(line_number)
-
+    line_number = get_line_number_of_occurence('int.*main\(', hw_file_pre_parsing)
     head = ""
     with open(hw_file_pre_parsing, 'r') as in_file:
          head = [next(in_file) for x in range(line_number - 1)]
@@ -159,10 +127,10 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
 
     concatenated_file = head_str + "\n" + generated_c
 
-    print("Writing new c code to file {}.\n".format(target_file_name))
+    print("Writing new c code to file {}.".format(target_file_name))
 
     with open(target_file_name, 'w+') as target_file:
         target_file.write(concatenated_file)
 
-    return max_dimension    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE
+    return max_dimension_bytes    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
 

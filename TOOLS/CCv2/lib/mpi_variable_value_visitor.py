@@ -213,8 +213,8 @@ class MpiVariableValueSearcher(object):
                 print("FAILED to determine buffer dimension of declaration at {}\n".format(str(n.coord)))
 
     def visit_DeclList(self, n):
-        #TODO
-        print("visit of DeclList NOT YET IMPLEMENTED")
+        # TODO...but may also not be important, since arrays cannot be implemented as declList?
+        # print("[WARNING] visit of DeclList NOT YET IMPLEMENTED")
         return
 
     # def visit_Typedef(self, n):
