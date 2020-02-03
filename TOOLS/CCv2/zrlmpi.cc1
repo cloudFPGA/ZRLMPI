@@ -1,7 +1,0 @@
-#!/bin/bash 
-
-OWN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-source $1/bin/activate
-echo "python3 $OWN_DIR/zrlmpi_cc1.py ${@:2}"
-python3 $OWN_DIR/zrlmpi_cc1.py ${@:2}

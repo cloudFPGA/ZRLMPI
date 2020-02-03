@@ -2,6 +2,6 @@
 
 OWN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-
-#make -C $OWN_DIR/unifdef/ 
-python3 $OWN_DIR/zrlmpi_cc1.py $1 $2 $3
+source $1/bin/activate
+echo "python3 $OWN_DIR/zrlmpi_cc1.py ${@:2}"
+python3 $OWN_DIR/zrlmpi_cc1.py ${@:2}
