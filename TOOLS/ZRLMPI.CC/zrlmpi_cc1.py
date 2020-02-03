@@ -162,6 +162,8 @@ if __name__ == '__main__':
     tmp_sw_file_c = own_dir + __TMP_DIR__+ "/tmp_sw1.c"
     tmp_sw_file_h = own_dir + __TMP_DIR__+ "/tmp_sw1.h"
 
+    print("\nStarting cross-compelation...\n")
+
     # clean tmp dir
     # .read() as way to wait until done
     os.popen("rm -rf {}/{}".format(own_dir, __TMP_DIR__)).read()
@@ -206,3 +208,7 @@ if __name__ == '__main__':
     with open(sys.argv[4], 'w+') as hw_out_file, open(sys.argv[6], 'w+') as sw_out_file, \
             open(tmp2_hw_file_h) as hw_in_file, open(tmp_sw_file_h) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
+    
+    print("\n...finished cross-compelation.\n")
+    
+

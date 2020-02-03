@@ -127,7 +127,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
 
     concatenated_file = head_str + "\n" + generated_c
 
-    print("Writing new c code to file {}.".format(target_file_name))
+    # print("Writing new c code to file {}.".format(target_file_name))
 
     with open(target_file_name, 'w+') as target_file:
         target_file.write(concatenated_file)

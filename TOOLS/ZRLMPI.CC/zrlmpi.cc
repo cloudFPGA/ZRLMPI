@@ -32,10 +32,17 @@ else
   if [[ $3 -nt $HW_TARGET_C ]] || [[ $4 -nt $HW_TARGET_H ]] \
   || [[ $3 -nt $SW_TARGET_C ]] || [[ $4 -nt $SW_TARGET_H ]] \
   || [[ $6 -nt $HW_TARGET_C ]] || [[ $6 -nt $HW_TARGET_H ]]; then
-  # the json only influences the HW targets...
-  echo "$OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6"
-  $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6
+    # the json only influences the HW targets...
+    echo "$OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6"
+    $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6
+    ret=$?
+  else
+    ret=0
   fi
-  $OWN_DIR/zrlmpi.cc2 $1
-  $OWN_DIR/zrlmpi.cc3 $1
+  if [[ $ret -eq 0 ]]; then 
+    $OWN_DIR/zrlmpi.cc2 $1
+    $OWN_DIR/zrlmpi.cc3 $1
+  else 
+    echo "ERROR during cross-compilation; stopping..."
+  fi
 fi 
