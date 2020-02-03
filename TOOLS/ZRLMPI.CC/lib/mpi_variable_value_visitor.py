@@ -238,8 +238,7 @@ class MpiVariableValueSearcher(object):
                         current_obj = current_obj.type
 
                 if not parsed:
-                    print("FAILED to parse buffer dimension in {} : This is NOT YET SUPPORTED".format(
-                        str(current_obj)))
+                    print("FAILED to parse buffer dimension in {} : This is NOT YET SUPPORTED".format(str(current_obj)))
                 new_obj['calculated_value'] = dim
                 new_obj['found_type'] = buffer_type
                 new_obj['name'] = name

@@ -32,33 +32,12 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     # 2. find rank names
     find_name_visitor = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor.visit(c_ast_orig)
-    buffer_variable_names, buffer_variable_obj = find_name_visitor.get_results_buffers()
     rank_variable_names, rank_variable_obj = find_name_visitor.get_results_ranks()
-    # print(buffer_variable_names)
     # print(rank_variable_names)
 
-    # 3. determine buffer size (and return them)
-    get_value_visitor = value_visitor.MpiVariableValueSearcher(buffer_variable_names, rank_variable_names)
+    # 3. detect FPGA parts based on rank (from cluster description)
+    get_value_visitor = value_visitor.MpiVariableValueSearcher([], rank_variable_names)
     get_value_visitor.visit(c_ast_orig)
-    found_buffer_dims = get_value_visitor.get_results_buffers()
-    # print(found_buffer_dims)
-    list_of_dims = []
-    # for e in found_buffer_dims.keys():
-    #     if type(found_buffer_dims[e]) == c_ast.Constant:
-    #         list_of_dims.append(int(found_buffer_dims[e].value)*int(__size_of_c_type__[found_buffer_dims[e].type]))
-    #     else:
-    #         print("Found NON CONSTANT BUFFER DECLARATION in {} : This is NOT YET SUPPORTED".format(str(e)))
-    for e in found_buffer_dims.keys():
-        list_of_dims.append(int(found_buffer_dims[e]['calculated_value'])*int(__size_of_c_type__[found_buffer_dims[e]['found_type']]))
-    max_dimension_bytes = 0
-    if len(list_of_dims) == 0:
-        print("[WARNING] Did not found a maximum buffer size, this could lead to a failing HLS synthesis")
-        max_dimension_bytes = __fallback_max_buffer_size__
-    else:
-        max_dimension_bytes = max(list_of_dims)
-    print("Found max MPI buffer size: {} bytes".format(max_dimension_bytes))
-
-    # 4. detect FPGA parts based on rank (from cluster description)
     found_compares = get_value_visitor.get_results_compares()
     print("Found {} compares of the rank variable.".format(len(found_compares)))
     # print(found_compares)
@@ -101,7 +80,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
             new_result['fpga_decision_value'] = str(list(unique_values)[0])
             compares_invariant_for_fpgas.append(new_result)
 
-    # 5. modify AST with constant values (i.e. copy into new)
+    # 4. modify AST with constant values (i.e. copy into new)
     if len(compares_invariant_for_fpgas) > 0:
         find_affected_node_visitor = statement_visitor.MpiAffectedStatementSearcher(compares_invariant_for_fpgas)
         find_affected_node_visitor.visit(c_ast_orig)
@@ -112,6 +91,26 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     else:
         print("No invariant rank statement for FPGAs found.")
         new_ast = c_ast_orig
+
+    # 5. determine buffer size (and return them) AFTER the AST has been modified
+    find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
+    find_name_visitor2.visit(new_ast)
+    buffer_variable_names, buffer_variable_obj = find_name_visitor2.get_results_buffers()
+    # print(buffer_variable_names)
+    get_value_visitor2 = value_visitor.MpiVariableValueSearcher(buffer_variable_names, [])
+    get_value_visitor2.visit(new_ast)
+    found_buffer_dims = get_value_visitor2.get_results_buffers()
+    # print(found_buffer_dims)
+    list_of_dims = []
+    for e in found_buffer_dims.keys():
+        list_of_dims.append(int(found_buffer_dims[e]['calculated_value'])*int(__size_of_c_type__[found_buffer_dims[e]['found_type']]))
+    max_dimension_bytes = 0
+    if len(list_of_dims) == 0:
+        print("[WARNING] Did not found a maximum buffer size, this could lead to a failing HLS synthesis")
+        max_dimension_bytes = __fallback_max_buffer_size__
+    else:
+        max_dimension_bytes = max(list_of_dims)
+    print("Found max MPI buffer size: {} bytes".format(max_dimension_bytes))
 
     # 5. generate C code again
     # 6. append original header lines and save in file
