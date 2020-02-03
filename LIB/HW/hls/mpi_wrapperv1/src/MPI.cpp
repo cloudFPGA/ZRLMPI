@@ -15,6 +15,7 @@ ap_uint<32> cluster_size;
 
 ap_uint<1> my_app_done = 0;
 ap_uint<1> app_init = 0;
+ap_uint<1> hw_app_init = 0;
 
 ap_uint<4> sendCnt = 0;
 ap_uint<4> recvCnt = 0;
@@ -23,7 +24,7 @@ WrapperRecvState recvState = 0;
 int recv_i = 0;
 bool recv_tlastOccured = false;
 WrapperSendState sendState = 0;
-int send_i = 0;
+uint32_t send_i = 0;
 
 void setMMIO_out(ap_uint<16> *MMIO_out)
 {
@@ -48,7 +49,7 @@ void MPI_Init()
 
   printf("clusterSize: %d, rank: %d\n", (int) cluster_size, (int) role_rank);
 
-  app_init = 1;
+  hw_app_init = 1;
   //setMMIO_out(MMIO_out);
 
 }
@@ -69,14 +70,16 @@ int send_internal(
   stream<MPI_Interface> *soMPIif,
   stream<Axis<8> > *soMPI_data,
     uint8_t* data,
-    int start_addres,
-    int byte_count,
+    uint32_t start_address,
+    uint32_t byte_count,
     MPI_Datatype datatype,
     int destination)
 {
 
   MPI_Interface info = MPI_Interface();
   info.rank = destination;
+        
+  Axis<8>  tmp8 = Axis<8>(data[send_i]);
 
   //TODO: handle tag
   //tag is not yet implemented
@@ -106,16 +109,16 @@ int send_internal(
       if(!soMPIif->full())
       {
         soMPIif->write(info);
-        send_i = start_addres;
+        send_i = start_address;
         sendState = SEND_WRITE_DATA;
       }
       break;
 
     case SEND_WRITE_DATA:
 
-      if(!soMPI_data->full())
-      {
-        Axis<8>  tmp8 = Axis<8>(data[send_i]);
+    //  if(!soMPI_data->full())
+    //  {
+        //Axis<8>  tmp8 = Axis<8>(data[send_i]);
 
         if(send_i == info.count - 1)
         {
@@ -128,7 +131,7 @@ int send_internal(
 
         soMPI_data->write(tmp8);
         send_i++;
-      }
+    //  }
       break;
 
     case SEND_FINISH:
@@ -171,27 +174,37 @@ void MPI_Send(
   }
 
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
-  for(int i = 0; i < 4*count; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+  for(uint32_t i = 0; i < 4*count; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
   {
-    int count_of_this_message = 4*count - i; //important for last message
+#pragma HLS pipeline off
+#pragma HLS loop_flatten off
+    uint32_t count_of_this_message = (4*count) - i; //important for last message
     if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
     {
       count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
     }
     //DUE TO SHITTY HLS...
     sendState = SEND_WRITE_INFO;
-    send_i = 0;
-    while(send_internal(soMPIif, soMPI_data, bytes, i, count_of_this_message, datatype, destination) != 1)
+    //send_i = 0;
+    send_i = i;
+    int cont_value = 0;
+    //while(send_internal(soMPIif, soMPI_data, bytes, i, count_of_this_message, datatype, destination) != 1)
+    while(cont_value != 1)
     {
+#pragma HLS pipeline off
+#pragma HLS loop_flatten off
+      cont_value = send_internal(soMPIif, soMPI_data, bytes, i, count_of_this_message, datatype, destination);
       ap_wait_n(WAIT_CYCLES);
     }
+    //for breakdown of big packets
+    ap_wait_n(WAIT_CYCLES);
   }
 
 }
 
 int recv_internal(
-  stream<MPI_Interface> *soMPIif,
-  stream<Axis<8> > *siMPI_data,
+    stream<MPI_Interface> *soMPIif,
+    stream<Axis<8> > *siMPI_data,
     uint8_t* data,
     int start_addres,
     int byte_count,
@@ -307,6 +320,8 @@ void MPI_Recv(
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   for(int i = 0; i < 4*count; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
   {
+#pragma HLS pipeline off
+#pragma HLS loop_flatten off
     int count_of_this_message = 4*count - i; //important for last message
     if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
     {
@@ -315,10 +330,17 @@ void MPI_Recv(
     //DUE TO SHITTY HLS...
     recvState = RECV_WRITE_INFO;
     recv_i = 0;
-    while( recv_internal(soMPIif, siMPI_data, bytes, i, count_of_this_message, datatype, source, status) != 1)
+    int cont_value = 0;
+    //while( recv_internal(soMPIif, siMPI_data, bytes, i, count_of_this_message, datatype, source, status) != 1)
+    while( cont_value != 1)
     {
+#pragma HLS pipeline off
+#pragma HLS loop_flatten off
+      cont_value = recv_internal(soMPIif, siMPI_data, bytes, i, count_of_this_message, datatype, source, status);
       ap_wait_n(WAIT_CYCLES);
     }
+    //for breakdown of big packets
+    ap_wait_n(WAIT_CYCLES);
   }
 
   for(int i=0; i<count; i++)
@@ -376,6 +398,7 @@ void mpi_wrapper(
 #pragma HLS reset variable=sendCnt
 #pragma HLS reset variable=recvCnt
 #pragma HLS reset variable=app_init
+#pragma HLS reset variable=hw_app_init
 #pragma HLS reset variable=cluster_size
 #pragma HLS reset variable=role_rank
 
@@ -388,22 +411,23 @@ void mpi_wrapper(
 
   if(app_init == 0)
   {
-  if(cluster_size_arg == 0)
-  {
-    //not yet initialized
-    printf("cluster size not yet set!\n");
+    if(cluster_size_arg == 0)
+    {
+      //not yet initialized
+      printf("cluster size not yet set!\n");
+
+      setMMIO_out(MMIO_out);
+      return;
+
+    }
+    cluster_size = cluster_size_arg;
+    role_rank = role_rank_arg;
+    printf("clusterSize: %d, rank: %d\n", (int) cluster_size, (int) role_rank);
+
+    app_init = 1;
 
     setMMIO_out(MMIO_out);
     return;
-
-  }
-  cluster_size = cluster_size_arg;
-  role_rank = role_rank_arg;
-  printf("clusterSize: %d, rank: %d\n", (int) cluster_size, (int) role_rank);
-
-  app_init = 1;
-
-  setMMIO_out(MMIO_out);
   }
 
   //===========================================================
