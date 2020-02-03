@@ -43,11 +43,13 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     found_buffer_dims = get_value_visitor.get_results_buffers()
     # print(found_buffer_dims)
     list_of_dims = []
+    # for e in found_buffer_dims.keys():
+    #     if type(found_buffer_dims[e]) == c_ast.Constant:
+    #         list_of_dims.append(int(found_buffer_dims[e].value)*int(__size_of_c_type__[found_buffer_dims[e].type]))
+    #     else:
+    #         print("Found NON CONSTANT BUFFER DECLARATION in {} : This is NOT YET SUPPORTED".format(str(e)))
     for e in found_buffer_dims.keys():
-        if type(found_buffer_dims[e]) == c_ast.Constant:
-            list_of_dims.append(int(found_buffer_dims[e].value)*int(__size_of_c_type__[found_buffer_dims[e].type]))
-        else:
-            print("Found NON CONSTANT BUFFER DECLARATION in {} : This is NOT YET SUPPORTED".format(str(e)))
+        list_of_dims.append(int(found_buffer_dims[e]['calculated_value'])*int(__size_of_c_type__[found_buffer_dims[e]['found_type']]))
     max_dimension_bytes = 0
     if len(list_of_dims) == 0:
         print("[WARNING] Did not found a maximum buffer size, this could lead to a failing HLS synthesis")

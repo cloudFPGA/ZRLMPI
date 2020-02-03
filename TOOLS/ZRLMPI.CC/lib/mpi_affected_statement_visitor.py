@@ -325,7 +325,6 @@ class MpiAffectedStatementSearcher(object):
                     new_found['new'] = n.iffalse
                     result_value = 0
                 self.found_statements.append(new_found)
-                # TODO
                 n.cond = c_ast.Constant('int', str(result_value))
 
     # def visit_For(self, n):

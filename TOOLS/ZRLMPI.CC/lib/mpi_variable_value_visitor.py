@@ -206,8 +206,44 @@ class MpiVariableValueSearcher(object):
     def visit_Decl(self, n, no_type=False):
         if n.name in self.buffer_names_to_search:
             try:
-                dim = n.type.dim
-                self.found_buffer_definition[n.name] = dim
+                new_obj = {}
+                new_obj['node'] = n
+                new_obj['further_def'] = []
+                name = n.name
+                dim = 1
+                buffer_type = ""
+                current_obj = n.type
+                parsed = False
+                while True:
+                    new_obj['further_def'].append(current_obj)
+                    if hasattr(current_obj, 'dim'):
+                        if type(current_obj.dim) is c_ast.Constant:
+                            dim *= int(current_obj.dim.value)
+                            parsed = True
+                        elif type(current_obj.dim) is c_ast.BinaryOp:
+                            if type(current_obj.dim.left) is c_ast.Constant and type(current_obj.dim.right) is c_ast.Constant:
+                                result = eval(current_obj.dim.left.value + current_obj.dim.op + current_obj.dim.right.value)
+                                dim *= int(result)
+                                parsed = True
+                            else:
+                                print("Found NON CONSTANT BUFFER DECLARATION in {} : This is NOT YET SUPPORTED".format(str(current_obj)))
+                    if not hasattr(current_obj, 'type'):
+                        if hasattr(current_obj, 'names'):
+                            buffer_type = current_obj.names[0]
+                        break
+                    else:
+                        if type(current_obj.type) is str:
+                            buffer_type = current_obj.type
+                            break
+                        current_obj = current_obj.type
+
+                if not parsed:
+                    print("FAILED to parse buffer dimension in {} : This is NOT YET SUPPORTED".format(
+                        str(current_obj)))
+                new_obj['calculated_value'] = dim
+                new_obj['found_type'] = buffer_type
+                new_obj['name'] = name
+                self.found_buffer_definition[n.name] = new_obj
             except Exception as e:
                 print(e)
                 print("FAILED to determine buffer dimension of declaration at {}\n".format(str(n.coord)))

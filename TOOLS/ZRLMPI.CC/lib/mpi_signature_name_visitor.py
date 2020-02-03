@@ -118,16 +118,17 @@ class MpiSignatureNameSearcher(object):
             buffer_name = ""
             current_obj = arg_0
             while True:
-               if hasattr(current_obj, 'name'):
-                   # buffer_name = current_obj.name
-                   buffer_name = current_obj.name.name
-                   break
-               elif hasattr(current_obj, 'expr'):
-                   current_obj = current_obj.expr
-               elif hasattr(current_obj, 'stmt'):
-                   current_obj = current_obj.stmt
-               else:
-                   break
+                if hasattr(current_obj, 'name'):
+                    if type(current_obj.name) is str:
+                        buffer_name = current_obj.name
+                        break
+                    current_obj = current_obj.name
+                elif hasattr(current_obj, 'expr'):
+                    current_obj = current_obj.expr
+                elif hasattr(current_obj, 'stmt'):
+                    current_obj = current_obj.stmt
+                else:
+                    break
             # print("found buffer name {}\n".format(buffer_name))
             if buffer_name not in self.found_buffers_names:
                 self.found_buffers_names.append(buffer_name)
