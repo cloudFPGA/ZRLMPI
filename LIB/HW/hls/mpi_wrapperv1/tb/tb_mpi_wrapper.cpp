@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 
-#include "../src/MPI.hpp"
+#include "../src/ZRLMPI.hpp"
 #include "../src/app_hw.hpp"
 
 int main(){
