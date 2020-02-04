@@ -5,7 +5,7 @@
 #include <hls_stream.h>
 
 #include "app_hw.hpp"
-#include "MPI.hpp"
+#include "ZRLMPI.hpp"
 
 using namespace hls;
 
@@ -147,6 +147,60 @@ int send_internal(
 
 }
 
+void MPI_send_guaranteed_length(
+  // ----- MPI_Interface -----
+  stream<MPI_Interface> *soMPIif,
+  stream<Axis<8> > *soMPI_data,
+  // ----- MPI Signature -----
+    int* data,
+    int count,
+    uint32_t byte_count,
+    uint32_t start_addres,
+    MPI_Datatype datatype,
+    int destination,
+    int tag,
+    MPI_Comm communicator)
+{
+  //INT Version, so datatype should always be MPI_INTEGER
+
+  //uint8_t bytes[4*count];
+  uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
+#pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
+
+  //for(int i=0; i<count; i++)
+  //{
+  //  bytes[i*4 + 0] = (data[i] >> 24) & 0xFF;
+  //  bytes[i*4 + 1] = (data[i] >> 16) & 0xFF;
+  //  bytes[i*4 + 2] = (data[i] >> 8) & 0xFF;
+  //  bytes[i*4 + 3] = data[i] & 0xFF;
+  //}
+  for(int i=start_addres; i< (start_addres + byte_count); i+=4)
+  {
+    bytes[i + 0] = (data[i/4] >> 24) & 0xFF;
+    bytes[i + 1] = (data[i/4] >> 16) & 0xFF;
+    bytes[i + 2] = (data[i/4] >> 8) & 0xFF;
+    bytes[i + 3] = data[i/4] & 0xFF;
+  }
+
+
+    //DUE TO SHITTY HLS...
+    sendState = SEND_WRITE_INFO;
+    //send_i = 0;
+    send_i = start_addres;
+    int cont_value = 0;
+    //while(send_internal(soMPIif, soMPI_data, bytes, i, count_of_this_message, datatype, destination) != 1)
+    while(cont_value != 1)
+    {
+#pragma HLS pipeline off
+#pragma HLS loop_flatten off
+      cont_value = send_internal(soMPIif, soMPI_data, bytes, start_addres, byte_count, datatype, destination);
+      ap_wait_n(WAIT_CYCLES);
+    }
+
+
+}
+
+
 void MPI_Send(
   // ----- MPI_Interface -----
   stream<MPI_Interface> *soMPIif,
@@ -159,20 +213,6 @@ void MPI_Send(
     int tag,
     MPI_Comm communicator)
 {
-  //INT Version, so datatype should always be MPI_INTEGER
-
-  //uint8_t bytes[4*count];
-  uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
-#pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
-
-  for(int i=0; i<count; i++)
-  {
-    bytes[i*4 + 0] = (data[i] >> 24) & 0xFF;
-    bytes[i*4 + 1] = (data[i] >> 16) & 0xFF;
-    bytes[i*4 + 2] = (data[i] >> 8) & 0xFF;
-    bytes[i*4 + 3] = data[i] & 0xFF;
-  }
-
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   for(uint32_t i = 0; i < 4*count; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
   {
@@ -183,20 +223,11 @@ void MPI_Send(
     {
       count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
     }
-    //DUE TO SHITTY HLS...
-    sendState = SEND_WRITE_INFO;
-    //send_i = 0;
-    send_i = i;
-    int cont_value = 0;
-    //while(send_internal(soMPIif, soMPI_data, bytes, i, count_of_this_message, datatype, destination) != 1)
-    while(cont_value != 1)
-    {
-#pragma HLS pipeline off
-#pragma HLS loop_flatten off
-      cont_value = send_internal(soMPIif, soMPI_data, bytes, i, count_of_this_message, datatype, destination);
-      ap_wait_n(WAIT_CYCLES);
-    }
+
+    MPI_send_guaranteed_length(soMPIif, soMPI_data, data, count, count_of_this_message, i, datatype, destination, tag, communicator);
+
     //for breakdown of big packets
+    //TODO! 
     ap_wait_n(WAIT_CYCLES);
   }
 
