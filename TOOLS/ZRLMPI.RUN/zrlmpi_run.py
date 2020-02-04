@@ -30,7 +30,7 @@ __openstack_user_template__['credentials'] = {}
 __openstack_user_template__['credentials']['user'] = "your user name"
 __openstack_user_template__['credentials']['pw'] = "your user password"
 
-__cf_manager_url__ = "10.14.0.132:8080"
+__cf_manager_url__ = "10.12.0.132:8080"
 __NON_FPGA_IDENTIFIER__ = "NON_FPGA"
 
 
