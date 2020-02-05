@@ -4,7 +4,7 @@
 
 import sys
 
-#sys.path.append("/home/ngl/programms/cfe-7.0.0.src/cfe-7.0.0.src/bindings/python/")
+sys.path.append("/home/ngl/gitrepos/llvm-project/clang/bindings/python")
 import clang.cindex
 
 

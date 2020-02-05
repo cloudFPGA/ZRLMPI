@@ -18,3 +18,16 @@ https://llvm.org/docs/CMake.html#id6
 export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:/usr/local/lib64:/usr/lib64
 clang -I/home/ngl/gitrepos/cloudFPGA/ZRLMPI/LIB/HW/hls/mpi_wrapperv1/src -I/opt/Xilinx/Vivado/2017.4/include/ -Xclang -ast-dump -fsyntax-only app_hw.cpp
 ```
+
+**Background**:
+
+
+https://eli.thegreenplace.net/2011/07/03/parsing-c-in-python-with-clang/#id7
+
+https://eli.thegreenplace.net/2014/05/01/modern-source-to-source-transformation-with-clang-and-libtooling
+https://github.com/eliben/llvm-clang-samples/tree/master/src_clang
+https://clang.llvm.org/docs/IntroductionToTheClangAST.html
+
+https://sudonull.com/post/907-An-example-of-parsing-C-code-using-libclang-in-Python
+
+
