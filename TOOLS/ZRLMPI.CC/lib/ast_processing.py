@@ -30,11 +30,12 @@ __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name):
     # 1. find buffer names
     # 2. find rank names
-    # TODO: find sizes and replace with constant value
+    # 3. find size names
     # TODO: find collectives and replace with template
     find_name_visitor = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor.visit(c_ast_orig)
     rank_variable_names, rank_variable_obj = find_name_visitor.get_results_ranks()
+    size_variable_names, size_variable_obj = find_name_visitor.get_results_sizes()
     # print(rank_variable_names)
 
     # 3. detect FPGA parts based on rank (from cluster description)
@@ -44,10 +45,13 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     print("Found {} compares of the rank variable.".format(len(found_compares)))
     # print(found_compares)
     max_rank = 0
+    total_size = 0
     for e in cluster_description['nodes']['cpu']:
+        total_size += 1
         if e > max_rank:
             max_rank = e
     for e in cluster_description['nodes']['fpga']:
+        total_size += 1
         if e > max_rank:
             max_rank = e
     # print("Maximum rank in cluster: {}\n".format(max_rank))
@@ -94,7 +98,26 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         print("No invariant rank statement for FPGAs found.")
         new_ast = c_ast_orig
 
-    # 5. determine buffer size (and return them) AFTER the AST has been modified
+    # 5. replace sizes
+    sizes_to_replace = []
+    for e in size_variable_obj:
+        i = size_variable_obj.index(e)
+        new_entry = {}
+        new_entry['old'] = e
+        if type(e.args.exprs[1]) is c_ast.UnaryOp:
+            # pointer
+            variable_obj = e.args.exprs[1].expr
+        else:
+            # no pointer
+            variable_obj = e.args.exprs[1]
+        new_constant_expression = c_ast.Assignment("=", variable_obj,
+                                         c_ast.Constant('int', str(total_size)))
+        new_entry['new'] = new_constant_expression
+        sizes_to_replace.append(new_entry)
+    replace_stmt_visitor2 = replace_visitor.MpiStatementReplaceVisitor(sizes_to_replace)
+    replace_stmt_visitor2.visit(new_ast)
+
+    # 6. determine buffer size (and return them) AFTER the AST has been modified
     find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor2.visit(new_ast)
     buffer_variable_names, buffer_variable_obj = find_name_visitor2.get_results_buffers()
@@ -114,8 +137,9 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         max_dimension_bytes = max(list_of_dims)
     print("Found max MPI buffer size: {} bytes".format(max_dimension_bytes))
 
-    # 5. generate C code again
-    # 6. append original header lines and save in file
+    # TODO: constant folding?
+    # 7. generate C code again
+    # 8. append original header lines and save in file
     generator = c_generator.CGenerator()
     generated_c = str(generator.visit(new_ast))
 

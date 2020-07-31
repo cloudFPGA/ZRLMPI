@@ -85,8 +85,11 @@ class MpiStatementReplaceVisitor(object):
                 # ok, now we know where to insert, but we have to split  the "stmt" of if/else, otherwise there would be
                 # some unnecessary {..} in the code
                 list_to_insert = []
-                for e in self.objects_to_replace[target_index]:
-                        list_to_insert.append(e)
+                if type(self.objects_to_replace[target_index]) is list:
+                    for e in self.objects_to_replace[target_index]:
+                            list_to_insert.append(e)
+                else:
+                    list_to_insert.append(self.objects_to_replace[target_index])
                 del node.block_items[insert_index]
                 # insert_index -= 1 #TODO
                 if insert_index < 0:

@@ -19,6 +19,7 @@ from pycparser import c_ast
 
 __mpi_api_signatures_buffers__ = ['MPI_Send', 'MPI_Recv']
 __mpi_api_signatures_rank__ = ['MPI_Comm_rank']
+__mpi_api_signatures_size__ = ['MPI_Comm_size']
 
 
 class MpiSignatureNameSearcher(object):
@@ -59,12 +60,17 @@ class MpiSignatureNameSearcher(object):
         self.found_buffers_names = []
         self.found_rank_obj = []
         self.found_rank_names = []
+        self.found_size_obj = []
+        self.found_size_names = []
 
     def get_results_buffers(self):
         return self.found_buffers_names, self.found_buffers_obj
 
     def get_results_ranks(self):
         return self.found_rank_names, self.found_rank_obj
+
+    def get_results_sizes(self):
+        return self.found_size_names, self.found_size_obj
 
     def visit(self, node):
         """ Visit a node.
@@ -153,6 +159,27 @@ class MpiSignatureNameSearcher(object):
             if rank_name not in self.found_rank_names:
                 self.found_rank_names.append(rank_name)
                 self.found_rank_obj.append(arg_1)
+        elif func_name in __mpi_api_signatures_size__:
+            # it's always the second argument
+            arg_1 = n.args.exprs[1]
+            # print("found 2nd arg: {}\n".format(str(arg_1)))
+            size_name = ""
+            current_obj = arg_1
+            while True:
+                if hasattr(current_obj, 'name'):
+                    size_name = current_obj.name
+                    break
+                elif hasattr(current_obj, 'expr'):
+                    current_obj = current_obj.expr
+                elif hasattr(current_obj, 'stmt'):
+                    current_obj = current_obj.stmt
+                else:
+                    break
+            # print("found rank name {}\n".format(rank_name))
+            if size_name not in self.found_size_names:
+                self.found_size_names.append(size_name)
+                #self.found_size_obj.append(arg_1)
+                self.found_size_obj.append(n)
         return
 
     # def visit_UnaryOp(self, n):

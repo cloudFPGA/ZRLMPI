@@ -184,6 +184,7 @@ if __name__ == '__main__':
     cluster_description = {}
     with open(sys.argv[7], 'r') as in_config:
         cluster_description = json.load(in_config)
+    # TODO: support range definitions in JSON (convert to array here)
 
     tmp3_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw3.c"
     # tmp3_hw_file_h = own_dir + "/tmp_hw3.h" # header will not change
