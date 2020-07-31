@@ -213,6 +213,9 @@ class MpiVariableValueSearcher(object):
                 dim = 1
                 buffer_type = ""
                 current_obj = n.type
+                if type(current_obj) is c_ast.PtrDecl:
+                    # skip for now TODO
+                    return
                 parsed = False
                 while True:
                     new_obj['further_def'].append(current_obj)

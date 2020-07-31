@@ -12,6 +12,8 @@
 #define MPI_BARRIER 4
 #define mpiCall uint8_t
 
+#define MPI_STATUS_IGNORE 0
+
 #define SEND_REQUEST 1
 #define CLEAR_TO_SEND 2
 #define DATA 3

@@ -310,9 +310,15 @@ int recv_internal(
       {
         printf("received stream longer than count!\n");
         Axis<8>  tmp8 = siMPI_data->read();
-        *status = 2;
+        if(status != MPI_STATUS_IGNORE)
+        {
+          *status = 2;
+        }
       } else {
+        if(status != MPI_STATUS_IGNORE)
+        {
         *status = 1;
+        }
 
         recvCnt++;
         printf("MPI_recv completed.\n");

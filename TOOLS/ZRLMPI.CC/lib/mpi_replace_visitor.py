@@ -87,9 +87,15 @@ class MpiStatementReplaceVisitor(object):
                 list_to_insert = []
                 if type(self.objects_to_replace[target_index]) is list:
                     for e in self.objects_to_replace[target_index]:
+                        if type(e) is c_ast.Compound:
+                            list_to_insert.extend(e.block_items)
+                        else:
                             list_to_insert.append(e)
                 else:
-                    list_to_insert.append(self.objects_to_replace[target_index])
+                    if type(self.objects_to_replace[target_index]) is c_ast.Compound:
+                        list_to_insert.extend(self.objects_to_replace[target_index].block_items)
+                    else:
+                        list_to_insert.append(self.objects_to_replace[target_index])
                 del node.block_items[insert_index]
                 # insert_index -= 1 #TODO
                 if insert_index < 0:

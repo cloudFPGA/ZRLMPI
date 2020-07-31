@@ -18,6 +18,7 @@ import lib.mpi_signature_name_visitor as name_visitor
 import lib.mpi_variable_value_visitor as value_visitor
 import lib.mpi_affected_statement_visitor as statement_visitor
 import lib.mpi_replace_visitor as replace_visitor
+import lib.template_generator as template_generator
 
 from lib.util import get_line_number_of_occurence
 
@@ -28,22 +29,7 @@ __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
 def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name):
-    # 1. find buffer names
-    # 2. find rank names
-    # 3. find size names
-    # TODO: find collectives and replace with template
-    find_name_visitor = name_visitor.MpiSignatureNameSearcher()
-    find_name_visitor.visit(c_ast_orig)
-    rank_variable_names, rank_variable_obj = find_name_visitor.get_results_ranks()
-    size_variable_names, size_variable_obj = find_name_visitor.get_results_sizes()
-    # print(rank_variable_names)
-
-    # 3. detect FPGA parts based on rank (from cluster description)
-    get_value_visitor = value_visitor.MpiVariableValueSearcher([], rank_variable_names)
-    get_value_visitor.visit(c_ast_orig)
-    found_compares = get_value_visitor.get_results_compares()
-    print("Found {} compares of the rank variable.".format(len(found_compares)))
-    # print(found_compares)
+    # 0. process cluster description
     max_rank = 0
     total_size = 0
     for e in cluster_description['nodes']['cpu']:
@@ -57,6 +43,43 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     # print("Maximum rank in cluster: {}\n".format(max_rank))
     all_ranks = list(range(0, max_rank+1))
     fpga_ranks = cluster_description['nodes']['fpga']
+    cluster_size_constant = c_ast.Constant('int', str(total_size))
+    # 1. find buffer names
+    # 2. find rank names
+    # 3. find size names
+    # TODO: find collectives and replace with template
+    find_name_visitor = name_visitor.MpiSignatureNameSearcher()
+    find_name_visitor.visit(c_ast_orig)
+    rank_variable_names, rank_variable_obj = find_name_visitor.get_results_ranks()
+    # print(rank_variable_names)
+    # size_variable_names, size_variable_obj = find_name_visitor.get_results_sizes()
+    scatter_calls_obj = find_name_visitor.get_results_scatter()
+    # 4. replace templates
+    if len(rank_variable_names) > 1:
+        print("WARNING: multiple rank variables detected, template generation may fail.")
+    scatter_new_obj = []
+    for e in scatter_calls_obj:
+        new_entry = {}
+        new_entry['old'] = e
+        new_entry['new'] = template_generator.scatter_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+        scatter_new_obj.append(new_entry)
+    c_ast_tmpl = c_ast_orig
+    replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(scatter_new_obj)
+    replace_stmt_visitor0.visit(c_ast_tmpl)
+
+    # search for names in new ast
+    find_name_visitor3 = name_visitor.MpiSignatureNameSearcher()
+    find_name_visitor3.visit(c_ast_tmpl)
+    rank_variable_names, rank_variable_obj = find_name_visitor3.get_results_ranks()
+    # print(rank_variable_names)
+    size_variable_names, size_variable_obj = find_name_visitor3.get_results_sizes()
+
+    # 3. detect FPGA parts based on rank (from cluster description)
+    get_value_visitor = value_visitor.MpiVariableValueSearcher([], rank_variable_names)
+    get_value_visitor.visit(c_ast_tmpl)
+    found_compares = get_value_visitor.get_results_compares()
+    print("Found {} compares of the rank variable.".format(len(found_compares)))
+    # print(found_compares)
     rank_compare_results = []
     compares_invariant_for_fpgas = []
     for c in found_compares:
@@ -89,19 +112,18 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     # 4. modify AST with constant values (i.e. copy into new)
     if len(compares_invariant_for_fpgas) > 0:
         find_affected_node_visitor = statement_visitor.MpiAffectedStatementSearcher(compares_invariant_for_fpgas)
-        find_affected_node_visitor.visit(c_ast_orig)
+        find_affected_node_visitor.visit(c_ast_tmpl)
         affected_nodes = find_affected_node_visitor.get_found_statements()
-        new_ast = c_ast_orig
+        new_ast = c_ast_tmpl
         replace_stmt_visitor = replace_visitor.MpiStatementReplaceVisitor(affected_nodes)
         replace_stmt_visitor.visit(new_ast)
     else:
         print("No invariant rank statement for FPGAs found.")
-        new_ast = c_ast_orig
+        new_ast = c_ast_tmpl
 
     # 5. replace sizes
     sizes_to_replace = []
     for e in size_variable_obj:
-        i = size_variable_obj.index(e)
         new_entry = {}
         new_entry['old'] = e
         if type(e.args.exprs[1]) is c_ast.UnaryOp:
@@ -110,8 +132,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         else:
             # no pointer
             variable_obj = e.args.exprs[1]
-        new_constant_expression = c_ast.Assignment("=", variable_obj,
-                                         c_ast.Constant('int', str(total_size)))
+        new_constant_expression = c_ast.Assignment("=", variable_obj, cluster_size_constant)
         new_entry['new'] = new_constant_expression
         sizes_to_replace.append(new_entry)
     replace_stmt_visitor2 = replace_visitor.MpiStatementReplaceVisitor(sizes_to_replace)

@@ -20,6 +20,8 @@ from pycparser import c_ast
 __mpi_api_signatures_buffers__ = ['MPI_Send', 'MPI_Recv']
 __mpi_api_signatures_rank__ = ['MPI_Comm_rank']
 __mpi_api_signatures_size__ = ['MPI_Comm_size']
+__mpi_api_signatures_scatter__ = ['MPI_Scatter']
+__mpi_api_signatures_gather__ = ['MPI_Gather']
 
 
 class MpiSignatureNameSearcher(object):
@@ -62,6 +64,8 @@ class MpiSignatureNameSearcher(object):
         self.found_rank_names = []
         self.found_size_obj = []
         self.found_size_names = []
+        self.found_scatter_obj = []
+        self.found_gather_obj = []
 
     def get_results_buffers(self):
         return self.found_buffers_names, self.found_buffers_obj
@@ -71,6 +75,12 @@ class MpiSignatureNameSearcher(object):
 
     def get_results_sizes(self):
         return self.found_size_names, self.found_size_obj
+
+    def get_results_scatter(self):
+        return self.found_scatter_obj
+
+    def get_results_gather(self):
+        return self.found_gather_obj
 
     def visit(self, node):
         """ Visit a node.
@@ -180,6 +190,10 @@ class MpiSignatureNameSearcher(object):
                 self.found_size_names.append(size_name)
                 #self.found_size_obj.append(arg_1)
                 self.found_size_obj.append(n)
+        elif func_name in __mpi_api_signatures_scatter__:
+                self.found_scatter_obj.append(n)
+        elif func_name in __mpi_api_signatures_gather__:
+            self.found_gather_obj.append(n)
         return
 
     # def visit_UnaryOp(self, n):
