@@ -54,17 +54,23 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     # print(rank_variable_names)
     # size_variable_names, size_variable_obj = find_name_visitor.get_results_sizes()
     scatter_calls_obj = find_name_visitor.get_results_scatter()
+    gather_calls_obj = find_name_visitor.get_results_gather()
     # 4. replace templates
     if len(rank_variable_names) > 1:
         print("WARNING: multiple rank variables detected, template generation may fail.")
-    scatter_new_obj = []
+    collectives_new_obj = []
     for e in scatter_calls_obj:
         new_entry = {}
         new_entry['old'] = e
         new_entry['new'] = template_generator.scatter_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
-        scatter_new_obj.append(new_entry)
+        collectives_new_obj.append(new_entry)
+    for e in gather_calls_obj:
+        new_entry = {}
+        new_entry['old'] = e
+        new_entry['new'] = template_generator.gather_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+        collectives_new_obj.append(new_entry)
     c_ast_tmpl = c_ast_orig
-    replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(scatter_new_obj)
+    replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(collectives_new_obj)
     replace_stmt_visitor0.visit(c_ast_tmpl)
 
     if template_only:
