@@ -180,6 +180,7 @@ if __name__ == '__main__':
     tmp2_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw2.c"
     tmp2_hw_file_h = own_dir + __TMP_DIR__ + "/tmp_hw2.h"
 
+    # here, hw and sw files are the same
     parsed_file = gcc_file_parsing(own_dir, __TMP_DIR__, tmp_hw_file_c, sys.argv[2], tmp_hw_file_h, tmp2_hw_file_c)
     cluster_description = {}
     with open(sys.argv[7], 'r') as in_config:
@@ -187,10 +188,15 @@ if __name__ == '__main__':
     # TODO: support range definitions in JSON (convert to array here)
 
     tmp3_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw3.c"
+    tmp3_sw_file_c = own_dir + __TMP_DIR__ + "/tmp_sw3.c"
     # tmp3_hw_file_h = own_dir + "/tmp_hw3.h" # header will not change
 
     main_ast = get_main_ast(parsed_file)
     zrlmpi_max_buffer_size_bytes = ast_processing.process_ast(main_ast, cluster_description, tmp_hw_file_c, tmp3_hw_file_c)
+
+    # now, process template for SW file
+    main_ast = get_main_ast(parsed_file)
+    ignore_return = ast_processing.process_ast(main_ast, cluster_description, tmp_sw_file_c, tmp3_sw_file_c, template_only=True)
 
     max_buffer_string = "#define ZRLMPI_MAX_DETECTED_BUFFER_SIZE ({})  //in BYTES!\n\n".format(zrlmpi_max_buffer_size_bytes)
     add_header_line_after('\#include\ \"ZRLMPI\.hpp\"', max_buffer_string, tmp_hw_file_h, tmp2_hw_file_h)
@@ -203,7 +209,7 @@ if __name__ == '__main__':
 
     # c
     with open(sys.argv[3], 'w+') as hw_out_file, open(sys.argv[5], 'w+') as sw_out_file, \
-            open(tmp3_hw_file_c) as hw_in_file, open(tmp_sw_file_c) as sw_in_file:
+            open(tmp3_hw_file_c) as hw_in_file, open(tmp3_sw_file_c) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
     # h
     with open(sys.argv[4], 'w+') as hw_out_file, open(sys.argv[6], 'w+') as sw_out_file, \

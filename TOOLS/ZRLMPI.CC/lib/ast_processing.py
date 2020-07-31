@@ -28,7 +28,7 @@ __fallback_max_buffer_size__ = 1500  # we have to find one
 __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
-def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name):
+def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
@@ -66,6 +66,24 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     c_ast_tmpl = c_ast_orig
     replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(scatter_new_obj)
     replace_stmt_visitor0.visit(c_ast_tmpl)
+
+    if template_only:
+        # dump to target file
+        generator2 = c_generator.CGenerator()
+        generated_c = str(generator2.visit(c_ast_tmpl))
+
+        line_number = get_line_number_of_occurence('int.*main\(', hw_file_pre_parsing)
+        head = ""
+        with open(hw_file_pre_parsing, 'r') as in_file:
+            head = [next(in_file) for x in range(line_number - 1)]
+        head_str = ""
+        for e in head:
+            head_str += str(e)
+        concatenated_file = head_str + "\n" + generated_c
+        # print("Writing new c code to file {}.".format(target_file_name))
+        with open(target_file_name, 'w+') as target_file:
+            target_file.write(concatenated_file)
+        return 0
 
     # search for names in new ast
     find_name_visitor3 = name_visitor.MpiSignatureNameSearcher()
