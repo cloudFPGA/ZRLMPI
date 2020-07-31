@@ -322,7 +322,10 @@ class MpiAffectedStatementSearcher(object):
                     new_found['new'] = n.iftrue
                     result_value = 1
                 else:
-                    new_found['new'] = n.iffalse
+                    if n.iffalse is not None:
+                        new_found['new'] = n.iffalse
+                    else:
+                        new_found['new'] = c_ast.EmptyStatement()
                     result_value = 0
                 self.found_statements.append(new_found)
                 n.cond = c_ast.Constant('int', str(result_value))

@@ -88,7 +88,7 @@ class MpiStatementReplaceVisitor(object):
                 for e in self.objects_to_replace[target_index]:
                         list_to_insert.append(e)
                 del node.block_items[insert_index]
-                insert_index -= 1
+                # insert_index -= 1 #TODO
                 if insert_index < 0:
                     insert_index = 0
                 for e in list_to_insert:

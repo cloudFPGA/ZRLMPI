@@ -30,6 +30,8 @@ __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name):
     # 1. find buffer names
     # 2. find rank names
+    # TODO: find sizes and replace with constant value
+    # TODO: find collectives and replace with template
     find_name_visitor = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor.visit(c_ast_orig)
     rank_variable_names, rank_variable_obj = find_name_visitor.get_results_ranks()
