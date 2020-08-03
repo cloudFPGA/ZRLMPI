@@ -339,6 +339,11 @@ void MPI_Recv(
     }
     recv_internal(&data[i], count_of_this_message, datatype, source, tag, communicator, status);
   }
+
+  if(status != MPI_STATUS_IGNORE)
+  {
+    *status = 1; //success TODO
+  }
 }
 
 

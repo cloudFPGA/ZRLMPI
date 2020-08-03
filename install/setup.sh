@@ -39,7 +39,7 @@ sed -i "19iZRLMPI_DIR=\$(cFpRootDir)/$1/" $cFpRootDir/Makefile
 # ip cores are now part of the ROLE...so only the SW targets necessary
 #sed -i '/#cFa addtional targets/aZrlmpi: assert_env\n\t$(MAKE) -C $(ZRLMPI_DIR) ip\n' $cFpRootDir/Makefile
 sed -i '/#cFa addtional targets/ampi_run: assert_env   ## Launches the CPU parts of ZRLMPI\n\t$(MAKE) -C SW/ run\n\n\
-mpi_verify: assert_env  ## Launches the MPI application in openMPI\n\t$(MAKE) -C APP/ make run\n\n\
+mpi_verify: assert_env  ## Launches the MPI application in openMPI\n\t$(MAKE) -C APP/ run\n\n\
 assert_cluster: \n\t@test -f $(CLUSTER_DESCRIPTION) || ( /bin/echo -e "{\n\
   \"nodes\": {\n\
     \"cpu\" : [0],\n\
