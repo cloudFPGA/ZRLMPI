@@ -28,7 +28,7 @@ LIBS    += -I$(ZRLMPI_PATH)
 LIBS    += -L$(ZRLMPI_PATH)
 PROG     = zrlmpi_cpu_app
 BUILD_TYPE = debug # oder production
-SOURCES += $(ZRLMPI_PATH)/MPI.cpp $(ZRLMPI_PATH)/zrlmpi_common.cpp 
+SOURCES += $(ZRLMPI_PATH)/ZRLMPI.cpp $(ZRLMPI_PATH)/zrlmpi_common.cpp 
 OBJS    = $(SOURCES:%.cpp=%.o)
 HAEADS  += $(SOURCES:%.cpp=%.hpp)
 

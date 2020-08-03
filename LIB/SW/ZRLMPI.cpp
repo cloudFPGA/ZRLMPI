@@ -1,7 +1,7 @@
 
 #include <stdint.h>
 #include "zrlmpi_common.hpp"
-#include "MPI.hpp"
+#include "ZRLMPI.hpp"
 //#include "test.hpp"
 
 #include <sys/types.h>
@@ -243,6 +243,7 @@ void MPI_Send(
     int tag,
     MPI_Comm communicator)
 {
+  printf("[MPI_Send] count: %d, datatype %d, destination %d, tag %d, comm: %d.\n",count,(int) datatype, destination, tag, (int) communicator);
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   //for now, only datatypes of size 4
   //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
@@ -327,6 +328,7 @@ void MPI_Recv(
     MPI_Comm communicator,
     MPI_Status* status)
 {
+  printf("[MPI_Recv] count: %d, datatype %d, source %d, tag %d, comm: %d.\n",count,(int) datatype, source, tag, (int) communicator);
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   //for now, only datatypes of size 4
   //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
