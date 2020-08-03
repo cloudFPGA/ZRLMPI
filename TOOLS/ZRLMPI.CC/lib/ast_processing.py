@@ -109,7 +109,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     for c in found_compares:
         fpga_rank_results = []
         if type(c['other']) != c_ast.Constant or 'c_value' not in c.keys():
-            print("[NOT YET IMPLEMENTED] found non constant comparsion of a rank")
+            print("[NOT YET IMPLEMENTED] found non constant comparision of a rank, skipping this comparision.")
             continue
         for f in fpga_ranks:
             compare_str = ""

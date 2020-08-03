@@ -100,7 +100,7 @@ int main( int argc, char **argv )
 
   //worker code
 
-  int local_grid[DIM][DIM];
+  //int local_grid[DIM][DIM];
   int local_new[DIM][DIM];
   int local_dim = DIM/size;
 
@@ -128,7 +128,8 @@ int main( int argc, char **argv )
   {
     //main data junk
     //copies [start_line;end_line[ !!
-    MPI_Scatter(&grid[0][0], local_dim*DIM, MPI_INTEGER, &local_grid[start_line][0], local_dim*DIM, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    MPI_Scatter(&grid[0][0], local_dim*DIM, MPI_INTEGER, &grid[start_line][0], local_dim*DIM, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    //int *new_start = &grid[0][0] + l*5;
     //internal border regions
     if(rank==0)
     {
@@ -148,13 +149,13 @@ int main( int argc, char **argv )
         MPI_Send(&grid[last_line][0], DIM, MPI_INTEGER, r, 0, MPI_COMM_WORLD);
       }
       //take care of own data
-      for(int i = 0; i < DIM; i++)
-      {
-        local_grid[end_line][i] = grid[end_line][i];
-      }
+      //for(int i = 0; i < DIM; i++)
+      //{
+      //  local_grid[end_line][i] = grid[end_line][i];
+      //}
     } else {
-      MPI_Recv(&local_grid[border_startline][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
-      MPI_Recv(&local_grid[end_line][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+      MPI_Recv(&grid[border_startline][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+      MPI_Recv(&grid[end_line][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
     }
 
     //#ifdef DEBUG
@@ -171,9 +172,9 @@ int main( int argc, char **argv )
       {
         if(i == 0 || i == DIM-1 || j == 0 || j == DIM -1)
         {
-          local_new[i][j] = local_grid[i][j];
+          local_new[i][j] = grid[i][j];
         } else {
-          local_new[i][j] = (local_grid[i][j-1] + local_grid[i][j+1] + local_grid[i-1][j] + local_grid[i+1][j]) >> 2;
+          local_new[i][j] = (grid[i][j-1] + grid[i][j+1] + grid[i-1][j] + grid[i+1][j]) >> 2;
         }
       }
     }

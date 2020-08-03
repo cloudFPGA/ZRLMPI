@@ -50,8 +50,6 @@ def scatter_replacement(scatter_call, cluster_size_constant, rank_obj):
     for_condition = c_ast.BinaryOp('<', c_ast.ID(loop_variable_name), cluster_size_constant)
     for_next = c_ast.UnaryOp('p++', c_ast.ID(loop_variable_name))
     loop_stmts = []
-    skip_if = c_ast.If(c_ast.BinaryOp("==", c_ast.ID(loop_variable_name), root_rank), c_ast.Continue(), None)
-    loop_stmts.append(skip_if)
     buffer_variable = c_ast.Decl(name=new_start_variable_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
                                  type=c_ast.PtrDecl([],
                                                     c_ast.TypeDecl(new_start_variable_name, [], c_ast.IdentifierType([datatype_string]))),
@@ -59,6 +57,27 @@ def scatter_replacement(scatter_call, cluster_size_constant, rank_obj):
                                                    c_ast.BinaryOp("*", c_ast.ID(loop_variable_name), chunk_size)),
                                  bitsize=None)
     loop_stmts.append(buffer_variable)
+    skip_stmts = []
+    src_dst_equal = False
+    try:
+        if scatter_call.args.exprs[0].expr.name.name.name == scatter_call.args.exprs[3].expr.name.name.name:
+            src_dst_equal = True
+    except:
+        # so we are not sure...
+        src_dst_equal = False
+    if not src_dst_equal:
+        memcpy_args = []
+        memcpy_args.append(scatter_call.args.exprs[3])
+        memcpy_args.append(c_ast.ID(new_start_variable_name))
+        sizeof_args = []
+        sizeof_args.append(c_ast.Constant('string', datatype_string))
+        memcpy_args.append(c_ast.BinaryOp("*", chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
+        skip_stmts.append(memcpy)
+    # in all cases:
+    skip_stmts.append(c_ast.Continue())
+    skip_if = c_ast.If(c_ast.BinaryOp("==", c_ast.ID(loop_variable_name), root_rank), c_ast.Compound(skip_stmts), None)
+    loop_stmts.append(skip_if)
     send_args = []
     send_args.append(c_ast.ID(new_start_variable_name))
     send_args.append(chunk_size)
@@ -101,8 +120,6 @@ def gather_replacement(gather_call, cluster_size_constant, rank_obj):
     for_condition = c_ast.BinaryOp('<', c_ast.ID(loop_variable_name), cluster_size_constant)
     for_next = c_ast.UnaryOp('p++', c_ast.ID(loop_variable_name))
     loop_stmts = []
-    skip_if = c_ast.If(c_ast.BinaryOp("==", c_ast.ID(loop_variable_name), root_rank), c_ast.Continue(), None)
-    loop_stmts.append(skip_if)
     buffer_variable = c_ast.Decl(name=new_start_variable_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
                                  type=c_ast.PtrDecl([],
                                                     c_ast.TypeDecl(new_start_variable_name, [], c_ast.IdentifierType([datatype_string]))),
@@ -110,6 +127,27 @@ def gather_replacement(gather_call, cluster_size_constant, rank_obj):
                                                      c_ast.BinaryOp("*", c_ast.ID(loop_variable_name), chunk_size)),
                                  bitsize=None)
     loop_stmts.append(buffer_variable)
+    skip_stmts = []
+    src_dst_equal = False
+    try:
+        if gather_call.args.exprs[0].expr.name.name.name == gather_call.args.exprs[3].expr.name.name.name:
+            src_dst_equal = True
+    except:
+        # so we are not sure...
+        src_dst_equal = False
+    if not src_dst_equal:
+        memcpy_args = []
+        memcpy_args.append(c_ast.ID(new_start_variable_name))
+        memcpy_args.append(gather_call.args.exprs[0])
+        sizeof_args = []
+        sizeof_args.append(c_ast.Constant('string', datatype_string))
+        memcpy_args.append(c_ast.BinaryOp("*", chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
+        skip_stmts.append(memcpy)
+    # in all cases:
+    skip_stmts.append(c_ast.Continue())
+    skip_if = c_ast.If(c_ast.BinaryOp("==", c_ast.ID(loop_variable_name), root_rank), c_ast.Compound(skip_stmts), None)
+    loop_stmts.append(skip_if)
     recv_args = []
     recv_args.append(c_ast.ID(new_start_variable_name))
     recv_args.append(chunk_size)
