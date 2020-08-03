@@ -128,7 +128,7 @@ def gather_replacement(gather_call, cluster_size_constant, rank_obj):
     send_args.append(gather_call.args.exprs[0])
     send_args.append(gather_call.args.exprs[1])
     send_args.append(gather_call.args.exprs[2])
-    send_args.append(root_rank)
+    send_args.append(loop_variable)
     send_args.append(__gather_tag__)
     send_args.append(gather_call.args.exprs[7])
     send_call = c_ast.FuncCall(c_ast.ID("MPI_Send"), c_ast.ExprList(send_args))

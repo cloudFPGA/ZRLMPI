@@ -130,6 +130,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         new_result['differences_in_results'] = differences_in_results
         rank_compare_results.append(new_result)
         if not differences_in_results:
+            # we only update the AST with invariant decisions, further optimization possible
             new_result['fpga_decision_value'] = str(list(unique_values)[0])
             compares_invariant_for_fpgas.append(new_result)
 
@@ -163,6 +164,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     replace_stmt_visitor2.visit(new_ast)
 
     # 6. determine buffer size (and return them) AFTER the AST has been modified
+    # TODO: also replace buffers of void type with dynamic type?
     find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor2.visit(new_ast)
     buffer_variable_names, buffer_variable_obj = find_name_visitor2.get_results_buffers()
