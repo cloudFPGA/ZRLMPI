@@ -18,7 +18,7 @@ using namespace hls;
 #define RECV_CNT_SHIFT 8
 #define SEND_CNT_SHIFT 4
 #define AP_DONE_SHIFT 12
-#define AP_INIT_SHIFT 13
+#define AP_INIT_SHIFT 14
 
 #define RECV_WRITE_INFO 0
 #define RECV_READ_DATA 1

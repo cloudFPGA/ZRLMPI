@@ -47,7 +47,7 @@ void MPI_Init()
   //TODO: send/wait for INIT packets? 
   // INIT already done in wrapper_main
 
-  printf("clusterSize: %d, rank: %d\n", (int) cluster_size, (int) role_rank);
+  printf("[MPI_Init] clusterSize: %d, rank: %d\n", (int) cluster_size, (int) role_rank);
 
   hw_app_init = 1;
   //setMMIO_out(MMIO_out);
