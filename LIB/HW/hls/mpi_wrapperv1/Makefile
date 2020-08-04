@@ -6,7 +6,7 @@ ipName =${appName}v1
 #DEPS := $(shell find ./src/ -type f)
 DEPS := $(shell find ./src/ )
 
-.PHONY: all sim cosim cosim_view
+.PHONY: all csim cosim cosim_view
 all: ${ipName}_prj/solution1/impl/ip
 
 ${ipName}_prj/solution1/impl/ip: $(DEPS)
@@ -17,7 +17,7 @@ ${ipName}_prj/solution1/impl/ip: $(DEPS)
 	@touch $@
 	@touch ../../.ip_guard
 
-sim: 
+csim: 
 	export hlsSim=1; export hlsCoSim=0; vivado_hls -f run_hls.tcl
 
 
