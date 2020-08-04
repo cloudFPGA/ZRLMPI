@@ -15,6 +15,8 @@ static stream<Axis<8> > sFifoDataTX("sFifoDataTX");
 //static stream<IPMeta> sFifoIPdstTX("sFifoIPdstTX");
 int enqueueCnt = 0;
 bool tlast_occured_TX = false;
+uint32_t expected_recv_count = 0;
+uint32_t recv_total_cnt = 0;
 
 //receiveState fsmReceiveState = READ_STANDBY;
 static stream<Axis<8> > sFifoDataRX("sFifoDataRX");
@@ -54,6 +56,7 @@ void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes)
 
 void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 {
+#pragma HLS inline
 
   out.tdata = 0;
   out.tlast = 0;
@@ -84,6 +87,7 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 
 void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
 {
+#pragma HLS inline
 
   int positionOfTlast = 8; 
   ap_uint<8> tkeep = big.tkeep;
@@ -247,11 +251,12 @@ void mpe_main(
 
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 
-#pragma HLS INTERFACE axis register both port=siMPIif
-  //TODO: add DATA_PACK to Interface
-//#pragma HLS INTERFACE axis register both port=soMPIif
-#pragma HLS INTERFACE axis register both port=siMPI_data
-#pragma HLS INTERFACE axis register both port=soMPI_data
+#pragma HLS INTERFACE ap_fifo port=siMPIif
+#pragma HLS DATA_PACK     variable=siMPIif
+#pragma HLS INTERFACE ap_fifo port=siMPI_data
+#pragma HLS DATA_PACK     variable=siMPI_data
+#pragma HLS INTERFACE ap_fifo port=soMPI_data
+#pragma HLS DATA_PACK     variable=soMPI_data
 
 //#pragma HLS RESOURCE variable=localMRT core=RAM_1P_BRAM //maybe better to decide automatic?
 
@@ -283,6 +288,9 @@ void mpe_main(
 //#pragma HLS reset variable=currentPacketType
 #pragma HLS reset variable=currentDataType
 #pragma HLS reset variable=handshakeLinesCnt
+
+#pragma HLS reset variable=expected_recv_count
+#pragma HLS reset variable=recv_total_cnt
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -336,8 +344,8 @@ void mpe_main(
 
   switch(fsmMpeState) {
     case IDLE: 
-      //if ( !siMPIif.empty() ) //TODO: try to fix combinatorial loop
-      //{
+      if ( !siMPIif.empty() ) //TODO: try to fix combinatorial loop
+      {
         currentInfo = siMPIif.read();
         switch(currentInfo.mpi_call)
         {
@@ -363,7 +371,7 @@ void mpe_main(
             //TODO not yet implemented 
             break;
         }
-      //}
+      }
       break;
     case START_SEND: 
       if ( !soTcp_meta.full() && !sFifoDataTX.full() )
@@ -561,10 +569,11 @@ void mpe_main(
       //enqueue 
       cnt = 0;
       //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
-      //if( !siMPI_data.empty() && !sFifoDataTX.full() )
-      while( cnt<=8 && !tlast_occured_TX)
+      if( !siMPI_data.empty() && !sFifoDataTX.full() )
+      //while( cnt<=8 && !tlast_occured_TX)
       {
-        current_read_byte = siMPI_data.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
+        current_read_byte = siMPI_data.read(); 
+        //TODO: ? use "blocking" version!! better matches to MPI_Wrapper...
         sFifoDataTX.write(current_read_byte);
         cnt++;
         if(current_read_byte.tlast == 1)
@@ -580,7 +589,7 @@ void mpe_main(
       //printf("cnt: %d\n", cnt);
 
       fsmMpeState = SEND_DATA_WRD;
-      break;
+      //break; TODO: better split in 2 FSMs?
     case SEND_DATA_WRD:
       //dequeue
       printf("enqueueCnt: %d\n", enqueueCnt);
@@ -593,6 +602,7 @@ void mpe_main(
         soTcp_data.write(word);
         enqueueCnt -= 8;
 
+        //split to packet sizes is done by UOE/TOE
         if(word.tlast == 1)
         {
           printf("SEND_DATA finished writing.\n");
@@ -949,6 +959,9 @@ void mpe_main(
           
 
         //valid header && valid source
+        expected_recv_count = header.size;
+        printf("[MPI_Recv] expect %d bytes.\n",expected_recv_count);
+        recv_total_cnt = 0;
 
         /*MPI_Interface info = MPI_Interface();
         //info.mpi_call = static_cast<int>(header.call); 
@@ -972,23 +985,26 @@ void mpe_main(
       }
 
       fsmMpeState = RECV_DATA_WRD;
-      break;
+      //break; TODO: better split in 2 FSMs?
     case RECV_DATA_WRD:
 
-      //if( !sFifoDataRX.empty() && !soMPI_data.full() )
       word_tlast_occured = false;
       cnt = 0;
-      while( cnt < 8 && !word_tlast_occured)
+      if( !sFifoDataRX.empty() && !soMPI_data.full() )
+      //while( cnt < 8 && !word_tlast_occured)
       {
       //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
       //{
         Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
         soMPI_data.write(tmp);
         cnt++;
+        recv_total_cnt++;
         printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
 
-        if(tmp.tlast == 1)
+        //if(tmp.tlast == 1)
+        if(recv_total_cnt >= expected_recv_count)
         {
+          printf("[MPI_Recv] expected byte count reached.\n");
           //fsmMpeState = RECV_DATA_DONE;
           word_tlast_occured = true;
         }

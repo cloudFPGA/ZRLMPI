@@ -3,7 +3,7 @@
 #DEPS := $(shell find ./src/ -type f)
 DEPS := $(shell find ./src/ )
 
-.PHONY: all sim cosim cosim_view clean
+.PHONY: all csim cosim cosim_view clean
 all: mpe_prj/solution1/impl/ip
 
 # TODO clean before rebuild seems to be necessary...
@@ -17,7 +17,7 @@ mpe_prj/solution1/impl/ip: $(DEPS)
 	@touch ../../.ip_guard
 
 
-sim: clean
+csim: clean
 	export hlsSim=1; export hlsCoSim=0; vivado_hls -f run_hls.tcl
 
 

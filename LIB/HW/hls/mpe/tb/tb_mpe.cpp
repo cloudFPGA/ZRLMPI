@@ -92,7 +92,7 @@ int main(){
 
   MPI_Interface info = MPI_Interface();
   info.mpi_call = MPI_SEND_INT;
-  info.count = 12;
+  info.count = 17;
   info.rank = 2;
 
   MPIif_in.write(info);
@@ -242,7 +242,7 @@ int main(){
   
   info = MPI_Interface();
   info.mpi_call = MPI_RECV_INT;
-  info.count = 12;
+  info.count = 17;
   info.rank = 1;
 
   MPIif_in.write(info);
@@ -321,7 +321,11 @@ int main(){
 
   for(int i = 0; i< 17; i++)
   {
-    tmp8 = MPI_data_out.read();
+    //tmp8 = MPI_data_out.read();
+    if(!MPI_data_out.read_nb(tmp8))
+    {
+      break;
+    }
     
     printf("MPI read data: %#02x, i: %d, tlast %d\n", (int) tmp8.tdata, i, (int) tmp8.tlast);
 

@@ -351,10 +351,11 @@ void mpi_wrapper(
 #pragma HLS INTERFACE ap_vld register port=cluster_size_arg name=piSMC_to_ROLE_size
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 #pragma HLS INTERFACE ap_fifo port=soMPIif    //depth=16
-  //TODO: add DATA_PACK to Interface
+#pragma HLS DATA_PACK     variable=soMPIif
 #pragma HLS INTERFACE ap_fifo port=soMPI_data //depth=2048
-  //#pragma HLS INTERFACE axis register both port=siMPIif    //depth=16
+#pragma HLS DATA_PACK     variable=soMPI_data
 #pragma HLS INTERFACE ap_fifo port=siMPI_data //depth=2048
+#pragma HLS DATA_PACK     variable=siMPI_data
 
 #pragma HLS reset variable=my_app_done
 #pragma HLS reset variable=sendCnt
