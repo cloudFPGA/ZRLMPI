@@ -65,14 +65,18 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
   for(int i = 0; i < 8; i++)
   //for(int i = 7; i >=0 ; i--)
   {
+#pragma HLS unroll
     if(!small.empty())
     {
       Axis<8> tmp = small.read();
       //printf("read from fifo: %#02x\n", (unsigned int) tmp.tdata);
       out.tdata |= ((ap_uint<64>) (tmp.tdata) )<< (i*8);
       out.tkeep |= (ap_uint<8>) 0x01 << i;
-      //NO latch, because last read from small is still last read
-      out.tlast = tmp.tlast;
+      //TODO? NO latch, because last read from small is still last read
+      if(out.tlast == 0)
+      {
+        out.tlast = tmp.tlast;
+      }
 
     } else {
       printf("tried to read empty small stream!\n");
@@ -93,6 +97,7 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
   ap_uint<8> tkeep = big.tkeep;
   for(int i = 0; i<8; i++) //no reverse order!
   {
+#pragma HLS unroll
     tkeep = (tkeep >> 1);
     if((tkeep & 0x01) == 0)
     {
@@ -104,6 +109,7 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
   //for(int i = 7; i >=0 ; i--)
   for(int i = 0; i < 8; i++)
   {
+#pragma HLS unroll
     //out.full? 
     Axis<8> tmp = Axis<8>(); 
     if(i == positionOfTlast)
@@ -264,7 +270,7 @@ void mpe_main(
 //===========================================================
 // Core-wide pragmas
 
-#pragma HLS DATAFLOW 
+#pragma HLS DATAFLOW
 #pragma HLS STREAM variable=sFifoDataTX depth=2048
 #pragma HLS STREAM variable=sFifoDataRX depth=2048
 #pragma HLS INTERFACE ap_ctrl_none port=return
@@ -618,7 +624,7 @@ void mpe_main(
         fsmMpeState = SEND_DATA_RD;
       }
       break;
-    case WAIT4ACK: 
+    case WAIT4ACK:
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
       {
         //read header
