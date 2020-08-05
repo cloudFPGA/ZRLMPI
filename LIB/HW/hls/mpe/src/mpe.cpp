@@ -16,7 +16,9 @@ static stream<Axis<8> > sFifoDataTX("sFifoDataTX");
 int enqueueCnt = 0;
 bool tlast_occured_TX = false;
 uint32_t expected_recv_count = 0;
+uint32_t expected_send_count = 0;
 uint32_t recv_total_cnt = 0;
+uint32_t send_total_cnt = 0;
 
 //receiveState fsmReceiveState = READ_STANDBY;
 static stream<Axis<8> > sFifoDataRX("sFifoDataRX");
@@ -65,7 +67,7 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
   for(int i = 0; i < 8; i++)
   //for(int i = 7; i >=0 ; i--)
   {
-#pragma HLS unroll
+//#pragma HLS unroll
     if(!small.empty())
     {
       Axis<8> tmp = small.read();
@@ -97,7 +99,7 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
   ap_uint<8> tkeep = big.tkeep;
   for(int i = 0; i<8; i++) //no reverse order!
   {
-#pragma HLS unroll
+//#pragma HLS unroll
     tkeep = (tkeep >> 1);
     if((tkeep & 0x01) == 0)
     {
@@ -109,7 +111,7 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
   //for(int i = 7; i >=0 ; i--)
   for(int i = 0; i < 8; i++)
   {
-#pragma HLS unroll
+//#pragma HLS unroll
     //out.full? 
     Axis<8> tmp = Axis<8>(); 
     if(i == positionOfTlast)
@@ -297,6 +299,8 @@ void mpe_main(
 
 #pragma HLS reset variable=expected_recv_count
 #pragma HLS reset variable=recv_total_cnt
+#pragma HLS reset variable=expected_send_count
+#pragma HLS reset variable=send_total_cnt
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -563,6 +567,9 @@ void mpe_main(
 
         metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
         soTcp_meta.write(NetworkMetaStream(metaDst));
+        expected_send_count = header.size;
+        printf("[MPI_send] expect %d bytes.\n",expected_send_count);
+        send_total_cnt = 0;
 
         tlast_occured_TX = false;
         enqueueCnt = MPIF_HEADER_LENGTH;
@@ -575,13 +582,18 @@ void mpe_main(
       //enqueue 
       cnt = 0;
       //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
-      if( !siMPI_data.empty() && !sFifoDataTX.full() )
+      if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
       //while( cnt<=8 && !tlast_occured_TX)
       {
-        current_read_byte = siMPI_data.read(); 
+        current_read_byte = siMPI_data.read();
+        if(send_total_cnt >= (expected_send_count - 1))
+        {// to be sure...
+          current_read_byte.tlast = 1;
+        }
         //TODO: ? use "blocking" version!! better matches to MPI_Wrapper...
         sFifoDataTX.write(current_read_byte);
         cnt++;
+        send_total_cnt++;
         if(current_read_byte.tlast == 1)
         {
           tlast_occured_TX = true;

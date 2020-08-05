@@ -118,17 +118,19 @@ int send_internal(
         //  {
 
         //if(send_i_per_packet >= ZRLMPI_MAX_MESSAGE_SIZE_BYTES || //--> better by UOE/MPE? TODO
-        if(send_i == info.count - 1)
+        if(send_i >= info.count - 1)
         {
           tmp8.tlast = 1;
         } else {
           tmp8.tlast = 0;
         }
+        //just to be sure
+        tmp8.tkeep = 1;
         printf("write MPI data: %#02x\n", (int) tmp8.tdata);
         soMPI_data->write(tmp8);
         send_i++;
         //send_i_per_packet++;
-        if(send_i == info.count - 1)
+        if(send_i >= info.count - 1)
         {
           sendState = SEND_FINISH;
         }
