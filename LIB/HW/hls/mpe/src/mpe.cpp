@@ -23,7 +23,9 @@ uint32_t send_total_cnt = 0;
 //receiveState fsmReceiveState = READ_STANDBY;
 static stream<Axis<8> > sFifoDataRX("sFifoDataRX");
 
-mpeState fsmMpeState = IDLE; 
+mpeState fsmMpeState = IDLE;
+deqState sendDeqFsm = DEQ_IDLE;
+deqState recvDeqFsm = DEQ_IDLE;
 MPI_Interface currentInfo = MPI_Interface();
 //packetType currentPacketType = ERROR;
 mpiType currentDataType = MPI_INT;
@@ -293,6 +295,8 @@ void mpe_main(
 //#pragma HLS reset variable=fsmSendState
 //#pragma HLS reset variable=fsmReceiveState
 #pragma HLS reset variable=fsmMpeState
+#pragma HLS reset variable=sendDeqFsm
+#pragma HLS reset variable=recvDeqFsm
 //#pragma HLS reset variable=currentPacketType
 #pragma HLS reset variable=currentDataType
 #pragma HLS reset variable=handshakeLinesCnt
@@ -353,7 +357,9 @@ void mpe_main(
     uint8_t cnt = 0;
 
   switch(fsmMpeState) {
-    case IDLE: 
+    case IDLE:
+      sendDeqFsm = DEQ_IDLE;
+      recvDeqFsm = DEQ_DONE;
       if ( !siMPIif.empty() ) //TODO: try to fix combinatorial loop
       {
         currentInfo = siMPIif.read();
@@ -573,19 +579,23 @@ void mpe_main(
 
         tlast_occured_TX = false;
         enqueueCnt = MPIF_HEADER_LENGTH;
-        //fsmMpeState = SEND_DATA_WRITE;
-        //fsmMpeState = SEND_DATA_WRD;
         fsmMpeState = SEND_DATA_RD;
+        //start dequeue FSM
+        sendDeqFsm = DEQ_WRITE;
       }
       break;
     case SEND_DATA_RD:
       //enqueue 
       cnt = 0;
       //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
-      if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
-      //while( cnt<=8 && !tlast_occured_TX)
+      //if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
+      while( cnt<=8 && !tlast_occured_TX)
       {
-        current_read_byte = siMPI_data.read();
+        //current_read_byte = siMPI_data.read();
+        if(!siMPI_data.read_nb(current_read_byte))
+        {
+          break;
+        }
         if(send_total_cnt >= (expected_send_count - 1))
         {// to be sure...
           current_read_byte.tlast = 1;
@@ -597,6 +607,7 @@ void mpe_main(
         if(current_read_byte.tlast == 1)
         {
           tlast_occured_TX = true;
+          fsmMpeState = SEND_DATA_WRD;
           printf("tlast Occured.\n");
           printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) current_read_byte.tdata, (int) current_read_byte.tkeep, (int) current_read_byte.tlast);
           //fsmMpeState = SEND_DATA_WRD;
@@ -606,34 +617,13 @@ void mpe_main(
       //enqueueCnt += cnt;
       //printf("cnt: %d\n", cnt);
 
-      fsmMpeState = SEND_DATA_WRD;
-      //break; TODO: better split in 2 FSMs?
+      break;
     case SEND_DATA_WRD:
-      //dequeue
-      printf("enqueueCnt: %d\n", enqueueCnt);
-      word_tlast_occured = false;
-      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlast_occured_TX)) 
-      {
-        NetworkWord word = NetworkWord();
-        convertAxisToNtsWidth(sFifoDataTX, word);
-        printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        soTcp_data.write(word);
-        enqueueCnt -= 8;
-
-        //split to packet sizes is done by UOE/TOE
-        if(word.tlast == 1)
-        {
-          printf("SEND_DATA finished writing.\n");
-          //fsmMpeState = WAIT4ACK;
-          word_tlast_occured = true;
-        }
-      }
-      
-      if(word_tlast_occured)
+      //wait for dequeue fsm
+      if(sendDeqFsm == DEQ_DONE)
       {
         fsmMpeState = WAIT4ACK;
-      } else {
-        fsmMpeState = SEND_DATA_RD;
+        sendDeqFsm = DEQ_IDLE;
       }
       break;
     case WAIT4ACK:
@@ -981,15 +971,8 @@ void mpe_main(
         printf("[MPI_Recv] expect %d bytes.\n",expected_recv_count);
         recv_total_cnt = 0;
 
-        /*MPI_Interface info = MPI_Interface();
-        //info.mpi_call = static_cast<int>(header.call); 
-        info.mpi_call = currentInfo.mpi_call; //TODO
-        info.count = header.size; 
-        info.rank = header.src_rank;
-        soMPIif.write(info);*/
-
-        //fsmReceiveState = READ_DATA;
-          fsmMpeState = RECV_DATA_RD;
+        fsmMpeState = RECV_DATA_RD;
+        recvDeqFsm = DEQ_WRITE;
         //read_timeout_cnt = 0;
       }
 
@@ -1000,50 +983,19 @@ void mpe_main(
         NetworkWord word = siTcp_data.read();
         printf("READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         convertAxisToMpiWidth(word, sFifoDataRX);
-      }
-
-      fsmMpeState = RECV_DATA_WRD;
-      //break; TODO: better split in 2 FSMs?
-    case RECV_DATA_WRD:
-
-      word_tlast_occured = false;
-      cnt = 0;
-      if( !sFifoDataRX.empty() && !soMPI_data.full() )
-      //while( cnt < 8 && !word_tlast_occured)
-      {
-      //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
-      //{
-        Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
-        soMPI_data.write(tmp);
-        cnt++;
-        recv_total_cnt++;
-        printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
-
-        //if(tmp.tlast == 1)
-        if(recv_total_cnt >= expected_recv_count)
+        if(word.tlast == 1)
         {
-          printf("[MPI_Recv] expected byte count reached.\n");
-          //fsmMpeState = RECV_DATA_DONE;
-          word_tlast_occured = true;
+          fsmMpeState = RECV_DATA_WRD;
         }
-      //}
       }
-      //read_timeout_cnt++;
-      //if(read_timeout_cnt >= MPE_READ_TIMEOUT)
-      //{
-      //    //fsmReceiveState = READ_ERROR; //to clear streams?
-      //    fsmReceiveState = READ_STANDBY;
-      //   //status[MPE_STATUS_READ_ERROR_CNT]++;
-      //   //status[MPE_STATUS_LAST_READ_ERROR] = RX_TIMEOUT;
-
-      //}
-
-      if(word_tlast_occured)
+      break;
+    case RECV_DATA_WRD:
+      //wait for dequeue FSM
+      if(recvDeqFsm == DEQ_DONE)
       {
         fsmMpeState = RECV_DATA_DONE;
-      } else {
-        fsmMpeState = RECV_DATA_RD;
-      }
+        recvDeqFsm = DEQ_IDLE;
+      } 
       break;
     case RECV_DATA_DONE:
       //if(fsmReceiveState == READ_STANDBY && !soTcp_meta.full() && !sFifoDataTX.full() )
@@ -1124,8 +1076,112 @@ void mpe_main(
       }
       break;
   }
-
   printf("fsmMpeState after FSM: %d\n", fsmMpeState);
+
+//===========================================================
+// DEQUEUE FSM SEND
+
+  switch(sendDeqFsm)
+  {
+    default:
+    case DEQ_IDLE:
+      //NOP / "reset"
+      break;
+    
+    case DEQ_WRITE:
+      printf("enqueueCnt: %d\n", enqueueCnt);
+      word_tlast_occured = false;
+      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlast_occured_TX)) 
+      {
+        NetworkWord word = NetworkWord();
+        convertAxisToNtsWidth(sFifoDataTX, word);
+        printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+        soTcp_data.write(word);
+        enqueueCnt -= 8;
+
+        //split to packet sizes is done by UOE/TOE
+        if(word.tlast == 1)
+        {
+          printf("SEND_DATA finished writing.\n");
+          word_tlast_occured = true;
+        }
+      }
+      
+      if(word_tlast_occured)
+      {
+        sendDeqFsm = DEQ_DONE;
+      }
+      break;
+
+    case DEQ_DONE:
+      //NOP
+      break;
+  }
+
+  printf("sendDeqFsm after FSM: %d\n", sendDeqFsm);
+
+ //===========================================================
+// DEQUEUE FSM RECV
+
+  switch(recvDeqFsm)
+  {
+    default:
+    case DEQ_IDLE:
+      //NOP
+      break;
+    
+    case DEQ_WRITE:
+
+      word_tlast_occured = false;
+      cnt = 0;
+      //if( !sFifoDataRX.empty() && !soMPI_data.full() )
+      while( cnt < 8 && !word_tlast_occured)
+      {
+      //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
+      //{
+        //Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
+        Axis<8> tmp = Axis<8>();
+        if(!sFifoDataRX.read_nb(tmp))
+        {
+          break;
+        }
+        soMPI_data.write(tmp);
+        cnt++;
+        recv_total_cnt++;
+        printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
+
+        //if(tmp.tlast == 1)
+        if(recv_total_cnt >= expected_recv_count)
+        {
+          printf("[MPI_Recv] expected byte count reached.\n");
+          //fsmMpeState = RECV_DATA_DONE;
+          word_tlast_occured = true;
+        }
+      //}
+      }
+      //read_timeout_cnt++;
+      //if(read_timeout_cnt >= MPE_READ_TIMEOUT)
+      //{
+      //    //fsmReceiveState = READ_ERROR; //to clear streams?
+      //    fsmReceiveState = READ_STANDBY;
+      //   //status[MPE_STATUS_READ_ERROR_CNT]++;
+      //   //status[MPE_STATUS_LAST_READ_ERROR] = RX_TIMEOUT;
+
+      //}
+
+      if(word_tlast_occured)
+      {
+        recvDeqFsm = DEQ_DONE;
+      }
+      break;
+
+    case DEQ_DONE:
+      //NOP
+      break;
+  }
+
+  printf("recvDeqFsm after FSM: %d\n", sendDeqFsm);
+  
 
   return;
 }

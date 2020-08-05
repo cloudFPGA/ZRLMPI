@@ -82,6 +82,10 @@ using namespace hls;
 #define MPI_FLOAT 1
 #define mpiType uint8_t
 
+#define DEQ_IDLE 0
+#define DEQ_WRITE 1
+#define DEQ_DONE 3
+#define deqState uint8_t
 
 //ap_uint<32> littleEndianToInteger(ap_uint<8> *buffer, int lsb);
 //void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes);
