@@ -51,9 +51,9 @@ void MPI_Finalize();
 #define MPI_PORT 2718
 #define MPI_SERVICE "2718"
 #define MPI_CLUSTER_SIZE_MAX 128
-//#define MPI_OWN_RANK 0
+#define UDP_HEADER_SIZE_BYTES 45
 
-//#define HOST_ADDRESS "10.2.0.4"
+#define CUSTOM_MTU 1402 //VPN
 
 //forward declaration
 int app_main();

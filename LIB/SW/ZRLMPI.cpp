@@ -9,6 +9,8 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include <netdb.h>
 #include <memory.h>
 #include <ifaddrs.h>
@@ -23,6 +25,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/time.h>
+#include <time.h>
 
 typedef unsigned long long timestamp_t;
 
@@ -44,12 +47,13 @@ MPI_Header header_recv_cache[MPI_CLUSTER_SIZE_MAX];
 int cache_iter = 0;
 int cache_num = 0;
 bool skip_cache_entry[MPI_CLUSTER_SIZE_MAX];
+uint32_t max_udp_payload_bytes = 0;
 
 //clock_t clock_begin = 0;
 timestamp_t t0 = 0;
 
 //returns the size
-int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int buffer_length, uint8_t *buffer)
+int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer)
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
   struct sockaddr_in src_addr;
@@ -62,9 +66,10 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   bool multiple_packet_mode = false;
   uint32_t received_length = 0;
   uint32_t recv_packets_cnt = 0;
-  uint32_t expected_length = MPIF_HEADER_LENGTH + buffer_length;
-  if(buffer_length > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+  uint32_t expected_length = MPIF_HEADER_LENGTH + payload_length;
+  if(expected_length > max_udp_payload_bytes)
   {
+    printf("recv with multi packet mode.\n");
     multiple_packet_mode = true;
   }
 
@@ -72,7 +77,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   while(true)
   {
 
-    //first: look up cache: 
+    //first: look up cache:
     if(!checkedCache)
     {
 
@@ -96,17 +101,28 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
       //then wait for network 
       header = MPI_Header();
-      if(buffer_length > 0)
-      { 
-        res = recvfrom(udp_sock, &buffer[received_length], expected_length, 0, (sockaddr*)&src_addr, &slen);
-        ret = bytesToHeader(buffer, header);
-      } else { 
+      if(payload_length > 0)
+      {
+        //printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+        uint8_t *start_address = buffer + received_length;
+        res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
+        ret = bytesToHeader(start_address, header);
+        //for debugging
+        //for(int d = 0; d < 32; d++)
+        //{
+        //  printf(" %d", start_address[d]);
+        //  if(d > 1 && d %8 == 0)
+        //  {
+        //    printf("\n");
+        //  }
+        //}
+        //printf("\n");
+      } else {
         res = recvfrom(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&src_addr, &slen);
         ret = bytesToHeader(bytes, header);
       }
 
-      printf("received packet from %s:%d \n",inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port));
-
+      printf("received packet from %s:%d with length %d\n",inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port), res);
 
       if(ret != 0 && recv_packets_cnt == 0)
       {
@@ -127,11 +143,14 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
         }
       }
       else if(ret == 0 && multiple_packet_mode && recv_packets_cnt > 0)
-      {//we've got another header in between
+      {
+        printf("we've got another header in between.\n");
         copyToCache = true;
       }
       else {
         //valid header
+        received_length += res;
+        recv_packets_cnt++;
         copyToCache = false;
       }
 
@@ -177,12 +196,18 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     {
       header_recv_cache[cache_iter] = header;
       skip_cache_entry[cache_iter] = false;
-      cache_iter++; 
+      cache_iter++;
+      received_length -= res;
+      recv_packets_cnt--;
       if (cache_iter >= MPI_CLUSTER_SIZE_MAX)
       {
         //some type of clean 
         //TODO
         cache_iter = 0;
+        for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
+        {
+          skip_cache_entry[i] = false;
+        }
       }
       printf("put header to cache\n");
       cache_num++;
@@ -209,10 +234,10 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
   if(multiple_packet_mode)
   {
-    if(received_length != header.size)
-    {
-      printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, header.size);
-    }
+    //if(received_length != header.size)
+    //{
+    //  printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, header.size);
+    //}
     return received_length;
   }
   return header.size;
@@ -299,17 +324,31 @@ void send_internal(
   uint32_t byte_length = count*4 + MPIF_HEADER_LENGTH;
   int total_send = 0;
   int total_packets = 0;
+  struct timespec sleep;
+  sleep.tv_sec = 0;
+  sleep.tv_nsec = 1000; //1ms
   
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
-  for(int i = 0; i < byte_length; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+  for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)
   {
     int count_of_this_message = byte_length - i; //important for last message
-    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+    if(count_of_this_message > max_udp_payload_bytes)
     {
-      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
+      count_of_this_message = max_udp_payload_bytes;
     }
-    total_send += sendto(udp_sock, &buffer[i*ZRLMPI_MAX_MESSAGE_SIZE_BYTES], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
-    total_packets++;
+    printf("sending %d bytes from address %d as data junk...\n",count_of_this_message, i);
+    ret = sendto(udp_sock, &buffer[i], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+    if(ret == -1)
+    {
+      printf("error with sendto\n");
+      perror("sendto");
+      exit(EXIT_FAILURE);
+    } else {
+      total_send += ret;
+      total_packets++;
+    }
+    //make sure they stay in order
+    nanosleep(&sleep, &sleep);
   }
   //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
   //std::cout << res << " bytes sent for DATA" <<std::endl;
@@ -529,12 +568,17 @@ int main(int argc, char **argv)
 
   int result = 0;
   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  //from: https://stackoverflow.com/questions/973439/how-to-set-the-dont-fragment-df-flag-on-a-socket
+  //TODO: seems to kill sendto from time to time?
+  //int val = IP_PMTUDISC_DO;
+  //setsockopt(sock, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val));
 
   if(sock == -1)
   {
     std::cerr <<" error socket" << std::endl;
     exit(EXIT_FAILURE);
   }
+
 
   udp_sock = sock;
   uint16_t own_port = MPI_PORT;
@@ -599,6 +643,31 @@ int main(int argc, char **argv)
     std::cerr << "bind: " << errno << std::endl;
     exit(1);
   }
+  
+  //get MTU
+  //1. get if name of ip addr https://man7.org/linux/man-pages/man3/getifaddrs.3.html
+  //TODO
+  //TODO: if we get the mtu automatically, all nodes have to agree on one...--> header?
+  //https://stackoverflow.com/questions/38817023/how-to-send-packets-according-to-the-mtu-value
+  //struct ifreq ifr;
+  ////ifr.ifr_addr.sa_family = AF_INET;
+  //memcpy(&ifr.ifr_addr, &addrListen, sizeof(addrListen));
+  //strcpy(ifr.ifr_name, "vpn0");
+  //if (ioctl(sock, SIOCGIFMTU, (caddr_t)&ifr) < 0) 
+  //{
+  //  perror("ioctl");
+  //  exit(EXIT_FAILURE);
+  //}
+
+  //printf("MTU is %d.\n", ifr.ifr_mtu);
+  //max_udp_payload_bytes = ifr.ifr_mtu - UDP_HEADER_SIZE_BYTES;
+  
+  max_udp_payload_bytes = CUSTOM_MTU - UDP_HEADER_SIZE_BYTES;
+  if(max_udp_payload_bytes > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+  {
+    max_udp_payload_bytes = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
+  }
+  //printf("max payload bytes: %d.\n", max_udp_payload_bytes);
 
   //init cache
   for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
