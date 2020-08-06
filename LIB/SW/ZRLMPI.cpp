@@ -59,6 +59,15 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   bool copyToCache = false, checkedCache = false;
   int ret = 0, res = 0, cache_i = 0;
 
+  bool multiple_packet_mode = false;
+  uint32_t received_length = 0;
+  uint32_t recv_packets_cnt = 0;
+  uint32_t expected_length = MPIF_HEADER_LENGTH + buffer_length;
+  if(buffer_length > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+  {
+    multiple_packet_mode = true;
+  }
+
 
   while(true)
   {
@@ -89,7 +98,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       header = MPI_Header();
       if(buffer_length > 0)
       { 
-        res = recvfrom(udp_sock, buffer, MPIF_HEADER_LENGTH + buffer_length, 0, (sockaddr*)&src_addr, &slen);
+        res = recvfrom(udp_sock, &buffer[received_length], expected_length, 0, (sockaddr*)&src_addr, &slen);
         ret = bytesToHeader(buffer, header);
       } else { 
         res = recvfrom(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&src_addr, &slen);
@@ -99,17 +108,36 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       printf("received packet from %s:%d \n",inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port));
 
 
-      if(ret != 0)
+      if(ret != 0 && recv_packets_cnt == 0)
       {
-        printf("invalid header.\n");
+        printf("invalid header. Dropping packet.\n");
         //copyToCache = true;
         continue;
+      } 
+      else if(ret != 0 && recv_packets_cnt > 0 && multiple_packet_mode)
+      {//is the continuation of a data packet
+        printf("data_packet %d received.\n", recv_packets_cnt);
+        received_length += res;
+        recv_packets_cnt++;
+        if(received_length >= expected_length)
+        {
+          break;
+        } else {
+          continue;
+        }
+      }
+      else if(ret == 0 && multiple_packet_mode && recv_packets_cnt > 0)
+      {//we've got another header in between
+        copyToCache = true;
+      }
+      else {
+        //valid header
+        copyToCache = false;
       }
 
     }
-    copyToCache = false;
 
-    if(checkedCache)
+    if(!copyToCache && checkedCache)
     {
       if(ntohl(src_addr.sin_addr.s_addr) != expAddr)
       {
@@ -118,20 +146,20 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       }
     }
 
-    if(header.src_rank != expSrcRank)
+    if(!copyToCache && header.src_rank != expSrcRank)
     {
       printf("Header does not match expected src rank: Expected %d, got %d \n", expSrcRank, header.src_rank);
       copyToCache = true;
     }
 
     //if(header.dst_rank != MPI_OWN_RANK)
-    if(header.dst_rank != own_rank)
+    if(!copyToCache && header.dst_rank != own_rank)
     {
       printf("I'm not the right recepient! Header is addressed for %d.\n", header.dst_rank);
       copyToCache = true;
     }
 
-    if(header.type != expType)
+    if(!copyToCache && header.type != expType)
     {
       printf("Expected type %d, got %d!\n",(int) expType, (int) header.type);
       copyToCache = true;
@@ -139,7 +167,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
     //check data type 
     //TODO: generic
-    if(header.call != expCall)
+    if(!copyToCache && header.call != expCall)
     {
       printf("receiver expects different call: %d.\n", (int) header.call);
       copyToCache = true;
@@ -167,12 +195,26 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       cache_num--;
     }
     if(!copyToCache)
-    {
-      break;
+    {//we got what we wanted
+      if(!multiple_packet_mode 
+          || (received_length >= expected_length)
+        )
+      {
+        break;
+      } 
+      //else: continue
     }
 
   }
 
+  if(multiple_packet_mode)
+  {
+    if(received_length != header.size)
+    {
+      printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, header.size);
+    }
+    return received_length;
+  }
   return header.size;
 }
 
@@ -215,12 +257,17 @@ void send_internal(
     MPI_Comm communicator)
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
+  //TODO make generic
+  int typewidth = 4;
+  int corresponding_call_type = MPI_RECV_INT;
+  int call_type = MPI_SEND_INT;
+  
   MPI_Header header = MPI_Header(); 
   header.dst_rank = destination;
   //header.src_rank = MPI_OWN_RANK;
   header.src_rank = own_rank;
   header.size = 0;
-  header.call = MPI_SEND_INT;
+  header.call = call_type;
   header.type = SEND_REQUEST;
 
   headerToBytes(header, bytes);
@@ -231,7 +278,8 @@ void send_internal(
 
   int ret = 0;
 
-  ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, MPI_RECV_INT, destination, 0, 0);
+
+  ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, corresponding_call_type, destination, 0, 0);
   printf("Got CLEAR to SEND\n");
 
   //Send data
@@ -240,7 +288,7 @@ void send_internal(
   //header.src_rank = MPI_OWN_RANK;
   header.src_rank = own_rank;
   header.size = count*4;
-  header.call = MPI_SEND_INT;
+  header.call = call_type;
   header.type = DATA;
 
   uint8_t buffer[count*4 + MPIF_HEADER_LENGTH];
@@ -248,12 +296,27 @@ void send_internal(
   headerToBytes(header, buffer);
   //TODO generic
   memcpy(&buffer[MPIF_HEADER_LENGTH], data, count*4);
+  uint32_t byte_length = count*4 + MPIF_HEADER_LENGTH;
+  int total_send = 0;
+  int total_packets = 0;
   
-  res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+  //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
+  for(int i = 0; i < byte_length; i+=ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+  {
+    int count_of_this_message = byte_length - i; //important for last message
+    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+    {
+      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
+    }
+    total_send += sendto(udp_sock, &buffer[i*ZRLMPI_MAX_MESSAGE_SIZE_BYTES], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+    total_packets++;
+  }
+  //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+  //std::cout << res << " bytes sent for DATA" <<std::endl;
 
-  std::cout << res << " bytes sent for DATA" <<std::endl;
+  std::cout << total_send << " bytes sent for DATA (in " << total_packets << " packets) " <<std::endl;
   
-  ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, MPI_RECV_INT, destination, 0, 0);
+  ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, corresponding_call_type, destination, 0, 0);
   printf("Got ACK\n");
 
 }
@@ -270,15 +333,19 @@ void MPI_Send(
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   //for now, only datatypes of size 4
   //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
-  for(int i = 0; i < count; i+=ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
-  {
-    int count_of_this_message = count - i; //important for last message
-    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
-    {
-      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
-    }
-    send_internal(&data[i], count_of_this_message, datatype, destination, tag, communicator);
-  }
+  //for(int i = 0; i < count; i+=ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+  //{
+  //  int count_of_this_message = count - i; //important for last message
+  //  if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+  //  {
+  //    count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
+  //  }
+  //  send_internal(&data[i], count_of_this_message, datatype, destination, tag, communicator);
+  //}
+  
+  send_internal(data, count, datatype, destination, tag, communicator);
+
+
 }
 
 void recv_internal(
@@ -291,8 +358,12 @@ void recv_internal(
     MPI_Status* status)
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
+  //TODO make generic
+  int typewidth = 4;
+  int corresponding_call_type = MPI_SEND_INT;
+  int call_type = MPI_RECV_INT;
   
-  int ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), SEND_REQUEST, MPI_SEND_INT, source, 0, 0);
+  int ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), SEND_REQUEST, corresponding_call_type, source, 0, 0);
 
   printf("Got SEND_REQUEST\n");
 
@@ -301,7 +372,7 @@ void recv_internal(
   //header.src_rank = MPI_OWN_RANK;
   header.src_rank = own_rank;
   header.size = 0;
-  header.call = MPI_RECV_INT;
+  header.call = call_type;
   header.type = CLEAR_TO_SEND;
 
   headerToBytes(header, bytes);
@@ -311,9 +382,9 @@ void recv_internal(
   std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
   
   //recv data
-  uint8_t buffer[count*4 + MPIF_HEADER_LENGTH];
+  uint8_t buffer[count*typewidth + MPIF_HEADER_LENGTH];
 
-  ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, MPI_SEND_INT, source, count*4, buffer);
+  ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth, buffer);
 
   printf("Receiving DATA ...\n");
 
@@ -331,7 +402,7 @@ void recv_internal(
   //header.src_rank = MPI_OWN_RANK;
   header.src_rank = own_rank;
   header.size = 0;
-  header.call = MPI_RECV_INT;
+  header.call = call_type;
   header.type = ACK;
 
   headerToBytes(header, bytes);
@@ -355,15 +426,17 @@ void MPI_Recv(
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   //for now, only datatypes of size 4
   //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
-  for(int i = 0; i < count; i+=ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
-  {
-    int count_of_this_message = count - i; //important for last message
-    if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
-    {
-      count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
-    }
-    recv_internal(&data[i], count_of_this_message, datatype, source, tag, communicator, status);
-  }
+  //for(int i = 0; i < count; i+=ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+  //{
+  //  int count_of_this_message = count - i; //important for last message
+  //  if(count_of_this_message > ZRLMPI_MAX_MESSAGE_SIZE_WORDS)
+  //  {
+  //    count_of_this_message = ZRLMPI_MAX_MESSAGE_SIZE_WORDS;
+  //  }
+  //  recv_internal(&data[i], count_of_this_message, datatype, source, tag, communicator, status);
+  //}
+
+  recv_internal(data, count, datatype, source, tag, communicator, status);
 
   if(status != MPI_STATUS_IGNORE)
   {
