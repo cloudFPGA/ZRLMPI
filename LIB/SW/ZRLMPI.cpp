@@ -110,7 +110,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
         //for debugging
         //for(int d = 0; d < 32; d++)
         //{
-        //  printf(" %d", start_address[d]);
+        //  printf(" %#02x", start_address[d]);
         //  if(d > 1 && d %8 == 0)
         //  {
         //    printf("\n");
@@ -326,7 +326,7 @@ void send_internal(
   int total_packets = 0;
   struct timespec sleep;
   sleep.tv_sec = 0;
-  sleep.tv_nsec = 1000; //1ms
+  sleep.tv_nsec = 200; //2ms, based on experiments...
   
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
   for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)
