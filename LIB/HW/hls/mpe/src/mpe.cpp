@@ -60,7 +60,7 @@ void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes)
 
 void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 {
-#pragma HLS inline
+//#pragma HLS inline
 
   out.tdata = 0;
   out.tlast = 0;
@@ -95,7 +95,7 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 
 void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
 {
-#pragma HLS inline
+//#pragma HLS inline
 
   int positionOfTlast = 8; 
   ap_uint<8> tkeep = big.tkeep;
@@ -1133,21 +1133,18 @@ void mpe_main(
     case DEQ_WRITE:
 
       word_tlast_occured = false;
-      cnt = 0;
-      //if( !sFifoDataRX.empty() && !soMPI_data.full() )
-      while( cnt < 8 && !word_tlast_occured)
+      //cnt = 0;
+      if( !sFifoDataRX.empty() && !soMPI_data.full() )
+      //while( cnt < 8 && !word_tlast_occured)
       {
       //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
       //{
-        //Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
-        Axis<8> tmp = Axis<8>();
-        if(!sFifoDataRX.read_nb(tmp))
-        {
-          break;
-        }
-        soMPI_data.write(tmp);
-        cnt++;
-        recv_total_cnt++;
+        Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
+        //Axis<8> tmp = Axis<8>();
+        //if(!sFifoDataRX.read_nb(tmp))
+        //{
+        //  break;
+        //}
         printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
 
         //if(tmp.tlast == 1)
@@ -1156,7 +1153,13 @@ void mpe_main(
           printf("[MPI_Recv] expected byte count reached.\n");
           //fsmMpeState = RECV_DATA_DONE;
           word_tlast_occured = true;
+          tmp.tlast = 1;
+        } else {
+          tmp.tlast = 0;
         }
+        soMPI_data.write(tmp);
+        //cnt++;
+        recv_total_cnt++;
       //}
       }
       //read_timeout_cnt++;
