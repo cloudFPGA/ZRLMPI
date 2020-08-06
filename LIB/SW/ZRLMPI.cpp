@@ -52,6 +52,11 @@ uint32_t max_udp_payload_bytes = 0;
 //clock_t clock_begin = 0;
 timestamp_t t0 = 0;
 
+#ifdef KVM_CORRECTION
+struct timespec kvm_net;
+#endif
+
+
 //returns the size
 int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer)
 {
@@ -122,6 +127,10 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
         ret = bytesToHeader(bytes, header);
       }
 
+#ifdef KVM_CORRECTION
+nanosleep(&kvm_net, &kvm_net);
+#endif
+      
       printf("received packet from %s:%d with length %d\n",inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port), res);
 
       if(ret != 0 && recv_packets_cnt == 0)
@@ -298,6 +307,9 @@ void send_internal(
   headerToBytes(header, bytes);
 
   int res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+#ifdef KVM_CORRECTION
+nanosleep(&kvm_net, &kvm_net);
+#endif
 
   std::cout << res << " bytes sent for SEND_REQUEST" << std::endl;
 
@@ -326,7 +338,7 @@ void send_internal(
   int total_packets = 0;
   struct timespec sleep;
   sleep.tv_sec = 0;
-  sleep.tv_nsec = 200; //2ms, based on experiments...
+  sleep.tv_nsec = 200; //0.2us, based on experiments...
   
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
   for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)
@@ -338,6 +350,9 @@ void send_internal(
     }
     printf("sending %d bytes from address %d as data junk...\n",count_of_this_message, i);
     ret = sendto(udp_sock, &buffer[i], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+#ifdef KVM_CORRECTION
+nanosleep(&kvm_net, &kvm_net);
+#endif
     if(ret == -1)
     {
       printf("error with sendto\n");
@@ -417,6 +432,9 @@ void recv_internal(
   headerToBytes(header, bytes);
   
   int res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[source], sizeof(rank_socks[source]));
+#ifdef KVM_CORRECTION
+nanosleep(&kvm_net, &kvm_net);
+#endif
 
   std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
   
@@ -447,6 +465,9 @@ void recv_internal(
   headerToBytes(header, bytes);
   
   res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[source], sizeof(rank_socks[source]));
+#ifdef KVM_CORRECTION
+nanosleep(&kvm_net, &kvm_net);
+#endif
 
   std::cout << res << " bytes sent for ACK" << std::endl;
 
@@ -674,6 +695,14 @@ int main(int argc, char **argv)
   {
     skip_cache_entry[i] = false;
   }
+
+  //to correct kvm "network cards"
+#ifdef KVM_CORRECTION
+  kvm_net.tv_sec = 0;
+  kvm_net.tv_nsec = 600*1000; //0.6ms (based on ping-pong experiments)
+  printf("[kvm network correction enbabled]\n");
+#endif
+
 
   std::cerr << "----- starting MPI app -----" << std::endl;
   //call actual MPI code 
