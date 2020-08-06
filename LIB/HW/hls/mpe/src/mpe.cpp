@@ -88,9 +88,8 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 
     } else {
       printf("tried to read empty small stream!\n");
-      ////adapt tdata and tkeep to meet default shape
-      //out.tdata = out.tdata >> (i+1)*8;
-      //out.tkeep = out.tkeep >> (i+1);
+      //now, we set tlast just to be sure...TODO?
+      out.tlast = 1;
       break;
     }
   }
@@ -1135,7 +1134,7 @@ void mpe_main(
     case DEQ_WRITE:
       printf("enqueueCnt: %d\n", enqueueCnt);
       word_tlast_occured = false;
-      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlast_occured_TX)) 
+      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlast_occured_TX))
       {
         NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);

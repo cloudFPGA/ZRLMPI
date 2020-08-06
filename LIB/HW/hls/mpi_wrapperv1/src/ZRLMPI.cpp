@@ -95,15 +95,16 @@ int send_internal(
       return 1;
   }
 
-  info.count = typeWidth*count;
+  uint32_t byte_count = typeWidth*count;
+  info.count = byte_count;
 
   //we are using blocking calls, since we are in a blocking synchronization method
   WrapperSendState sendState = SEND_WRITE_INFO;
   uint32_t send_i = 0;
+  Axis<8>  tmp8 = Axis<8>();
   //uint32_t send_i_per_packet = 0;
   while(sendState != SEND_DONE)
   {
-    Axis<8>  tmp8 = Axis<8>(data[send_i]);
     switch(sendState) {
       case SEND_WRITE_INFO:
         //if(!soMPIif->full())
@@ -116,11 +117,13 @@ int send_internal(
       case SEND_WRITE_DATA:
         //  if(!soMPI_data->full())
         //  {
-
+        tmp8.tdata = data[send_i];
         //if(send_i_per_packet >= ZRLMPI_MAX_MESSAGE_SIZE_BYTES || //--> better by UOE/MPE? TODO
-        if(send_i >= info.count - 1)
+        //if(send_i >= info.count - 1)
+        if(send_i >= (byte_count -1))
         {
           tmp8.tlast = 1;
+          sendState = SEND_FINISH;
         } else {
           tmp8.tlast = 0;
         }
@@ -130,10 +133,10 @@ int send_internal(
         soMPI_data->write(tmp8);
         send_i++;
         //send_i_per_packet++;
-        if(send_i >= info.count - 1)
-        {
-          sendState = SEND_FINISH;
-        }
+        //if(send_i >= info.count - 1)
+        //{
+        //  sendState = SEND_FINISH;
+        //}
         //  }
         break;
 
