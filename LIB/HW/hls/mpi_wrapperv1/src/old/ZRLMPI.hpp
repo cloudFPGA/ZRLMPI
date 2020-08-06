@@ -23,13 +23,11 @@ using namespace hls;
 #define RECV_WRITE_INFO 0
 #define RECV_READ_DATA 1
 #define RECV_FINISH 2
-#define RECV_DONE 3
 #define WrapperRecvState uint8_t
 
 #define SEND_WRITE_INFO 0
 #define SEND_WRITE_DATA 1
 #define SEND_FINISH 2
-#define SEND_DONE 3
 #define WrapperSendState uint8_t
 
 
