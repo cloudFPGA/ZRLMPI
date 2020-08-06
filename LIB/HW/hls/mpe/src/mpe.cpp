@@ -11,7 +11,7 @@ using namespace hls;
 //ap_uint<32> status[NUMBER_STATUS_WORDS];
 
 //sendState fsmSendState = WRITE_STANDBY;
-static stream<Axis<8> > sFifoDataTX("sFifoDataTX");
+stream<Axis<8> > sFifoDataTX("sFifoDataTX");
 //static stream<IPMeta> sFifoIPdstTX("sFifoIPdstTX");
 int enqueueCnt = 0;
 bool tlast_occured_TX = false;
@@ -21,7 +21,9 @@ uint32_t recv_total_cnt = 0;
 uint32_t send_total_cnt = 0;
 
 //receiveState fsmReceiveState = READ_STANDBY;
-static stream<Axis<8> > sFifoDataRX("sFifoDataRX");
+//stream<Axis<8> > sFifoDataRX("sFifoDataRX");
+stream<uint8_t> sFifoDataRX("sFifoDataRX");
+stream<uint8_t> rx_overflow_fifo("rx_overflow_fifo");
 
 mpeState fsmMpeState = IDLE;
 deqState sendDeqFsm = DEQ_IDLE;
@@ -60,7 +62,7 @@ void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes)
 
 void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 {
-//#pragma HLS inline
+#pragma HLS inline
 
   out.tdata = 0;
   out.tlast = 0;
@@ -70,16 +72,18 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
   //for(int i = 7; i >=0 ; i--)
   {
 //#pragma HLS unroll
-    if(!small.empty())
+    Axis<8> tmpl = Axis<8>();
+    //if(!small.empty())
+    if(small.read_nb(tmpl))
     {
-      Axis<8> tmp = small.read();
+     // Axis<8> tmp = small.read();
       //printf("read from fifo: %#02x\n", (unsigned int) tmp.tdata);
-      out.tdata |= ((ap_uint<64>) (tmp.tdata) )<< (i*8);
+      out.tdata |= ((ap_uint<64>) (tmpl.tdata) )<< (i*8);
       out.tkeep |= (ap_uint<8>) 0x01 << i;
       //TODO? NO latch, because last read from small is still last read
       if(out.tlast == 0)
       {
-        out.tlast = tmp.tlast;
+        out.tlast = tmpl.tlast;
       }
 
     } else {
@@ -277,6 +281,7 @@ void mpe_main(
 #pragma HLS DATAFLOW
 #pragma HLS STREAM variable=sFifoDataTX depth=2048
 #pragma HLS STREAM variable=sFifoDataRX depth=2048
+#pragma HLS STREAM variable=rx_overflow_fifo depth=8
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
 //===========================================================
@@ -978,24 +983,63 @@ void mpe_main(
 
       break;
     case RECV_DATA_RD:
-      if( !siTcp_data.empty() && !sFifoDataRX.full() )
+      if(recvDeqFsm == DEQ_DONE)
+      {
+        fsmMpeState = RECV_DATA_DONE;
+        recvDeqFsm = DEQ_IDLE;
+        break;
+      }
+      if( !rx_overflow_fifo.empty() )
+      {
+       while(!rx_overflow_fifo.empty())
+       {
+         uint8_t current_byte = rx_overflow_fifo.read();
+         if(!sFifoDataRX.write_nb(current_byte))
+         {
+           rx_overflow_fifo.write(current_byte);
+           break;
+         }
+       }
+      }
+      if( !siTcp_data.empty() && !sFifoDataRX.full() 
+          && rx_overflow_fifo.empty()
+          )
       {
         NetworkWord word = siTcp_data.read();
         printf("READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        convertAxisToMpiWidth(word, sFifoDataRX);
-        if(word.tlast == 1)
+        //convertAxisToMpiWidth(word, sFifoDataRX);
+        for(int i = 0; i < 8; i++)
         {
-          fsmMpeState = RECV_DATA_WRD;
+#pragma HLS unroll factor=8
+          if((word.tkeep >> i) == 0)
+          {
+            continue;
+          }
+          //with swap
+          //bufferIn[bufferInPtrWrite] = (ap_uint<8>) (big.tdata >> (7-i)*8);
+          //default
+          ap_uint<8> current_byte = (ap_uint<8>) (word.tdata >> i*8);
+          //we ignore the tlast!
+          if(!sFifoDataRX.write_nb(current_byte))
+          {
+            rx_overflow_fifo.write(current_byte);
+          }
         }
+
+        //we have to ignore the tlast here
+        //if(word.tlast == 1)
+        //{
+        //  fsmMpeState = RECV_DATA_WRD;
+        //}
       }
       break;
-    case RECV_DATA_WRD:
+    case RECV_DATA_WRD: //TODO: obsolete?
       //wait for dequeue FSM
       if(recvDeqFsm == DEQ_DONE)
       {
         fsmMpeState = RECV_DATA_DONE;
         recvDeqFsm = DEQ_IDLE;
-      } 
+      }
       break;
     case RECV_DATA_DONE:
       //if(fsmReceiveState == READ_STANDBY && !soTcp_meta.full() && !sFifoDataTX.full() )
@@ -1139,16 +1183,19 @@ void mpe_main(
       {
       //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
       //{
-        Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
-        //Axis<8> tmp = Axis<8>();
-        //if(!sFifoDataRX.read_nb(tmp))
-        //{
-        //  break;
-        //}
-        printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
+        //Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
+        Axis<8> tmp = Axis<8>();
+        uint8_t new_data;
+        if(!sFifoDataRX.read_nb(new_data))
+        {
+          break;
+        }
+
+        tmp.tdata = new_data;
+        tmp.tkeep = 1;
 
         //if(tmp.tlast == 1)
-        if(recv_total_cnt >= expected_recv_count)
+        if(recv_total_cnt >= (expected_recv_count - 1))
         {
           printf("[MPI_Recv] expected byte count reached.\n");
           //fsmMpeState = RECV_DATA_DONE;
@@ -1157,6 +1204,7 @@ void mpe_main(
         } else {
           tmp.tlast = 0;
         }
+        printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
         soMPI_data.write(tmp);
         //cnt++;
         recv_total_cnt++;
