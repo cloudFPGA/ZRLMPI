@@ -7,6 +7,7 @@ DIM=16
 #DEPS := $(shell find ./src/ -type f)
 DEPS := $(shell find ./src/ )
 IP_GUARD=$(usedRoleDir).ip_guard
+IP_GUARD_FORCE=$(usedRoleDir).ip_guard_delete_to_force_tcl_export
 
 .PHONY: all csim cosim cosim_view assert_env
 all: assert_env ${ipName}_prj/solution1/impl/ip
@@ -25,6 +26,8 @@ ${ipName}_prj/solution1/impl/ip: $(DEPS)
 	@#touch ${ipName}_prj
 	@touch $@
 	touch $(IP_GUARD)
+	@# to be sure...
+	rm -f $(IP_GUARD_FORCE)
 
 csim:
 	@/bin/echo -e "---------------\n\tThis simulation works only with *one* iteration with DIM $(DIM)!\n\t(so it expects one recv and one send from the app)\n---------------\n"

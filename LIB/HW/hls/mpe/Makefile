@@ -3,6 +3,7 @@
 #DEPS := $(shell find ./src/ -type f)
 DEPS := $(shell find ./src/ )
 IP_GUARD=$(usedRoleDir).ip_guard
+IP_GUARD_FORCE=$(usedRoleDir).ip_guard_delete_to_force_tcl_export
 
 
 .PHONY: all csim cosim cosim_view clean assert_env
@@ -24,6 +25,8 @@ mpe_prj/solution1/impl/ip: $(DEPS)
 	@#/bin/echo -e "AXI4Lite Addresses checked: OK\n"
 	@touch $@
 	touch $(IP_GUARD)
+	@# to be sure...
+	rm -f $(IP_GUARD_FORCE)
 
 
 csim: clean
