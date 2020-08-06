@@ -19,6 +19,7 @@ HEADS = app_sw.hpp
 CC       = gcc
 CPPFLAGS = -D_XOPEN_SOURCE=700
 CFLAGS   = -pedantic -Wall  -pthread
+CFLAGS  += --std=c++11
 #CFLAGS += -std=c99 -Wextra -Wconversion -Werror
 CFLAGS  += -g -fPIC
 LIBS     = -lstdc++

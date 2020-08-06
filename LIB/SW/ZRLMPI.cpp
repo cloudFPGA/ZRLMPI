@@ -17,6 +17,8 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string>
+#include <algorithm>
+#include <vector>
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -41,6 +43,7 @@ bool use_tcp = false; //TODO
 MPI_Header header_recv_cache[MPI_CLUSTER_SIZE_MAX];
 int cache_iter = 0;
 int cache_num = 0;
+bool skip_cache_entry[MPI_CLUSTER_SIZE_MAX];
 
 //clock_t clock_begin = 0;
 timestamp_t t0 = 0;
@@ -57,7 +60,8 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   int ret = 0, res = 0, cache_i = 0;
 
 
-  while(true) { 
+  while(true)
+  {
 
     //first: look up cache: 
     if(!checkedCache)
@@ -70,6 +74,12 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
         continue;
       }
       printf("checking cache entry %d\n", cache_i);
+      if(skip_cache_entry[cache_i])
+      {
+        printf("\tskipping entry.\n");
+        cache_i++;
+        continue;
+      }
       header = header_recv_cache[cache_i];
       cache_i++;
 
@@ -117,7 +127,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     //if(header.dst_rank != MPI_OWN_RANK)
     if(header.dst_rank != own_rank)
     {
-      printf("I'm not the right recepient!\n");
+      printf("I'm not the right recepient! Header is addressed for %d.\n", header.dst_rank);
       copyToCache = true;
     }
 
@@ -137,7 +147,8 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
     if(copyToCache && checkedCache)
     {
-      header_recv_cache[cache_iter] = header; 
+      header_recv_cache[cache_iter] = header;
+      skip_cache_entry[cache_iter] = false;
       cache_iter++; 
       if (cache_iter >= MPI_CLUSTER_SIZE_MAX)
       {
@@ -152,6 +163,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     {//delete from cache
       printf("found header in cache\n");
       header_recv_cache[cache_i-1] = MPI_Header();
+      skip_cache_entry[cache_i-1] = true;
       cache_num--;
     }
     if(!copyToCache)
@@ -159,9 +171,20 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       break;
     }
 
-  } 
+  }
 
   return header.size;
+}
+
+
+bool array_contains(const std::string &v, const std::vector<std::string> &array)
+{
+    return std::find(array.begin(), array.end(), v) != array.end();
+}
+
+int array_count(const std::string &v, const std::vector<std::string> &array)
+{
+    return count(array.begin(), array.end(), v);
 }
 
 
@@ -441,26 +464,23 @@ int main(int argc, char **argv)
   }
 
   udp_sock = sock;
+  uint16_t own_port = MPI_PORT;
+  std::vector<std::string> rank_ip_addrs;
 
-  sockaddr_in addrListen = {}; 
-  addrListen.sin_family = AF_INET;
-  addrListen.sin_port = htons(MPI_PORT);
-  //inet_aton(HOST_ADDRESS, (in_addr*) &addrListen.sin_addr.s_addr);
-  inet_aton(host_address, (in_addr*) &addrListen.sin_addr.s_addr);
-  result = bind(sock, (sockaddr*)&addrListen, sizeof(addrListen));
-  if (result == -1)
-  {
-    std::cerr << "bind: " << errno << std::endl;
-    exit(1);
-  }
-
-
+  //first, determine ports
   int offset = 0;
   for(int i = 0; i<cluster_size; i++)
   {
     if(i == own_rank)
     {
       offset = -1;
+      int multiple = array_count(host_address, rank_ip_addrs);
+      if(multiple > 0)
+      {
+        //std::cout << "found multiple (" << multiple << ") ip-addr for own_rank " << std::endl;
+        own_port += multiple;
+      }
+      rank_ip_addrs.push_back(host_address);
       continue;
     }
     if(i+5+offset >= argc)
@@ -468,9 +488,20 @@ int main(int argc, char **argv)
       break;
     }
     sockaddr_in addrDest = {};
+    uint16_t rank_port = MPI_PORT;
     std::string rank_addr = std::string(argv[5 + i + offset]);
-    std::cout << "rank " << i <<" addr: " << rank_addr << std::endl;
-    result = resolvehelper(rank_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest);
+    //increment port, if IP is alreadu used
+    int multiple = array_count(rank_addr, rank_ip_addrs);
+    if(multiple > 0)
+    {
+      //std::cout << "found multiple (" << multiple << ") ip-addr for " << rank_addr << std::endl;
+      rank_port += multiple;
+    }
+    rank_ip_addrs.push_back(rank_addr);
+    std::cout << "rank " << i <<" addr: " << rank_addr << " port: " << rank_port << std::endl;
+    //result = resolvehelper(rank_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest);
+    const char *service_name = std::to_string(rank_port).c_str();
+    result = resolvehelper(rank_addr.c_str(), AF_INET, service_name, &addrDest);
     if (result != 0)
     {
       std::cerr << "getaddrinfo: " << errno;
@@ -481,6 +512,28 @@ int main(int argc, char **argv)
 
   }
 
+  //now, listen on this port
+  std::cout << "I'm rank " << own_rank << " on address " << host_address << " and listening on port: " << own_port << std::endl;
+  sockaddr_in addrListen = {}; 
+  addrListen.sin_family = AF_INET;
+  //addrListen.sin_port = htons(MPI_PORT);
+  addrListen.sin_port = htons(own_port);
+  //inet_aton(HOST_ADDRESS, (in_addr*) &addrListen.sin_addr.s_addr);
+  inet_aton(host_address, (in_addr*) &addrListen.sin_addr.s_addr);
+  result = bind(sock, (sockaddr*)&addrListen, sizeof(addrListen));
+  if (result == -1)
+  {
+    std::cerr << "bind: " << errno << std::endl;
+    exit(1);
+  }
+
+  //init cache
+  for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
+  {
+    skip_cache_entry[i] = false;
+  }
+
+  std::cerr << "----- starting MPI app -----" << std::endl;
   //call actual MPI code 
   app_main();
 
