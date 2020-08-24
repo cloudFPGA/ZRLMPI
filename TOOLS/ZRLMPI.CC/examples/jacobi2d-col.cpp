@@ -66,8 +66,6 @@ int main( int argc, char **argv )
 #ifdef DEBUG
     t0 = get_timestamp();
 #endif
-    iterations[0] = ITERATIONS;
-
     //fill with zeros and init borders with 1
     for(int i = 0; i<DIM; i++)
     {
@@ -106,7 +104,9 @@ int main( int argc, char **argv )
 
   if(rank != 0)
   { //receive iterations
+    printf("Waiting for iterations...\n");
     MPI_Recv(&iterations[0], 1, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+    printf("...we are doing %d iterations.\n",iterations[0]);
   }
 
   start_line = rank * local_dim;
@@ -114,9 +114,14 @@ int main( int argc, char **argv )
   result_start_line = start_line;
   //for border regions
   int border_startline = start_line;
+  int border_endline = end_line;
   if(rank != 0)
   {
     border_startline--;
+  }
+  if(rank == (size -1))
+  {
+    border_endline--;
   }
 
 #ifdef DEBUG
@@ -155,7 +160,7 @@ int main( int argc, char **argv )
       //}
     } else {
       MPI_Recv(&grid[border_startline][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
-      MPI_Recv(&grid[end_line][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+      MPI_Recv(&grid[border_endline][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
     }
 
     //#ifdef DEBUG
