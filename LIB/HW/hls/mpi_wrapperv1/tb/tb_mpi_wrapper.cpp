@@ -12,6 +12,8 @@
 int main(){
 
 
+  printf("---------------\n\tThis simulation works only with *one* iteration with DIM %d!\n\t(so it expects one recv and one send from the app)\n---------------\n",DIM);
+
   bool succeded = true;
     
   // ----- system reset ---
@@ -84,6 +86,8 @@ int main(){
 
     //mpi_wrapper(sys_reset, role_rank, cluster_size);
    mpi_wrapper(role_rank, cluster_size, &MMIO_out, &soMPIif, &soMPI_data, &siMPI_data);
+   //twice, due to MPI_Init
+   mpi_wrapper(role_rank, cluster_size, &MMIO_out, &soMPIif, &soMPI_data, &siMPI_data);
 
     //empty streams
     info = soMPIif.read();
@@ -93,13 +97,21 @@ int main(){
 
   for(int i = 0; i< info.count; i++)
   {//not while...because we want test if there are exactly i bytes left 
-    soMPI_data.read();
+    Axis<8>  tmp8 = Axis<8>();
+    soMPI_data.read(tmp8);
+    printf("read MPI .tdata: %#02x, .tkeep %d, .tlast %d\n", (int) tmp8.tdata, (int) tmp8.tkeep, (int) tmp8.tlast);
+    if(i == info.count -1)
+    {
+      assert(tmp8.tlast == 1);
+    }
   }
 
   //c_testbench_read(&MMIO_out);
   //TODO
 
-  assert(MMIO_out == 0x1111);
+  printf("MMIO_out: %#02x\n",(int) MMIO_out);
+
+  assert(MMIO_out == 0x5111);
 
     printf("DONE\n");
 
