@@ -86,6 +86,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     c_ast_tmpl_tmp = c_ast_orig
     replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(collectives_new_obj)
     replace_stmt_visitor0.visit(c_ast_tmpl_tmp)
+    # TODO: constant folding
     # replace send and recv if necessary
     if replace_send_recv:
         find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
@@ -106,9 +107,9 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         c_ast_tmpl = c_ast_tmpl_tmp
         replace_stmt_visitor3 = replace_visitor.MpiStatementReplaceVisitor(send_recv_new_obj)
         replace_stmt_visitor3.visit(c_ast_tmpl)
+        # TODO: constant folding
     else:
         c_ast_tmpl = c_ast_tmpl_tmp
-
     if template_only:
         # dump to target file
         generator2 = c_generator.CGenerator()

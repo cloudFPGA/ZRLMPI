@@ -199,6 +199,7 @@ def send_replacemet(send_call):
     if type(send_call.args.exprs[1]) == c_ast.Constant:
         orig_count = int(send_call.args.exprs[1].value)
         if orig_count <= __max_packet_length__:
+            # nothing to do
             return send_call
     orig_count = send_call.args.exprs[1]
     loop_variable_name = "{}_{}_2".format(__loop_variable__name__, get_random_name_extension())
@@ -271,7 +272,55 @@ def send_replacemet(send_call):
 
 
 def recv_replacement(recv_call):
-    # TODO
-    return recv_call
+    if type(recv_call.args.exprs[1]) == c_ast.Constant:
+        orig_count = int(recv_call.args.exprs[1].value)
+        if orig_count <= __max_packet_length__:
+            # nothing to do
+            return recv_call
+    orig_count = recv_call.args.exprs[1]
+    loop_variable_name = "{}_{}_3".format(__loop_variable__name__, get_random_name_extension())
+    new_start_variable_name = "{}_{}_3".format(__new_start_variable_name__, get_random_name_extension())
+    new_count_variable_name = "{}_{}_3".format(__new_count_variable_name__, get_random_name_extension())
+    recv_datatype = recv_call.args.exprs[2]
+    datatype_string = get_type_string_from_int(int(recv_datatype.value))
+    loop_variable = c_ast.Decl(name=loop_variable_name, quals=[], storage=[], funcspec=[],
+                               type=c_ast.TypeDecl(loop_variable_name, [], c_ast.IdentifierType(['int'])),
+                               init=c_ast.Constant('int', '0'), bitsize=None)
+    for_condition = c_ast.BinaryOp('<', c_ast.ID(loop_variable_name), orig_count)
+    for_next = c_ast.Assignment('+=', c_ast.ID(loop_variable_name),
+                                c_ast.Constant('int', str(__max_packet_length__)))#)
+    loop_stmts = []
+    buffer_variable = c_ast.Decl(name=new_start_variable_name, quals=[], storage=[], funcspec=[],
+                                 type=c_ast.PtrDecl([],
+                                                    c_ast.TypeDecl(new_start_variable_name, [], c_ast.IdentifierType([datatype_string]))),
+                                 init=c_ast.BinaryOp("+", recv_call.args.exprs[0],
+                                                     c_ast.Constant('int', str(__max_packet_length__))),
+                                 bitsize=None)
+    loop_stmts.append(buffer_variable)
+    count_variable = c_ast.Decl(name=new_start_variable_name, quals=[], storage=[], funcspec=[],
+                                type=c_ast.TypeDecl(new_count_variable_name, [], c_ast.IdentifierType(['int'])),
+                                init=c_ast.BinaryOp("-", orig_count, c_ast.ID(loop_variable_name)),
+                                bitsize=None)
+    loop_stmts.append(count_variable)
+    if_stmts = []
+    corr_stmt = c_ast.Assignment('=', c_ast.ID(new_count_variable_name),
+                                 c_ast.Constant('int', str(__max_packet_length__)))
+    if_stmts.append(corr_stmt)
+    corr_if = c_ast.If(c_ast.BinaryOp('>', c_ast.ID(new_count_variable_name), c_ast.Constant('int', str(__max_packet_length__))),
+                       c_ast.Compound(if_stmts), None)
+    loop_stmts.append(corr_if)
+    recv_args = []
+    recv_args.append(c_ast.ID(new_start_variable_name))
+    recv_args.append(c_ast.ID(new_count_variable_name))
+    recv_args.append(recv_call.args.exprs[2])
+    recv_args.append(recv_call.args.exprs[3])
+    recv_args.append(recv_call.args.exprs[4])
+    recv_args.append(recv_call.args.exprs[5])
+    recv_args.append(recv_call.args.exprs[6])
+    recv_call = c_ast.FuncCall(c_ast.ID("MPI_Recv"), c_ast.ExprList(recv_args))
+    loop_stmts.append(recv_call)
+    for_stmt = c_ast.Compound(loop_stmts)
+    pAST = c_ast.For(loop_variable, for_condition, for_next, for_stmt)
+    return pAST
 
 
