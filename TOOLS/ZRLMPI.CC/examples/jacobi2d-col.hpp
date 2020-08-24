@@ -9,7 +9,7 @@
 #define USE_INTEGER
 
 
-//#define DIM 256
+#define DIM 256
 //#define WORKER_LINES 64
 //#define LDIMX 256
 //#define LDIMY 16
@@ -27,7 +27,7 @@
 //#define LDIMY 4
 //#define PACKETLENGTH 256
 
-#define DIM 16
+//#define DIM 16
 //#define WORKER_LINES 8
 //#define LDIMX 16
 //#define LDIMY 8
@@ -46,7 +46,7 @@
 
 #define CORNER_VALUE_INT 128
 
-#define DATA_CHANNEL_TAG 1 
+#define DATA_CHANNEL_TAG 1
 #define CMD_CHANNEL_TAG 2
 
 
