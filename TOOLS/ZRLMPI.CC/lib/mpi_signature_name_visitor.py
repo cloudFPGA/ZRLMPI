@@ -17,7 +17,12 @@
 
 from pycparser import c_ast
 
-__mpi_api_signatures_buffers__ = ['MPI_Send', 'MPI_Recv']
+__mpi_api_signatures_send__ = ['MPI_Send']
+__mpi_api_signatures_recv__ = ['MPI_Recv']
+# __mpi_api_signatures_buffers__ = ['MPI_Send', 'MPI_Recv']
+__mpi_api_signatures_buffers__ = []
+__mpi_api_signatures_buffers__.extend(__mpi_api_signatures_send__)
+__mpi_api_signatures_buffers__.extend(__mpi_api_signatures_recv__)
 __mpi_api_signatures_rank__ = ['MPI_Comm_rank']
 __mpi_api_signatures_size__ = ['MPI_Comm_size']
 __mpi_api_signatures_scatter__ = ['MPI_Scatter']
@@ -66,6 +71,8 @@ class MpiSignatureNameSearcher(object):
         self.found_size_names = []
         self.found_scatter_obj = []
         self.found_gather_obj = []
+        self.found_send_obj = []
+        self.found_recv_obj = []
 
     def get_results_buffers(self):
         return self.found_buffers_names, self.found_buffers_obj
@@ -81,6 +88,12 @@ class MpiSignatureNameSearcher(object):
 
     def get_results_gather(self):
         return self.found_gather_obj
+
+    def get_results_send(self):
+        return self.found_send_obj
+
+    def get_results_recv(self):
+        return self.found_recv_obj
 
     def visit(self, node):
         """ Visit a node.
@@ -128,6 +141,11 @@ class MpiSignatureNameSearcher(object):
         func_name = n.name.name
         # print("visiting FuncCall {}\n".format(func_name))
         if func_name in __mpi_api_signatures_buffers__:
+            # fist, save obj
+            if func_name in __mpi_api_signatures_send__:
+                self.found_send_obj.append(n)
+            elif func_name in __mpi_api_signatures_recv__:
+                self.found_recv_obj.append(n)
             # it's always the first argument
             arg_0 = n.args.exprs[0]
             # print("found 1st arg: {}\n".format(str(arg_0)))

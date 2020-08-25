@@ -28,7 +28,7 @@ __fallback_max_buffer_size__ = 1500  # we have to find one
 __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
-def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False):
+def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False, replace_send_recv=True):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
@@ -69,10 +69,47 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         new_entry['old'] = e
         new_entry['new'] = template_generator.gather_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
         collectives_new_obj.append(new_entry)
-    c_ast_tmpl = c_ast_orig
+    # replace send and recv if necessary
+    if replace_send_recv:
+        send_calls_obj = find_name_visitor.get_results_send()
+        recv_calls_obj = find_name_visitor.get_results_recv()
+        for e in send_calls_obj:
+            new_entry = {}
+            new_entry['old'] = e
+            new_entry['new'] = template_generator.send_replacemet(e)
+            collectives_new_obj.append(new_entry)
+        for e in recv_calls_obj:
+            new_entry = {}
+            new_entry['old'] = e
+            new_entry['new'] = template_generator.recv_replacement(e)
+            collectives_new_obj.append(new_entry)
+    c_ast_tmpl_tmp = c_ast_orig
     replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(collectives_new_obj)
-    replace_stmt_visitor0.visit(c_ast_tmpl)
-
+    replace_stmt_visitor0.visit(c_ast_tmpl_tmp)
+    # TODO: constant folding
+    # replace send and recv if necessary
+    if replace_send_recv:
+        find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
+        find_name_visitor2.visit(c_ast_tmpl_tmp)
+        send_calls_obj = find_name_visitor2.get_results_send()
+        recv_calls_obj = find_name_visitor2.get_results_recv()
+        send_recv_new_obj = []
+        for e in send_calls_obj:
+            new_entry = {}
+            new_entry['old'] = e
+            new_entry['new'] = template_generator.send_replacemet(e)
+            send_recv_new_obj.append(new_entry)
+        for e in recv_calls_obj:
+            new_entry = {}
+            new_entry['old'] = e
+            new_entry['new'] = template_generator.recv_replacement(e)
+            send_recv_new_obj.append(new_entry)
+        c_ast_tmpl = c_ast_tmpl_tmp
+        replace_stmt_visitor3 = replace_visitor.MpiStatementReplaceVisitor(send_recv_new_obj)
+        replace_stmt_visitor3.visit(c_ast_tmpl)
+        # TODO: constant folding
+    else:
+        c_ast_tmpl = c_ast_tmpl_tmp
     if template_only:
         # dump to target file
         generator2 = c_generator.CGenerator()

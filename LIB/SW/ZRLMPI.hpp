@@ -56,6 +56,8 @@ void MPI_Finalize();
 //#define CUSTOM_MTU 1402 //VPN
 #define CUSTOM_MTU 1000 //VPN2
 
+#define KVM_CORRECTION
+
 //forward declaration
 int app_main();
 

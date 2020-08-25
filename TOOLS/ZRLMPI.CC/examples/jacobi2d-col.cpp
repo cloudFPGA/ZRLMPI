@@ -22,6 +22,7 @@ void print_array(const int *A, size_t width, size_t height)
   printf("\n");
   for(size_t i = 0; i < height; ++i)
   {
+    printf("%#3d\t", i);
     for(size_t j = 0; j < width; ++j)
     {
       printf("%d ", A[i * width + j]);
@@ -53,7 +54,7 @@ int main( int argc, char **argv )
   timestamp_t t0, t1;
 #endif
 
-  int grid[DIM][DIM];
+  int (*grid)[DIM];
 
   printf("Here is rank %d, size is %d. \n",rank, size);
 
@@ -63,11 +64,15 @@ int main( int argc, char **argv )
 
   if(rank == 0)
   {// Master ...
+    grid = (int(*)[DIM]) malloc(sizeof(int[DIM][DIM]));
+    if(grid == NULL)
+    {
+      perror("malloc");
+      exit(1);
+    }
 #ifdef DEBUG
     t0 = get_timestamp();
 #endif
-    iterations[0] = ITERATIONS;
-
     //fill with zeros and init borders with 1
     for(int i = 0; i<DIM; i++)
     {
@@ -85,7 +90,7 @@ int main( int argc, char **argv )
       }
     }
 
-    print_array((const int*) &grid[0][0], DIM, DIM);
+    //print_array((const int*) &grid[0][0], DIM, DIM);
 
     printf("Distribute number of iterations: %d.\n", ITERATIONS);
     iterations[0] = ITERATIONS;
@@ -100,36 +105,43 @@ int main( int argc, char **argv )
 
   //worker code
 
-  //int local_grid[DIM][DIM];
-  int local_new[DIM][DIM];
   int local_dim = DIM/size;
+  int local_grid[local_dim+2][DIM];
+  int local_new[local_dim+2][DIM];
 
   if(rank != 0)
   { //receive iterations
+    printf("Waiting for iterations...\n");
     MPI_Recv(&iterations[0], 1, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+    printf("...we are doing %d iterations.\n",iterations[0]);
   }
 
-  start_line = rank * local_dim;
-  end_line = (rank+1)*local_dim;
+  start_line = 1;
+  end_line = local_dim; // +1-1
   result_start_line = start_line;
   //for border regions
+  int absoulte_start_line = rank*local_dim;
+  int absoulte_end_line = (rank+1)*local_dim -1;
   int border_startline = start_line;
+  int border_endline = end_line;
   if(rank != 0)
   {
     border_startline--;
+  }
+  if(rank != (size -1))
+  {
+    border_endline++;
   }
 
 #ifdef DEBUG
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  //for(int l = 0; l < ITERATIONS; l++)
   for(int l = 0; l < iterations[0]; l++)
   {
     //main data junk
     //copies [start_line;end_line[ !!
-    MPI_Scatter(&grid[0][0], local_dim*DIM, MPI_INTEGER, &grid[start_line][0], local_dim*DIM, MPI_INTEGER, 0, MPI_COMM_WORLD);
-    //int *new_start = &grid[0][0] + l*5;
+    MPI_Scatter(&grid[0][0], local_dim*DIM, MPI_INTEGER, &local_grid[start_line][0], local_dim*DIM, MPI_INTEGER, 0, MPI_COMM_WORLD);
     //internal border regions
     if(rank==0)
     {
@@ -149,32 +161,35 @@ int main( int argc, char **argv )
         MPI_Send(&grid[last_line][0], DIM, MPI_INTEGER, r, 0, MPI_COMM_WORLD);
       }
       //take care of own data
-      //for(int i = 0; i < DIM; i++)
-      //{
-      //  local_grid[end_line][i] = grid[end_line][i];
-      //}
+      for(int i = 0; i < DIM; i++)
+      {
+        local_grid[border_endline][i] = grid[border_endline-1][i];
+      }
     } else {
-      MPI_Recv(&grid[border_startline][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
-      MPI_Recv(&grid[end_line][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+      MPI_Recv(&local_grid[border_startline][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
+      MPI_Recv(&local_grid[border_endline][0], DIM, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status);
     }
 
     //#ifdef DEBUG
     //if(rank == size-1)
     //{
-    //    print_array((const int*) local_grid, DIM, DIM);
+    //    print_array((const int*) local_grid, DIM, local_dim + 2);
     //}
     //#endif
 
     //treat all borders equal, the additional lines in the middle aren't send back
-    for(int i = start_line; i < end_line; i++)
+    for(int i = 1; i < local_dim+1; i++)
     {
       for(int j = 0; j< DIM; j++)
       {
-        if(i == 0 || i == DIM-1 || j == 0 || j == DIM -1)
+        if( (i == 1 && absoulte_start_line == 0)
+            || (i == local_dim && absoulte_end_line == DIM - 1)
+            || j == 0 
+            || j == DIM -1)
         {
-          local_new[i][j] = grid[i][j];
+          local_new[i][j] = local_grid[i][j];
         } else {
-          local_new[i][j] = (grid[i][j-1] + grid[i][j+1] + grid[i-1][j] + grid[i+1][j]) >> 2;
+          local_new[i][j] = (local_grid[i][j-1] + local_grid[i][j+1] + local_grid[i-1][j] + local_grid[i+1][j]) >> 2;
         }
       }
     }
@@ -185,7 +200,7 @@ int main( int argc, char **argv )
     MPI_Barrier(MPI_COMM_WORLD);
     if(rank == 0)
     {
-      print_array((const int*) grid, DIM, DIM);
+      //print_array((const int*) grid, DIM, DIM);
     }
 #endif
   }
@@ -200,6 +215,7 @@ int main( int argc, char **argv )
 
     printf("\nDone.\n");
     print_array((const int*) &grid[0][0], DIM, DIM);
+    free(grid);
   }
   MPI_Finalize();
 
