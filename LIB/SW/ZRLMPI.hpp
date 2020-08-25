@@ -53,7 +53,8 @@ void MPI_Finalize();
 #define MPI_CLUSTER_SIZE_MAX 128
 #define UDP_HEADER_SIZE_BYTES 45
 
-#define CUSTOM_MTU 1402 //VPN
+//#define CUSTOM_MTU 1402 //VPN
+#define CUSTOM_MTU 1000 //VPN2
 
 //forward declaration
 int app_main();
