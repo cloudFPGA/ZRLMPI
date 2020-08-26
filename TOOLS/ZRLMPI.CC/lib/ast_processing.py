@@ -28,7 +28,8 @@ __fallback_max_buffer_size__ = 1500  # we have to find one
 __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
-def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False, replace_send_recv=True):
+def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False,
+                replace_send_recv=False, optimize_scatter_gather=True):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
@@ -62,7 +63,11 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
     for e in scatter_calls_obj:
         new_entry = {}
         new_entry['old'] = e
-        new_entry['new'] = template_generator.scatter_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+        if not optimize_scatter_gather:
+            new_entry['new'] = template_generator.scatter_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+        else:
+            new_entry['new'] = template_generator.optimized_scatter_replacement(e, cluster_description, cluster_size_constant,
+                                                                      c_ast.ID(rank_variable_names[0]))
         collectives_new_obj.append(new_entry)
     for e in gather_calls_obj:
         new_entry = {}
