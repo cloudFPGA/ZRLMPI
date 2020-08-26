@@ -143,87 +143,84 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
 
 }
 
-
-/*
-int bytesToHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
+//returns: 0 ok, 1 not ok
+uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, NetworkMeta &metaSrc,
+                     packetType expected_type, mpiCall expected_call)
 {
-  //check validity
-  for(int i = 0; i< 4; i++)
-  {
-    if(bytes[i] != 0x96)
-    {
-      return -1;
-    }
-  }
-  
-  for(int i = 18; i<28; i++)
-  {
-    if(bytes[i] != 0x00)
-    {
-      return -2;
-    }
-  }
-  
-  for(int i = 28; i<32; i++)
-  {
-    if(bytes[i] != 0x96)
-    {
-      return -3;
-    }
-  }
+//#pragma HLS inline
 
-  //convert
-  header.dst_rank = bigEndianToInteger(bytes, 4);
-  header.src_rank = bigEndianToInteger(bytes,8);
-  header.size = bigEndianToInteger(bytes,12);
+        int ret = bytesToHeader(bytes, header);
+        bool unexpected_header = false;
 
-  header.call = static_cast<mpiCall>((int) bytes[16]);
+        if(ret != 0)
+        {
+          printf("invalid header.\n");
+          //TODO
+          fsmMpeState = RECV_DATA_ERROR;
+          //fsmReceiveState = READ_ERROR; //to clear streams?
+         //status[MPE_STATUS_READ_ERROR_CNT]++;
+          //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
+          //status[MPE_STATUS_LAST_READ_ERROR] = ret;
+         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
+         //status[MPE_STATUS_READOUT] = 0;
+         //status[MPE_STATUS_READOUT + 1] = 0;
+         //status[MPE_STATUS_READOUT + 2] = 0;
+        //  for(int i = 0; i< 4; i++)
+        //  {
+        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
+        //  }
+        //  for(int i = 0; i< 4; i++)
+        //  {
+        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
+        //  }
+        //  for(int i = 0; i< 4; i++)
+        //  {
+        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
+        //  }
+          unexpected_header = true;
+        }
+        
+        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
+        else if(header.src_rank != metaSrc.src_rank)
+        {
+          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
+          //TODO
+          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
+         //status[MPE_STATUS_READ_ERROR_CNT]++;
+         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          unexpected_header = true;
+        }
 
-  header.type = static_cast<mpiCall>((int) bytes[17]);
+        else if(header.type != expected_type)
+        {
+          printf("Header type missmatch! Expected %d, got %d!\n",(int) expected_type, (int) header.type);
+          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
+         //status[MPE_STATUS_READ_ERROR_CNT]++;
+         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DATA_TYPE;
+          unexpected_header = true;
+        }
 
-  return 0;
+        //check data type 
+        //if((currentDataType == MPI_INT && header.call != MPI_RECV_INT) || (currentDataType == MPI_FLOAT && header.call != MPI_RECV_FLOAT))
+        else if(header.call != expected_call)
+        {
+          printf("receiver expects different data type: %d.\n", (int) header.call);
+          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
+         //status[MPE_STATUS_READ_ERROR_CNT]++;
+         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
+          unexpected_header = true;
+        }
+        
 
+        if(unexpected_header)
+        {
+          return 1;
+        }
+        return 0;
 }
 
-void headerToBytes(MPI_Header header, ap_uint<8> bytes[MPIF_HEADER_LENGTH])
-{
-  for(int i = 0; i< 4; i++)
-  {
-    bytes[i] = 0x96;
-  }
-  ap_uint<8> tmp[4];
-  integerToBigEndian(header.dst_rank, tmp);
-  for(int i = 0; i< 4; i++)
-  {
-    bytes[4 + i] = tmp[i];
-  }
-  integerToBigEndian(header.src_rank, tmp);
-  for(int i = 0; i< 4; i++)
-  {
-    bytes[8 + i] = tmp[i];
-  }
-  integerToBigEndian(header.size, tmp);
-  for(int i = 0; i< 4; i++)
-  {
-    bytes[12 + i] = tmp[i];
-  }
 
-  bytes[16] = (ap_uint<8>) header.call; 
 
-  bytes[17] = (ap_uint<8>) header.type;
-
-  for(int i = 18; i<28; i++)
-  {
-    bytes[i] = 0x00; 
-  }
-  
-  for(int i = 28; i<32; i++)
-  {
-    bytes[i] = 0x96; 
-  }
-
-}
-*/
 
 void mpe_main(
     // ----- link to FMC -----
@@ -285,11 +282,12 @@ void mpe_main(
 
 //===========================================================
 // Core-wide variables
-  
+
   ap_uint<8> bytes[MPIF_HEADER_LENGTH];
   MPI_Header header = MPI_Header(); 
   NetworkMeta metaDst = NetworkMeta();
   NetworkMeta metaSrc = NetworkMeta();
+  uint8_t ret;
 
 
 //===========================================================
@@ -482,70 +480,18 @@ void mpe_main(
         }
 
         header = MPI_Header();
-        int ret = bytesToHeader(bytes, header);
-
-        if(ret != 0)
-        {
-          printf("invalid header.\n");
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR;
-          //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-          //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
-          //status[MPE_STATUS_LAST_READ_ERROR] = ret;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
-          break;
-        }
-
         metaSrc = siTcp_meta.read().tdata;
-
-        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
-        
-        if(header.src_rank != metaSrc.src_rank)
+        mpiCall expected_call = MPI_RECV_INT;
+        if(currentDataType == MPI_FLOAT)
         {
-          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
-          break;
+          expected_call = MPI_RECV_FLOAT;
         }
 
-        if(header.type != CLEAR_TO_SEND)
-        {
-          printf("Expected CLEAR_TO_SEND, got %d!\n", (int) header.type);
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DATA_TYPE;
+        ret = checkHeader(bytes, header, metaSrc, CLEAR_TO_SEND, expected_call);
+        if(ret == 1)
+        { //TODO
           break;
         }
-
-        //check data type 
-        if((currentDataType == MPI_INT && header.call != MPI_RECV_INT) || (currentDataType == MPI_FLOAT && header.call != MPI_RECV_FLOAT))
-        {
-          printf("receiver expects different data type: %d.\n", (int) header.call);
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
-          break;
-        }
-          
-
         //got CLEAR_TO_SEND 
         printf("Got CLEAR to SEND\n");
         fsmMpeState = SEND_DATA_START; 
@@ -657,58 +603,18 @@ void mpe_main(
         }
 
         header = MPI_Header();
-        int ret = bytesToHeader(bytes, header);
-
-        if(ret != 0)
-        {
-          printf("invalid header.\n");
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-          //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
-          break;
-        }
-
         metaSrc = siTcp_meta.read().tdata;
-
-        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
-
-        if(header.src_rank != metaSrc.src_rank)
+        mpiCall expected_call = MPI_RECV_INT;
+        if(currentDataType == MPI_FLOAT)
         {
-          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          expected_call = MPI_RECV_FLOAT;
+        }
+        ret = checkHeader(bytes, header, metaSrc, ACK, expected_call);
+        if(ret == 1)
+        { //TODO
           break;
         }
-
-
-        if(header.type != ACK)
-        {
-          printf("Expected CLEAR_TO_SEND, got %d!\n",(int) header.type);
-          //TODO ERROR? 
-         //status[MPE_STATUS_ERROR_HANDSHAKE_CNT]++;
-        } else {
-          printf("ACK received.\n");
-         //status[MPE_STATUS_ACK_HANKSHAKE_CNT]++;
-        }
+        printf("ACK received.\n");
         fsmMpeState = IDLE;
       }
       break;
@@ -717,7 +623,6 @@ void mpe_main(
     case WAIT4REQ: 
       if( !siTcp_data.empty() && !siTcp_meta.empty() && !soTcp_meta.full() && !sFifoDataTX.full() )
       {
-        metaSrc = siTcp_meta.read().tdata;
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
         {
@@ -751,69 +656,17 @@ void mpe_main(
         }
 
         header = MPI_Header();
-        int ret = bytesToHeader(bytes, header);
-
-        if(ret != 0)
+        metaSrc = siTcp_meta.read().tdata;
+        mpiCall expected_call = MPI_SEND_INT;
+        if(currentDataType == MPI_FLOAT)
         {
-          printf("invalid header.\n");
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-          //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
-          //status[MPE_STATUS_LAST_READ_ERROR] = ret;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
+          expected_call = MPI_SEND_FLOAT;
+        }
+        ret = checkHeader(bytes, header, metaSrc, SEND_REQUEST, expected_call);
+        if(ret == 1)
+        { //TODO
           break;
         }
-
-        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
-
-        if(header.src_rank != metaSrc.src_rank)
-        {
-          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR;
-          //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
-          break;
-        }
-
-        if(header.type != SEND_REQUEST)
-        {
-          printf("Expected SEND_REQUEST, got %d!\n", header.type);
-          fsmMpeState = RECV_DATA_ERROR;
-          //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
-          break;
-        }
-        //check data type 
-        if((currentDataType == MPI_INT && header.call != MPI_SEND_INT) || (currentDataType == MPI_FLOAT && header.call != MPI_SEND_FLOAT))
-        {
-          printf("receiver expects different data type: %d.\n", header.call);
-          fsmMpeState = RECV_DATA_ERROR;
-          //fsmReceiveState = READ_ERROR; //to clear streams?
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
-          break;
-        }
-          
-
         //got SEND_REQUEST 
         printf("Got SEND REQUEST\n");
 
@@ -906,69 +759,17 @@ void mpe_main(
         }
 
         header = MPI_Header();
-        int ret = bytesToHeader(bytes, header);
-
-        if(ret != 0)
-        {
-          printf("invalid header.\n");
-          //fsmReceiveState = READ_ERROR;
-          fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-          //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
-          //status[MPE_STATUS_LAST_READ_ERROR] = ret;
-         //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-         //status[MPE_STATUS_READOUT] = 0;
-         //status[MPE_STATUS_READOUT + 1] = 0;
-         //status[MPE_STATUS_READOUT + 2] = 0;
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-        //  }
-        //  for(int i = 0; i< 4; i++)
-        //  {
-        //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-        //  }
-          break;
-        }
-
         metaSrc = siTcp_meta.read().tdata;
-
-        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
-        
-        if(header.src_rank != metaSrc.src_rank)
+        mpiCall expected_call = MPI_SEND_INT;
+        if(currentDataType == MPI_FLOAT)
         {
-          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
-          //TODO
-          fsmMpeState = IDLE;
-          fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          expected_call = MPI_SEND_FLOAT;
+        }
+        ret = checkHeader(bytes, header, metaSrc, DATA, expected_call);
+        if(ret == 1)
+        { //TODO
           break;
         }
-
-        if(header.type != DATA)
-        {
-          printf("Expected DATA, got %d!\n", header.type);
-          fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
-          break;
-        }
-        //check data type 
-        if((currentDataType == MPI_INT && header.call != MPI_SEND_INT) || (currentDataType == MPI_FLOAT && header.call != MPI_SEND_FLOAT))
-        {
-          printf("receiver expects different data type: %d.\n", header.call);
-          fsmMpeState = IDLE;
-          fsmMpeState = RECV_DATA_ERROR;
-         //status[MPE_STATUS_READ_ERROR_CNT]++;
-         //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
-          break;
-        }
-          
 
         //valid header && valid source
         expected_recv_count = header.size;

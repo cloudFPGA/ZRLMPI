@@ -699,7 +699,7 @@ int main(int argc, char **argv)
   //to correct kvm "network cards"
 #ifdef KVM_CORRECTION
   kvm_net.tv_sec = 0;
-  kvm_net.tv_nsec = 600*1000; //0.6ms (based on ping-pong experiments)
+  kvm_net.tv_nsec = 600*1000; //0.6ms (on both sides, based on ping-pong experiments)
   printf("[kvm network correction enbabled]\n");
 #endif
 
