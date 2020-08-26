@@ -33,6 +33,12 @@ MPI_Interface currentInfo = MPI_Interface();
 mpiType currentDataType = MPI_INT;
 int handshakeLinesCnt = 0;
 
+//stream<ap_uint<MPIF_HEADER_LENGTH*8> > sFifoHeaderCache("sFifoHeaderCache");
+stream<ap_uint<8> > sFifoHeaderCache("sFifoHeaderCache");
+bool checked_cache = false;
+uint32_t expected_src_rank = 0;
+uint16_t current_cache_data_cnt = 0;
+
 //bool tablesInitialized = false;
 
 //ap_uint<32> read_timeout_cnt = 0;
@@ -87,7 +93,7 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
       }
 
     } else {
-      printf("tried to read empty small stream!\n");
+      printf("\ttried to read empty small stream!\n");
       //now, we set tlast just to be sure...TODO?
       out.tlast = 1;
       break;
@@ -145,7 +151,7 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
 
 //returns: 0 ok, 1 not ok
 uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, NetworkMeta &metaSrc,
-                     packetType expected_type, mpiCall expected_call)
+                     packetType expected_type, mpiCall expected_call, bool skip_meta, uint32_t expected_src_rank)
 {
 //#pragma HLS inline
 
@@ -155,8 +161,7 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
         if(ret != 0)
         {
           printf("invalid header.\n");
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR;
+          //fsmMpeState = RECV_DATA_ERROR;
           //fsmReceiveState = READ_ERROR; //to clear streams?
          //status[MPE_STATUS_READ_ERROR_CNT]++;
           //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
@@ -180,21 +185,25 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
           unexpected_header = true;
         }
         
-        //TODO: check if it comes from the expected source!! i.e. we didn't get a CLEAR_TO_SEND from the wrong node?
-        else if(header.src_rank != metaSrc.src_rank)
+        else if(!skip_meta && (header.src_rank != metaSrc.src_rank))
         {
-          printf("header does not match rank. expected rank %d, got %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
-          //TODO
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
+          printf("header does not match network meta. header rank %d, got meta %d;\n", (int) header.src_rank, (int) metaSrc.src_rank);
+          //fsmMpeState = RECV_DATA_ERROR; //to clear streams?
          //status[MPE_STATUS_READ_ERROR_CNT]++;
          //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_IP_MISSMATCH;
+          unexpected_header = true;
+        }
+
+        else if(header.src_rank != expected_src_rank)
+        {
+          printf("header does not match rank. expected rank %d, got %d;\n", expected_src_rank, (int) header.src_rank);
           unexpected_header = true;
         }
 
         else if(header.type != expected_type)
         {
           printf("Header type missmatch! Expected %d, got %d!\n",(int) expected_type, (int) header.type);
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
+          //fsmMpeState = RECV_DATA_ERROR; //to clear streams?
          //status[MPE_STATUS_READ_ERROR_CNT]++;
          //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DATA_TYPE;
           unexpected_header = true;
@@ -205,7 +214,7 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
         else if(header.call != expected_call)
         {
           printf("receiver expects different data type: %d.\n", (int) header.call);
-          fsmMpeState = RECV_DATA_ERROR; //to clear streams?
+          //fsmMpeState = RECV_DATA_ERROR; //to clear streams?
          //status[MPE_STATUS_READ_ERROR_CNT]++;
          //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
           unexpected_header = true;
@@ -214,6 +223,34 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
 
         if(unexpected_header)
         {
+          //put to cache
+          if(current_cache_data_cnt >= HEADER_CACHE_LENTH -1)
+          {
+            printf("header cache is full, drop the header...\n");
+          } else {
+            //ap_uint<MPIF_HEADER_LENGTH*8> new_cache_line = 0x0;
+            printf("wrong header; put to cache: \n\t");
+            for(int j = 0; j<32; j++)
+            {
+              //#pragma HLS unroll
+              //new_cache_line |= ((ap_uint<MPIF_HEADER_LENGTH*8>) bytes[j]) << (31-j);
+              //new_cache_line |= ap_uint<MPIF_HEADER_LENGTH*8>(bytes[j]) << (31-j);
+              //blocking...
+              sFifoHeaderCache.write(bytes[j]);
+              printf("%02x", (int) bytes[j]);
+            }
+            printf("\n");
+            //blocking...
+            //sFifoHeaderCache.write(new_cache_line);
+            current_cache_data_cnt++;
+            //ap_uint<MPIF_HEADER_LENGTH*8> cache_line = sFifoHeaderCache.read();
+          //for(int k = 0; k<32; k++)
+          //{
+          //  printf(" %02X", (uint8_t) (cache_line >> 31-k));
+          //}
+          //printf("\n");
+          //sFifoHeaderCache.write(cache_line);
+          }
           return 1;
         }
         return 0;
@@ -278,6 +315,8 @@ void mpe_main(
 #pragma HLS STREAM variable=sFifoDataTX depth=2048
 #pragma HLS STREAM variable=sFifoDataRX depth=2048
 #pragma HLS STREAM variable=rx_overflow_fifo depth=8
+//#pragma HLS STREAM variable=sFifoHeaderCache depth=64
+#pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
 //===========================================================
@@ -288,6 +327,10 @@ void mpe_main(
   NetworkMeta metaDst = NetworkMeta();
   NetworkMeta metaSrc = NetworkMeta();
   uint8_t ret;
+  bool found_cache = false;
+  mpiCall expected_call = 0;
+  packetType expected_type = 0;
+  //ap_uint<MPIF_HEADER_LENGTH*8> cache_line = 0x0;
 
 
 //===========================================================
@@ -307,6 +350,9 @@ void mpe_main(
 #pragma HLS reset variable=recv_total_cnt
 #pragma HLS reset variable=expected_send_count
 #pragma HLS reset variable=send_total_cnt
+#pragma HLS reset variable=checked_cache
+#pragma HLS reset variable=expected_src_rank
+#pragma HLS reset variable=current_cache_data_cnt
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -362,6 +408,8 @@ void mpe_main(
     case IDLE:
       sendDeqFsm = DEQ_IDLE;
       recvDeqFsm = DEQ_DONE;
+      checked_cache = false;
+      expected_src_rank = 0;
       if ( !siMPIif.empty() ) //TODO: try to fix combinatorial loop
       {
         currentInfo = siMPIif.read();
@@ -379,11 +427,13 @@ void mpe_main(
             currentDataType = MPI_INT;
             //fsmMpeState = START_RECEIVE;
             fsmMpeState = WAIT4REQ;
+            expected_src_rank = currentInfo.rank;
             break;
           case MPI_RECV_FLOAT:
             currentDataType = MPI_FLOAT;
             //fsmMpeState = START_RECEIVE;
             fsmMpeState = WAIT4REQ;
+            expected_src_rank = currentInfo.rank;
             break;
           case MPI_BARRIER: 
             //TODO not yet implemented 
@@ -400,6 +450,8 @@ void mpe_main(
         header.size = 0;
         header.call = static_cast<mpiCall>((int) currentInfo.mpi_call);
         header.type = SEND_REQUEST;
+
+        expected_src_rank = header.dst_rank;
 
         headerToBytes(header, bytes);
 
@@ -449,11 +501,61 @@ void mpe_main(
       //if( handshakeLinesCnt <= 0)
       if( handshakeLinesCnt <= 0 || sFifoDataTX.empty())
       {
+        checked_cache = false;
         fsmMpeState = WAIT4CLEAR;
       }
       break;
-    case WAIT4CLEAR: 
-      if( !siTcp_data.empty() && !siTcp_meta.empty() )
+    case WAIT4CLEAR:
+      header = MPI_Header();
+      expected_call = MPI_RECV_INT;
+      if(currentDataType == MPI_FLOAT)
+      {
+        expected_call = MPI_RECV_FLOAT;
+      }
+      expected_type = CLEAR_TO_SEND;
+      //check cache first
+      found_cache = false;
+      if(!checked_cache)
+      {
+        uint16_t checked_entries = 0;
+        uint16_t static_data_cnt = current_cache_data_cnt;
+        printf("check %d chache entries\n",static_data_cnt);
+        //cache_line = 0x0;
+        //while(!sFifoHeaderCache.empty())
+        while(checked_entries < static_data_cnt)
+        {
+          //if(!sFifoHeaderCache.read_nb(cache_line))
+          //{
+          //  printf("Didn't found header in chache\n");
+          //  break;
+          //}
+          printf("check cache entry: ");
+          for(int j = 0; j < 32; j++)
+          {
+//#pragma HLS unroll
+            //bytes[j] = (ap_uint<8>) (cache_line >> (32-j));
+            bytes[j] = sFifoHeaderCache.read();
+            printf("%02x", (int) bytes[j]);
+          }
+          printf("\n");
+          current_cache_data_cnt--;
+          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+          if(ret == 0)
+          {//got CLEAR_TO_SEND 
+            printf("Got CLEAR to SEND from the cache\n");
+            fsmMpeState = SEND_DATA_START;
+            found_cache = true;
+            break;
+          }
+          //else, we continue
+          //checkHeader puts it back to the cache
+          checked_entries++; 
+        }
+        //in all cases
+        checked_cache = true;
+      }
+      
+      if( !found_cache && !siTcp_data.empty() && !siTcp_meta.empty() )
       {
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
@@ -474,27 +576,21 @@ void mpe_main(
 
           for(int j = 0; j<8; j++)
           {
+//#pragma HLS unroll
             bytes[i*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
             //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           }
         }
 
-        header = MPI_Header();
         metaSrc = siTcp_meta.read().tdata;
-        mpiCall expected_call = MPI_RECV_INT;
-        if(currentDataType == MPI_FLOAT)
-        {
-          expected_call = MPI_RECV_FLOAT;
-        }
 
-        ret = checkHeader(bytes, header, metaSrc, CLEAR_TO_SEND, expected_call);
-        if(ret == 1)
-        { //TODO
-          break;
+        ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+        if(ret == 0)
+        {//got CLEAR_TO_SEND 
+          printf("Got CLEAR to SEND\n");
+          fsmMpeState = SEND_DATA_START;
         }
-        //got CLEAR_TO_SEND 
-        printf("Got CLEAR to SEND\n");
-        fsmMpeState = SEND_DATA_START; 
+        //else, we continue to wait
       }
 
       break;
@@ -509,6 +605,8 @@ void mpe_main(
         header.size = info.count;
         header.call = static_cast<mpiCall>((int) info.mpi_call);
         header.type = DATA;
+
+        expected_src_rank = header.dst_rank;
 
         headerToBytes(header, bytes);
 
@@ -572,12 +670,61 @@ void mpe_main(
       //wait for dequeue fsm
       if(sendDeqFsm == DEQ_DONE)
       {
+        checked_cache = false;
         fsmMpeState = WAIT4ACK;
         sendDeqFsm = DEQ_IDLE;
       }
       break;
     case WAIT4ACK:
-      if( !siTcp_data.empty() && !siTcp_meta.empty() )
+      header = MPI_Header();
+      expected_call = MPI_RECV_INT;
+      if(currentDataType == MPI_FLOAT)
+      {
+        expected_call = MPI_RECV_FLOAT;
+      }
+      expected_type = ACK;
+      //check cache first
+      found_cache = false;
+      if(!checked_cache)
+      {
+        uint16_t checked_entries = 0;
+        uint16_t static_data_cnt = current_cache_data_cnt;
+        printf("check %d chache entries\n",static_data_cnt);
+        //cache_line = 0x0;
+        //while(!sFifoHeaderCache.empty())
+        while(checked_entries < static_data_cnt)
+        {
+          //if(!sFifoHeaderCache.read_nb(cache_line))
+          //{
+          //  printf("Didn't found header in chache\n");
+          //  break;
+          //}
+          printf("check cache entry: ");
+          for(int j = 0; j < 32; j++)
+          {
+//#pragma HLS unroll
+            //bytes[j] = (ap_uint<8>) (cache_line >> (31-j));
+            bytes[j] = sFifoHeaderCache.read();
+            printf("%02x", (int) bytes[j]);
+          }
+          printf("\n");
+          current_cache_data_cnt--;
+          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+          if(ret == 0)
+          {//got CLEAR_TO_SEND 
+            printf("Got ACK from the cache\n");
+            fsmMpeState = IDLE;
+            found_cache = true;
+            break;
+          }
+          //else, we continue
+          //checkHeader puts it back to the cache
+          checked_entries++;
+        }
+        //in all cases
+        checked_cache = true;
+      }
+      if( !found_cache && !siTcp_data.empty() && !siTcp_meta.empty() )
       {
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
@@ -597,31 +744,74 @@ void mpe_main(
 
           for(int j = 0; j<8; j++)
           {
+//#pragma HLS unroll
             bytes[i*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
             //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           }
         }
 
-        header = MPI_Header();
         metaSrc = siTcp_meta.read().tdata;
-        mpiCall expected_call = MPI_RECV_INT;
-        if(currentDataType == MPI_FLOAT)
+        ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+        if(ret == 0)
         {
-          expected_call = MPI_RECV_FLOAT;
+          printf("ACK received.\n");
+          fsmMpeState = IDLE;
         }
-        ret = checkHeader(bytes, header, metaSrc, ACK, expected_call);
-        if(ret == 1)
-        { //TODO
-          break;
-        }
-        printf("ACK received.\n");
-        fsmMpeState = IDLE;
+        //else, we wait
       }
       break;
       //case START_RECEIVE: 
       //  break; 
-    case WAIT4REQ: 
-      if( !siTcp_data.empty() && !siTcp_meta.empty() && !soTcp_meta.full() && !sFifoDataTX.full() )
+    case WAIT4REQ:
+      header = MPI_Header();
+      expected_call = MPI_SEND_INT;
+      if(currentDataType == MPI_FLOAT)
+      {
+        expected_call = MPI_SEND_FLOAT;
+      }
+      expected_type = SEND_REQUEST;
+      //check cache first
+      found_cache = false;
+      if(!checked_cache)
+      {
+        uint16_t checked_entries = 0;
+        uint16_t static_data_cnt = current_cache_data_cnt;
+        printf("check %d chache entries\n",static_data_cnt);
+        //cache_line = 0x0;
+        //while(!sFifoHeaderCache.empty())
+        while(checked_entries < static_data_cnt)
+        {
+          //if(!sFifoHeaderCache.read_nb(cache_line))
+          //{
+          //  printf("Didn't found header in chache\n");
+          //  break;
+          //}
+          printf("check cache entry: ");
+          for(int j = 0; j < 32; j++)
+          {
+//#pragma HLS unroll
+            //bytes[j] = (ap_uint<8>) (cache_line >> (31-j));
+            bytes[j] = sFifoHeaderCache.read();
+            printf("%02x", (int) bytes[j]);
+          }
+          printf("\n");
+          current_cache_data_cnt--;
+          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+          if(ret == 0)
+          {//got CLEAR_TO_SEND 
+            printf("Got SEND_REQUEST from the cache\n");
+            fsmMpeState = ASSEMBLE_CLEAR;
+            found_cache = true;
+            break;
+          }
+          //else, we continue
+          //checkHeader puts it back to the cache
+          checked_entries++;
+        }
+        //in all cases
+        checked_cache = true;
+      }
+      if( !found_cache && !siTcp_data.empty() && !siTcp_meta.empty() )
       {
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
@@ -650,33 +840,34 @@ void mpe_main(
 
           for(int j = 0; j<8; j++)
           {
+//#pragma HLS unroll
             bytes[i*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
             //bytes[i*8 + 7 -j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           }
         }
 
-        header = MPI_Header();
         metaSrc = siTcp_meta.read().tdata;
-        mpiCall expected_call = MPI_SEND_INT;
-        if(currentDataType == MPI_FLOAT)
+        ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+        if(ret == 0)
         {
-          expected_call = MPI_SEND_FLOAT;
+          //got SEND_REQUEST 
+          printf("Got SEND REQUEST\n");
+          fsmMpeState = ASSEMBLE_CLEAR;
         }
-        ret = checkHeader(bytes, header, metaSrc, SEND_REQUEST, expected_call);
-        if(ret == 1)
-        { //TODO
-          break;
-        }
-        //got SEND_REQUEST 
-        printf("Got SEND REQUEST\n");
-
-
+        //else, we wait...
+      }
+      break;
+    case ASSEMBLE_CLEAR:
+      if(!soTcp_meta.full() && !sFifoDataTX.full() )
+      {
         header = MPI_Header(); 
         header.dst_rank = currentInfo.rank;
         header.src_rank = *own_rank;
         header.size = 0;
         header.call = static_cast<mpiCall>((int) currentInfo.mpi_call);
         header.type = CLEAR_TO_SEND;
+
+        expected_src_rank = header.dst_rank;
 
         headerToBytes(header, bytes);
 
@@ -709,7 +900,7 @@ void mpe_main(
 
         }
 
-        fsmMpeState = SEND_CLEAR; 
+        fsmMpeState = SEND_CLEAR;
       }
       break;
     case SEND_CLEAR:
@@ -733,6 +924,16 @@ void mpe_main(
       }
       break;
     case RECV_DATA_START:
+      header = MPI_Header();
+      expected_call = MPI_SEND_INT;
+      if(currentDataType == MPI_FLOAT)
+      {
+        expected_call = MPI_SEND_FLOAT;
+      }
+      expected_type = DATA;
+      //for DATA no CACHE!
+      //DATA arrives only, if we expect it
+
       //if( !siTcp.empty() && !siIP.empty() && !sFifoDataRX.full() && !soMPIif.full() )
       //if( !siTcp_data.empty() && !siTcp_meta.empty() && !sFifoDataRX.full() )
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
@@ -753,32 +954,25 @@ void mpe_main(
 
           for(int j = 0; j<8; j++)
           {
+//#pragma HLS unroll
             bytes[i*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
             //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           }
         }
 
-        header = MPI_Header();
         metaSrc = siTcp_meta.read().tdata;
-        mpiCall expected_call = MPI_SEND_INT;
-        if(currentDataType == MPI_FLOAT)
+        ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+        if(ret == 0)
         {
-          expected_call = MPI_SEND_FLOAT;
-        }
-        ret = checkHeader(bytes, header, metaSrc, DATA, expected_call);
-        if(ret == 1)
-        { //TODO
-          break;
-        }
+          //valid header && valid source
+          expected_recv_count = header.size;
+          printf("[MPI_Recv] expect %d bytes.\n",expected_recv_count);
+          recv_total_cnt = 0;
 
-        //valid header && valid source
-        expected_recv_count = header.size;
-        printf("[MPI_Recv] expect %d bytes.\n",expected_recv_count);
-        recv_total_cnt = 0;
-
-        fsmMpeState = RECV_DATA_RD;
-        recvDeqFsm = DEQ_WRITE;
-        //read_timeout_cnt = 0;
+          fsmMpeState = RECV_DATA_RD;
+          recvDeqFsm = DEQ_WRITE;
+          //read_timeout_cnt = 0;
+        }
       }
 
       break;

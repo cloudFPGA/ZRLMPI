@@ -130,7 +130,8 @@ int main(){
     stepDut();
     tmp64 = soTcp_data.read();
     printf("MPE out: %#016llx\n", (unsigned long long) tmp64.tdata);
-    storeSEND_REQ.write(tmp64);
+    //we test the cache
+    //storeSEND_REQ.write(tmp64);
     for(int j = 0; j<8; j++)
     {
       bytes[i*8 + j] = (ap_uint<8>) ( tmp64.tdata >> j*8) ;
@@ -142,6 +143,45 @@ int main(){
   assert(ret == 0);
   assert(header.dst_rank == 2 && header.src_rank == 1); 
   assert(header.type == SEND_REQUEST);
+
+  //first, send wrong clear to send (to check header cache)
+  header = MPI_Header();
+  //printf("send CLEAR_TO_SEND\n");
+  strcpy(current_phase, "send (early) SEND_REQUEST");
+
+  header.type = SEND_REQUEST;
+  header.src_rank = 1;
+  header.dst_rank = 2;
+  header.size = 0;
+  header.call = MPI_SEND_INT;
+  headerToBytes(header, bytes);
+  //write header
+  for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+  {
+    Axis<8> tmp = Axis<8>(bytes[i]);
+    tmp.tlast = 0;
+    if ( i == MPIF_HEADER_LENGTH - 1)
+    {
+      tmp.tlast = 1;
+    }
+    tmp8Stream.write(tmp);
+  }
+  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
+  {
+      convertAxisToNtsWidth(tmp8Stream, tmp64);
+      siTcp_data.write(tmp64);
+      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
+  }
+
+  //meta does not fit header, but it is enough to test the cache
+  NetworkMeta meta_1 = NetworkMeta(1,2718,2,2718,0);
+  siTcp_meta.write(NetworkMetaStream(meta_1));
+  
+  for(int i = 0; i < 40; i++)
+  {
+    stepDut();
+  }
+
 
   //assemble clear to send 
   header = MPI_Header();
@@ -172,7 +212,7 @@ int main(){
       printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
   }
 
-  NetworkMeta meta_1 = NetworkMeta(1,2718,2,2718,0);
+  meta_1 = NetworkMeta(1,2718,2,2718,0);
   siTcp_meta.write(NetworkMetaStream(meta_1));
   
   for(int i = 0; i < 40; i++)
@@ -252,17 +292,19 @@ int main(){
   }
   //now in WAIT4REQ 
   NetworkMeta meta_2 = NetworkMeta(2,2718,1,2718,0);
-  siTcp_meta.write(NetworkMetaStream(meta_2));
+  //siTcp_meta.write(NetworkMetaStream(meta_2));
 
-  for(int i = 0; i < 20; i++)
-  {
-    if(!storeSEND_REQ.empty())
-    {
-        siTcp_data.write(storeSEND_REQ.read());
-    }
-  }
-  
-  strcpy(current_phase, "send MPI REQUEST");
+  //for(int i = 0; i < 20; i++)
+  //{
+  //  if(!storeSEND_REQ.empty())
+  //  {
+  //      siTcp_data.write(storeSEND_REQ.read());
+  //  }
+  //}
+  //
+  //strcpy(current_phase, "send MPI REQUEST");
+  //sould be in the cache
+  strcpy(current_phase, "MPI REQUEST (from cache)");
   for(int i = 0; i < 20; i++)
   {
     stepDut();

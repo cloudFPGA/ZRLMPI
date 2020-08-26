@@ -69,13 +69,14 @@ using namespace hls;
 #define WAIT4ACK 7
 //#define START_RECEIVE 8
 #define WAIT4REQ 9
-#define SEND_CLEAR 10
-#define RECV_DATA_START 11
-#define RECV_DATA_RD 12
-#define RECV_DATA_WRD 13
-#define RECV_DATA_DONE 14
-#define RECV_DATA_ERROR 15
-#define SEND_ACK 16
+#define ASSEMBLE_CLEAR 10
+#define SEND_CLEAR 11
+#define RECV_DATA_START 12
+#define RECV_DATA_RD 13
+#define RECV_DATA_WRD 14
+#define RECV_DATA_DONE 15
+#define RECV_DATA_ERROR 16
+#define SEND_ACK 17
 #define mpeState uint8_t
 
 #define MPI_INT 0
@@ -90,6 +91,7 @@ using namespace hls;
 //ap_uint<32> littleEndianToInteger(ap_uint<8> *buffer, int lsb);
 //void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes);
 
+#define HEADER_CACHE_LENTH 64
 
 void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out);
 void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out);
