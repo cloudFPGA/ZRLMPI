@@ -214,16 +214,14 @@ def calculcate_replicator_nodes(cluster_description):
     return groups
 
 
-def optimized_scatter_replacement(scatter_call, cluster_description, cluster_size, rank_obj):
+def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
     """
 
     :param scatter_call: original method call
-    :param cluster_description: the cluster description (containing FPGA and CPU nodes)
-    :param cluster_size: the cluster size
+    :param replicator_nodes: the set that describes the tree structure
     :param rank_obj: the target node for generation
     :return:
     """
-    replicator_nodes = calculcate_replicator_nodes(cluster_description)
     orig_datatype = scatter_call.args.exprs[2]
     datatype_string = get_type_string_from_int(int(orig_datatype.value))
     orig_chunk_size = scatter_call.args.exprs[1]
@@ -257,9 +255,9 @@ def optimized_scatter_replacement(scatter_call, cluster_description, cluster_siz
         size_of_this_group = len(group_rcv_nodes)
         # 1. receive large chung
         inter_then_part_stmts = []
-        if rr == rns[0]:
-            # first node, declare buffer
-            inter_then_part_stmts.append(all_buffer_variable_decl)
+        # if rr == rns[0]:
+        #     # first node, declare buffer
+        #     inter_then_part_stmts.append(all_buffer_variable_decl)
         func_call_args = []
         func_call_args.append(all_buffer_varibale_id)
         func_call_args.append(c_ast.BinaryOp('*', c_ast.Constant('int', str(size_of_this_group+1)), orig_chunk_size))
@@ -351,7 +349,7 @@ def optimized_scatter_replacement(scatter_call, cluster_description, cluster_siz
         group_rcv_nodes = replicator_nodes[rn]
         size_of_this_group = len(group_rcv_nodes)
         send_args = []
-        send_args.append(c_ast.BinaryOp('+', all_buffer_varibale_id,
+        send_args.append(c_ast.BinaryOp('+', orig_src_buffer,
                                     c_ast.BinaryOp('*', c_ast.Constant('int', str(send_cnt)),
                                                    orig_chunk_size)))
         send_cnt += size_of_this_group + 1
@@ -365,7 +363,11 @@ def optimized_scatter_replacement(scatter_call, cluster_description, cluster_siz
     root_part = c_ast.Compound(root_stmts)
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
-    pAST = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
+    if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
+    past_stmts = []
+    past_stmts.append(all_buffer_variable_decl)
+    past_stmts.append(if_else_tree)
+    pAST = c_ast.Compound(past_stmts)
     return pAST
 
 

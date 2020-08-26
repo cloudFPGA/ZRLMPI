@@ -20,6 +20,7 @@ import json
 from pycparser import parse_file, c_parser, c_generator, c_ast
 import lib.ast_processing as ast_processing
 from lib.util import get_line_number_of_occurence
+import lib.template_generator as template_generator
 
 
 __match_regex__ = []
@@ -191,12 +192,16 @@ if __name__ == '__main__':
     tmp3_sw_file_c = own_dir + __TMP_DIR__ + "/tmp_sw3.c"
     # tmp3_hw_file_h = own_dir + "/tmp_hw3.h" # header will not change
 
+    # replicator nodes must be the same for all versions
+    replicator_nodes = template_generator.calculcate_replicator_nodes(cluster_description)
     main_ast = get_main_ast(parsed_file)
-    zrlmpi_max_buffer_size_bytes = ast_processing.process_ast(main_ast, cluster_description, tmp_hw_file_c, tmp3_hw_file_c)
+    zrlmpi_max_buffer_size_bytes = ast_processing.process_ast(main_ast, cluster_description, tmp_hw_file_c, tmp3_hw_file_c
+                                                              , replicator_nodes=replicator_nodes)
 
     # now, process template for SW file
     main_ast = get_main_ast(parsed_file)
-    ignore_return = ast_processing.process_ast(main_ast, cluster_description, tmp_sw_file_c, tmp3_sw_file_c, template_only=True)
+    ignore_return = ast_processing.process_ast(main_ast, cluster_description, tmp_sw_file_c, tmp3_sw_file_c,
+                                               template_only=True, replicator_nodes=replicator_nodes)
 
     max_buffer_string = "#define ZRLMPI_MAX_DETECTED_BUFFER_SIZE ({})  //in BYTES!\n\n".format(zrlmpi_max_buffer_size_bytes)
     add_header_line_after('\#include\ \"ZRLMPI\.hpp\"', max_buffer_string, tmp_hw_file_h, tmp2_hw_file_h)
