@@ -310,6 +310,12 @@ void send_internal(
 nanosleep(&kvm_net, &kvm_net);
 #endif
 
+  if(res == -1)
+  {
+    perror("sendto");
+    exit(-1);
+  }
+
   std::cout << res << " bytes sent for SEND_REQUEST" << std::endl;
 
   int ret = 0;
@@ -434,20 +440,25 @@ void recv_internal(
 #ifdef KVM_CORRECTION
 nanosleep(&kvm_net, &kvm_net);
 #endif
+  if(res == -1)
+  {
+    perror("sendto");
+    exit(-1);
+  }
 
   std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
   
   //recv data
-  uint8_t buffer[count*typewidth + MPIF_HEADER_LENGTH];
+  uint8_t buffer[count*typewidth + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
 
   ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth, buffer);
 
   printf("Receiving DATA ...\n");
 
   //copy only the number of bytes the sender send us but at most count*4 
-  if(ret > count*4)
+  if(ret > count*typewidth)
   {
-    memcpy(data, &buffer[MPIF_HEADER_LENGTH], count*4);
+    memcpy(data, &buffer[MPIF_HEADER_LENGTH], count*typewidth);
   } else {
     memcpy(data, &buffer[MPIF_HEADER_LENGTH], ret);
   }
@@ -467,6 +478,11 @@ nanosleep(&kvm_net, &kvm_net);
 #ifdef KVM_CORRECTION
 nanosleep(&kvm_net, &kvm_net);
 #endif
+  if(res == -1)
+  {
+    perror("sendto");
+    exit(-1);
+  }
 
   std::cout << res << " bytes sent for ACK" << std::endl;
 
