@@ -61,6 +61,7 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         print("WARNING: multiple rank variables detected, template generation may fail.")
     collectives_new_obj = []
     dont_optimize = True
+    available_optimization_buffer_list = template_generator.create_available_buffer_structure()
     if replicator_nodes is not None:
         if replicator_nodes['msg'] == template_generator.__NO_OPTIMIZATION_MSG__:
             dont_optimize = True
@@ -72,7 +73,8 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         if (not optimize_scatter_gather) or dont_optimize:
             new_entry['new'] = template_generator.scatter_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
         else:
-            new_entry['new'] = template_generator.optimized_scatter_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]))
+            pAST, available_optimization_buffer_list = template_generator.optimized_scatter_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            new_entry['new'] = pAST
         collectives_new_obj.append(new_entry)
     for e in gather_calls_obj:
         new_entry = {}
@@ -80,8 +82,8 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         if (not optimize_scatter_gather) or dont_optimize:
             new_entry['new'] = template_generator.gather_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
         else:
-            new_entry['new'] = template_generator.optimized_gather_replacement(e, replicator_nodes,
-                                                                                c_ast.ID(rank_variable_names[0]))
+            pAST, available_optimization_buffer_list = template_generator.optimized_gather_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            new_entry['new'] = pAST
         collectives_new_obj.append(new_entry)
     # replace send and recv if necessary
     if replace_send_recv:

@@ -215,9 +215,43 @@ def calculate_replicator_nodes(cluster_description):
     return groups
 
 
-def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
+def disassemble_chunk_sizes(n):
+    current_obj = n
+    found_parts = []
+    # found_ints = []
+    obj_to_visit = []
+    while True:
+        if type(current_obj) is c_ast.Constant:
+            # found_ints.append(int(current_obj.value))
+            # found_parts.append(current_obj)
+            found_parts.append(int(current_obj.value))
+        elif type(current_obj) is c_ast.ID:
+            # found_parts.append(current_obj)
+            found_parts.append(current_obj.name)
+        elif type(current_obj) is c_ast.BinaryOp:
+            found_parts.append(current_obj.op)
+            obj_to_visit.append(current_obj.left)
+            obj_to_visit.append(current_obj.right)
+        else:
+            print("  (while disassembling cunk sizes, found unexpected type {})\n".format(type(current_obj)))
+
+        if len(obj_to_visit) > 0:
+            current_obj = obj_to_visit[0]
+            del obj_to_visit[0]
+        else:
+            break
+    return found_parts
+
+
+def create_available_buffer_structure():
+    ret = {'list': [], 'decls': [], 'ids': []}
+    return ret
+
+
+def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, available_buffer_list):
     """
 
+    :param available_buffer_list: available internal optimization buffers
     :param scatter_call: original method call
     :param replicator_nodes: the set that describes the tree structure
     :param rank_obj: the target node for generation
@@ -235,8 +269,24 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
     # for first replicator node, create buffer
     # 1. global inits
     all_inter_buffer_size = c_ast.BinaryOp('*', c_ast.Constant('int', str(replicator_nodes["group_size"])), orig_chunk_size)
-    all_buffer_variable_name = "{}_{}_4".format(__buffer_variable__name__, get_random_name_extension())
-    all_buffer_variable_decl = c_ast.Decl(name=all_buffer_variable_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
+    all_inter_buffer_signature = disassemble_chunk_sizes(all_inter_buffer_size)
+    found_buffer = False
+    all_buffer_variable_id = None
+    all_buffer_variable_decl = None
+    if available_buffer_list is not None and len(available_buffer_list['list']) > 0:
+        position = 0
+        for l in available_buffer_list['list']:
+            if l == all_inter_buffer_signature:
+                # found one
+                all_buffer_variable_decl = available_buffer_list['decls'][position]
+                all_buffer_variable_id = available_buffer_list['ids'][position]
+                found_buffer = True
+                break
+            else:
+                position += 1
+    if not found_buffer:
+        all_buffer_variable_name = "{}_{}_4".format(__buffer_variable__name__, get_random_name_extension())
+        all_buffer_variable_decl = c_ast.Decl(name=all_buffer_variable_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
                                  type=c_ast.ArrayDecl(type=c_ast.TypeDecl(all_buffer_variable_name, [],
                                                       c_ast.IdentifierType([datatype_string])), dim_quals=[],
                                                       #dim=c_ast.Constant('int', str(all_inter_buffer_size))
@@ -244,7 +294,10 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
                                                       ),
                                  init=None,
                                  bitsize=None)
-    all_buffer_varibale_id = c_ast.ID(all_buffer_variable_name)
+        all_buffer_variable_id = c_ast.ID(all_buffer_variable_name)
+        available_buffer_list['list'].append(all_inter_buffer_signature)
+        available_buffer_list['decls'].append(all_buffer_variable_decl)
+        available_buffer_list['ids'].append(all_buffer_variable_id)
     # 2. take care of replicator nodes
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
@@ -260,7 +313,7 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
         #     # first node, declare buffer
         #     inter_then_part_stmts.append(all_buffer_variable_decl)
         func_call_args = []
-        func_call_args.append(all_buffer_varibale_id)
+        func_call_args.append(all_buffer_variable_id)
         func_call_args.append(c_ast.BinaryOp('*', c_ast.Constant('int', str(size_of_this_group+1)), orig_chunk_size))
         func_call_args.append(orig_datatype)
         func_call_args.append(orig_root_rank)
@@ -271,7 +324,7 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
         # 2. memcpy own part
         memcpy_args = []
         memcpy_args.append(orig_local_buffer)
-        memcpy_args.append(all_buffer_varibale_id)
+        memcpy_args.append(all_buffer_variable_id)
         sizeof_args = []
         sizeof_args.append(c_ast.Constant('string', datatype_string))
         memcpy_args.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
@@ -281,7 +334,7 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
         send_cnt = 1  # start with 1, 0 is the node itself
         for rcvi in group_rcv_nodes:
             send_args = []
-            send_args.append(c_ast.BinaryOp('+', all_buffer_varibale_id,
+            send_args.append(c_ast.BinaryOp('+', all_buffer_variable_id,
                                             c_ast.BinaryOp('*', c_ast.Constant('int', str(send_cnt)),
                                                            orig_chunk_size)))
             send_cnt += 1
@@ -342,7 +395,7 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
         memcpy_args2.append(orig_src_buffer)
         sizeof_args2 = []
         sizeof_args2.append(c_ast.Constant('string', datatype_string))
-        memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args2))))
         memcpy2 = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args2))
         root_stmts.append(memcpy2)
     send_cnt = 1  # start with 1, 0 is the node itself
@@ -365,14 +418,18 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    past_stmts = []
-    past_stmts.append(all_buffer_variable_decl)
-    past_stmts.append(if_else_tree)
-    pAST = c_ast.Compound(past_stmts)
-    return pAST
+    if not found_buffer:
+        #TODO: put this on global level?
+        past_stmts = []
+        past_stmts.append(all_buffer_variable_decl)
+        past_stmts.append(if_else_tree)
+        pAST = c_ast.Compound(past_stmts)
+    else:
+        pAST = if_else_tree
+    return pAST, available_buffer_list
 
 
-def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
+def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, available_buffer_list):
     """
 
     :param gather_call: original method call
@@ -392,17 +449,35 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
     # for first replicator node, create buffer
     # 1. global inits
     all_inter_buffer_size = c_ast.BinaryOp('*', c_ast.Constant('int', str(replicator_nodes["group_size"])), orig_chunk_size)
-    all_buffer_variable_name = "{}_{}_5".format(__buffer_variable__name__, get_random_name_extension())
-    # TODO: optimize: use for all optimizations same buffer?
-    all_buffer_variable_decl = c_ast.Decl(name=all_buffer_variable_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
-                                          type=c_ast.ArrayDecl(type=c_ast.TypeDecl(all_buffer_variable_name, [],
-                                                                                   c_ast.IdentifierType([datatype_string])), dim_quals=[],
-                                                               #dim=c_ast.Constant('int', str(all_inter_buffer_size))
-                                                               dim=all_inter_buffer_size
-                                                               ),
-                                          init=None,
-                                          bitsize=None)
-    all_buffer_varibale_id = c_ast.ID(all_buffer_variable_name)
+    all_inter_buffer_signature = disassemble_chunk_sizes(all_inter_buffer_size)
+    found_buffer = False
+    all_buffer_variable_id = None
+    all_buffer_variable_decl = None
+    if available_buffer_list is not None and len(available_buffer_list['list']) > 0:
+        position = 0
+        for l in available_buffer_list['list']:
+            if l == all_inter_buffer_signature:
+                # found one
+                all_buffer_variable_decl = available_buffer_list['decls'][position]
+                all_buffer_variable_id = available_buffer_list['ids'][position]
+                found_buffer = True
+                break
+            else:
+                position += 1
+    if not found_buffer:
+        all_buffer_variable_name = "{}_{}_4".format(__buffer_variable__name__, get_random_name_extension())
+        all_buffer_variable_decl = c_ast.Decl(name=all_buffer_variable_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
+                                              type=c_ast.ArrayDecl(type=c_ast.TypeDecl(all_buffer_variable_name, [],
+                                                                                       c_ast.IdentifierType([datatype_string])), dim_quals=[],
+                                                                   #dim=c_ast.Constant('int', str(all_inter_buffer_size))
+                                                                   dim=all_inter_buffer_size
+                                                                   ),
+                                              init=None,
+                                              bitsize=None)
+        all_buffer_variable_id = c_ast.ID(all_buffer_variable_name)
+        available_buffer_list['list'].append(all_inter_buffer_signature)
+        available_buffer_list['decls'].append(all_buffer_variable_decl)
+        available_buffer_list['ids'].append(all_buffer_variable_id)
     # 2. take care of replicator nodes
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
@@ -417,7 +492,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
         recv_cnt = 1  # start with 1, 0 is the node itself
         for rcvi in group_rcv_nodes:
             recv_args = []
-            recv_args.append(c_ast.BinaryOp('+', all_buffer_varibale_id,
+            recv_args.append(c_ast.BinaryOp('+', all_buffer_variable_id,
                                             c_ast.BinaryOp('*', c_ast.Constant('int', str(recv_cnt)),
                                                            orig_chunk_size)))
             recv_cnt += 1
@@ -431,7 +506,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
             inter_then_part_stmts.append(recv_call)
         # 2. memcpy own part
         memcpy_args = []
-        memcpy_args.append(all_buffer_varibale_id)
+        memcpy_args.append(all_buffer_variable_id)
         memcpy_args.append(orig_src_buffer)
         sizeof_args = []
         sizeof_args.append(c_ast.Constant('string', datatype_string))
@@ -440,7 +515,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
         inter_then_part_stmts.append(memcpy)
         # 3. receive large chung
         send_call_args = []
-        send_call_args.append(all_buffer_varibale_id)
+        send_call_args.append(all_buffer_variable_id)
         send_call_args.append(c_ast.BinaryOp('*', c_ast.Constant('int', str(size_of_this_group+1)), orig_chunk_size))
         send_call_args.append(orig_datatype)
         send_call_args.append(orig_root_rank)
@@ -496,7 +571,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
         memcpy_args2.append(orig_src_buffer)
         sizeof_args2 = []
         sizeof_args2.append(c_ast.Constant('string', datatype_string))
-        memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args2))))
         memcpy2 = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args2))
         root_stmts.append(memcpy2)
     recv2_cnt = 1  # start with 1, 0 is the node itself
@@ -520,11 +595,14 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    past_stmts = []
-    past_stmts.append(all_buffer_variable_decl)
-    past_stmts.append(if_else_tree)
-    pAST = c_ast.Compound(past_stmts)
-    return pAST
+    if not found_buffer:
+        past_stmts = []
+        past_stmts.append(all_buffer_variable_decl)
+        past_stmts.append(if_else_tree)
+        pAST = c_ast.Compound(past_stmts)
+    else:
+        pAST = if_else_tree
+    return pAST, available_buffer_list
 
 
 def send_replacemet(send_call):
