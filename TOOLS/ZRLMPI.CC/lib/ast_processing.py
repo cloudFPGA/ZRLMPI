@@ -29,7 +29,7 @@ __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
 def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False,
-                replace_send_recv=False, optimize_scatter_gather=True, replicator_nodes=None):
+                replace_send_recv=True, optimize_scatter_gather=True, replicator_nodes=None):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
