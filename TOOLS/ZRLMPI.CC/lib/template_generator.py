@@ -81,7 +81,7 @@ def scatter_replacement(scatter_call, cluster_size_constant, rank_obj):
         sizeof_args = []
         sizeof_args.append(c_ast.Constant('string', datatype_string))
         memcpy_args.append(c_ast.BinaryOp("*", chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
-        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
+        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
         skip_stmts.append(memcpy)
     # in all cases:
     skip_stmts.append(c_ast.Continue())
@@ -151,7 +151,7 @@ def gather_replacement(gather_call, cluster_size_constant, rank_obj):
         sizeof_args = []
         sizeof_args.append(c_ast.Constant('string', datatype_string))
         memcpy_args.append(c_ast.BinaryOp("*", chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
-        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
+        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
         skip_stmts.append(memcpy)
     # in all cases:
     skip_stmts.append(c_ast.Continue())
@@ -295,9 +295,10 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
                                  init=None,
                                  bitsize=None)
         all_buffer_variable_id = c_ast.ID(all_buffer_variable_name)
-        available_buffer_list['list'].append(all_inter_buffer_signature)
-        available_buffer_list['decls'].append(all_buffer_variable_decl)
-        available_buffer_list['ids'].append(all_buffer_variable_id)
+        if available_buffer_list is not None:
+            available_buffer_list['list'].append(all_inter_buffer_signature)
+            available_buffer_list['decls'].append(all_buffer_variable_decl)
+            available_buffer_list['ids'].append(all_buffer_variable_id)
     # 2. take care of replicator nodes
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
@@ -328,7 +329,7 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
         sizeof_args = []
         sizeof_args.append(c_ast.Constant('string', datatype_string))
         memcpy_args.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
-        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
+        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
         inter_then_part_stmts.append(memcpy)
         # 3. distribute to groups
         send_cnt = 1  # start with 1, 0 is the node itself
@@ -396,7 +397,7 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
         sizeof_args2 = []
         sizeof_args2.append(c_ast.Constant('string', datatype_string))
         memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args2))))
-        memcpy2 = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args2))
+        memcpy2 = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args2))
         root_stmts.append(memcpy2)
     send_cnt = 1  # start with 1, 0 is the node itself
     for rn in rns:
@@ -475,9 +476,10 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
                                               init=None,
                                               bitsize=None)
         all_buffer_variable_id = c_ast.ID(all_buffer_variable_name)
-        available_buffer_list['list'].append(all_inter_buffer_signature)
-        available_buffer_list['decls'].append(all_buffer_variable_decl)
-        available_buffer_list['ids'].append(all_buffer_variable_id)
+        if available_buffer_list is not None:
+            available_buffer_list['list'].append(all_inter_buffer_signature)
+            available_buffer_list['decls'].append(all_buffer_variable_decl)
+            available_buffer_list['ids'].append(all_buffer_variable_id)
     # 2. take care of replicator nodes
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
@@ -511,7 +513,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
         sizeof_args = []
         sizeof_args.append(c_ast.Constant('string', datatype_string))
         memcpy_args.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
-        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
+        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
         inter_then_part_stmts.append(memcpy)
         # 3. receive large chung
         send_call_args = []
@@ -572,7 +574,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
         sizeof_args2 = []
         sizeof_args2.append(c_ast.Constant('string', datatype_string))
         memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args2))))
-        memcpy2 = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args2))
+        memcpy2 = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args2))
         root_stmts.append(memcpy2)
     recv2_cnt = 1  # start with 1, 0 is the node itself
     for rn in rns:

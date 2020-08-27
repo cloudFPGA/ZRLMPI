@@ -29,7 +29,7 @@ __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
 def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False,
-                replace_send_recv=True, optimize_scatter_gather=True, replicator_nodes=None):
+                replace_send_recv=True, optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
@@ -73,6 +73,8 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         if (not optimize_scatter_gather) or dont_optimize:
             new_entry['new'] = template_generator.scatter_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
         else:
+            if not reuse_interim_buffers:
+                available_optimization_buffer_list = None
             pAST, available_optimization_buffer_list = template_generator.optimized_scatter_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
             new_entry['new'] = pAST
         collectives_new_obj.append(new_entry)
@@ -82,6 +84,8 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
         if (not optimize_scatter_gather) or dont_optimize:
             new_entry['new'] = template_generator.gather_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
         else:
+            if not reuse_interim_buffers:
+                available_optimization_buffer_list = None
             pAST, available_optimization_buffer_list = template_generator.optimized_gather_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
             new_entry['new'] = pAST
         collectives_new_obj.append(new_entry)
