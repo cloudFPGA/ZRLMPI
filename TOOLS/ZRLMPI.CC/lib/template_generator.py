@@ -555,8 +555,9 @@ def send_replacemet(send_call):
                                  type=c_ast.PtrDecl([],
                                                     c_ast.TypeDecl(new_start_variable_name, [], c_ast.IdentifierType([datatype_string]))),
                                  init=c_ast.BinaryOp("+", send_call.args.exprs[0],
-                                                     c_ast.BinaryOp("*", c_ast.ID(loop_variable_name),
-                                                     c_ast.Constant('int', str(__max_packet_length__)))
+                                                     #c_ast.BinaryOp("*",
+                                                                    c_ast.ID(loop_variable_name),
+                                                     #c_ast.Constant('int', str(__max_packet_length__)))
                                                      )
                                                      ,
                                  bitsize=None)
@@ -626,8 +627,9 @@ def recv_replacement(recv_call):
                                  type=c_ast.PtrDecl([],
                                                     c_ast.TypeDecl(new_start_variable_name, [], c_ast.IdentifierType([datatype_string]))),
                                  init=c_ast.BinaryOp("+", recv_call.args.exprs[0],
-                                                     c_ast.BinaryOp("*", c_ast.ID(loop_variable_name),
-                                                     c_ast.Constant('int', str(__max_packet_length__)))
+                                                     #c_ast.BinaryOp("*",
+                                                                    c_ast.ID(loop_variable_name),
+                                                     #c_ast.Constant('int', str(__max_packet_length__)))
                                                      )
                                                      ,
                                  bitsize=None)
