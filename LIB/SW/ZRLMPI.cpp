@@ -144,6 +144,7 @@ nanosleep(&kvm_net, &kvm_net);
         printf("data_packet %d received.\n", recv_packets_cnt);
         received_length += res;
         recv_packets_cnt++;
+        printf("received_length %d; expected_length %d\n",received_length, expected_length);
         if(received_length >= expected_length)
         {
           break;
@@ -206,8 +207,6 @@ nanosleep(&kvm_net, &kvm_net);
       header_recv_cache[cache_iter] = header;
       skip_cache_entry[cache_iter] = false;
       cache_iter++;
-      received_length -= res;
-      recv_packets_cnt--;
       if (cache_iter >= MPI_CLUSTER_SIZE_MAX)
       {
         //some type of clean 

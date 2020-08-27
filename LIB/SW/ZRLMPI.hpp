@@ -54,7 +54,8 @@ void MPI_Finalize();
 #define UDP_HEADER_SIZE_BYTES 45
 
 //#define CUSTOM_MTU 1402 //VPN
-#define CUSTOM_MTU 1000 //VPN2
+//#define CUSTOM_MTU 1000 //VPN2
+#define CUSTOM_MTU 1500 //ZC2
 
 //#define KVM_CORRECTION
 
