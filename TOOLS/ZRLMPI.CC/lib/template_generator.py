@@ -504,7 +504,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
         group_rcv_nodes = replicator_nodes[rn]
         size_of_this_group = len(group_rcv_nodes)
         recv2_args = []
-        recv2_args.append(c_ast.BinaryOp('+', orig_src_buffer,
+        recv2_args.append(c_ast.BinaryOp('+', orig_dst_buffer,
                                          c_ast.BinaryOp('*', c_ast.Constant('int', str(recv2_cnt)),
                                                         orig_chunk_size)))
         recv2_cnt += size_of_this_group + 1
