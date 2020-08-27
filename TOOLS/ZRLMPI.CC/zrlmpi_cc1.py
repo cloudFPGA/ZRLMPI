@@ -193,7 +193,7 @@ if __name__ == '__main__':
     # tmp3_hw_file_h = own_dir + "/tmp_hw3.h" # header will not change
 
     # replicator nodes must be the same for all versions
-    replicator_nodes = template_generator.calculcate_replicator_nodes(cluster_description)
+    replicator_nodes = template_generator.calculate_replicator_nodes(cluster_description)
     main_ast = get_main_ast(parsed_file)
     zrlmpi_max_buffer_size_bytes = ast_processing.process_ast(main_ast, cluster_description, tmp_hw_file_c, tmp3_hw_file_c
                                                               , replicator_nodes=replicator_nodes)

@@ -186,7 +186,7 @@ def gather_replacement(gather_call, cluster_size_constant, rank_obj):
     return pAST
 
 
-def calculcate_replicator_nodes(cluster_description):
+def calculate_replicator_nodes(cluster_description):
     # the FPGAs have an end2end speedup of 1/3 currently, so we group it to three
     # TODO optimize
     group_size = 4
@@ -360,6 +360,161 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj):
         send_args.append(orig_communicator)
         send_call = c_ast.FuncCall(c_ast.ID("MPI_Send"), c_ast.ExprList(send_args))
         root_stmts.append(send_call)
+    root_part = c_ast.Compound(root_stmts)
+    # 4. create pAst
+    condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
+    if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
+    past_stmts = []
+    past_stmts.append(all_buffer_variable_decl)
+    past_stmts.append(if_else_tree)
+    pAST = c_ast.Compound(past_stmts)
+    return pAST
+
+
+def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj):
+    """
+
+    :param gather_call: original method call
+    :param replicator_nodes: the set that describes the tree structure
+    :param rank_obj: the target node for generation
+    :return:
+    """
+    orig_datatype = gather_call.args.exprs[2]
+    datatype_string = get_type_string_from_int(int(orig_datatype.value))
+    orig_chunk_size = gather_call.args.exprs[1]
+    orig_src_buffer = gather_call.args.exprs[0]
+    orig_root_rank = gather_call.args.exprs[6]
+    orig_communicator = gather_call.args.exprs[7]
+    orig_dst_buffer = gather_call.args.exprs[3]
+    # structure is if -then- else -else -else
+    # then: root, else: for replicator nodes,
+    # for first replicator node, create buffer
+    # 1. global inits
+    all_inter_buffer_size = c_ast.BinaryOp('*', c_ast.Constant('int', str(replicator_nodes["group_size"])), orig_chunk_size)
+    all_buffer_variable_name = "{}_{}_5".format(__buffer_variable__name__, get_random_name_extension())
+    # TODO: optimize: use for all optimizations same buffer?
+    all_buffer_variable_decl = c_ast.Decl(name=all_buffer_variable_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
+                                          type=c_ast.ArrayDecl(type=c_ast.TypeDecl(all_buffer_variable_name, [],
+                                                                                   c_ast.IdentifierType([datatype_string])), dim_quals=[],
+                                                               #dim=c_ast.Constant('int', str(all_inter_buffer_size))
+                                                               dim=all_inter_buffer_size
+                                                               ),
+                                          init=None,
+                                          bitsize=None)
+    all_buffer_varibale_id = c_ast.ID(all_buffer_variable_name)
+    # 2. take care of replicator nodes
+    intermediate_parts = {}
+    intermediate_part_cnts = replicator_nodes['cnt']
+    rns = replicator_nodes["replicators"]
+    reversed_rns = list(reversed(rns))
+    last_processed_rn = 0
+    for rr in reversed_rns:
+        group_rcv_nodes = replicator_nodes[rr]
+        size_of_this_group = len(group_rcv_nodes)
+        inter_then_part_stmts = []
+        # 1. collect from groups
+        recv_cnt = 1  # start with 1, 0 is the node itself
+        for rcvi in group_rcv_nodes:
+            recv_args = []
+            recv_args.append(c_ast.BinaryOp('+', all_buffer_varibale_id,
+                                            c_ast.BinaryOp('*', c_ast.Constant('int', str(recv_cnt)),
+                                                           orig_chunk_size)))
+            recv_cnt += 1
+            recv_args.append(orig_chunk_size)
+            recv_args.append(orig_datatype)
+            recv_args.append(c_ast.Constant('int', str(rcvi)))
+            recv_args.append(__scatter_tag__)
+            recv_args.append(orig_communicator)
+            recv_args.append(__status_ignore__)
+            recv_call = c_ast.FuncCall(c_ast.ID("MPI_Recv"), c_ast.ExprList(recv_args))
+            inter_then_part_stmts.append(recv_call)
+        # 2. memcpy own part
+        memcpy_args = []
+        memcpy_args.append(all_buffer_varibale_id)
+        memcpy_args.append(orig_src_buffer)
+        sizeof_args = []
+        sizeof_args.append(c_ast.Constant('string', datatype_string))
+        memcpy_args.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
+        inter_then_part_stmts.append(memcpy)
+        # 3. receive large chung
+        send_call_args = []
+        send_call_args.append(all_buffer_varibale_id)
+        send_call_args.append(c_ast.BinaryOp('*', c_ast.Constant('int', str(size_of_this_group+1)), orig_chunk_size))
+        send_call_args.append(orig_datatype)
+        send_call_args.append(orig_root_rank)
+        send_call_args.append(__scatter_tag__)
+        send_call_args.append(orig_communicator)
+        inter_then_part_stmts.append(c_ast.FuncCall(c_ast.ID("MPI_Send"), c_ast.ExprList(send_call_args)))
+        inter_then_part = c_ast.Compound(inter_then_part_stmts)
+        # 4. send in groups
+        inter_else_part_plain_stmts = []
+        send2_args = []
+        send2_args.append(orig_src_buffer)
+        send2_args.append(orig_chunk_size)
+        send2_args.append(orig_datatype)
+        send2_args.append(c_ast.Constant('int', str(rr)))
+        send2_args.append(__scatter_tag__)
+        send2_args.append(orig_communicator)
+        inter_else_part_plain_stmts.append(c_ast.FuncCall(c_ast.ID("MPI_Send"), c_ast.ExprList(send2_args)))
+        inter_else_part_plain = c_ast.Compound(inter_else_part_plain_stmts)
+        # is also if again
+        # if -> then receive -> else, next group
+        # if last group, no if/else
+        if rr == rns[-1]:
+            inter_else_part = inter_else_part_plain
+        else:
+            rcv_compares = []
+            for rcvn in group_rcv_nodes:
+                new_compare = c_ast.BinaryOp("==", rank_obj, c_ast.Constant('int', str(rcvn)))
+                rcv_compares.append(new_compare)
+            inter_else_condition = rcv_compares[0]
+            if len(rcv_compares) > 1:
+                for i in range(1, len(rcv_compares)):
+                    inter_else_condition = c_ast.BinaryOp("||", inter_else_condition, rcv_compares[i])
+            inter_else_then_part = inter_else_part_plain
+            inter_else_else_part = intermediate_parts[last_processed_rn]
+            inter_else_part = c_ast.If(inter_else_condition, inter_else_then_part, inter_else_else_part)
+        # 3. assemble
+        inter_condition = c_ast.BinaryOp("==", rank_obj, c_ast.Constant('int', str(rr)))
+        inter_part = c_ast.If(inter_condition, inter_then_part, inter_else_part)
+        intermediate_parts[rr] = inter_part
+        last_processed_rn = rr
+    # 3. take care of root node
+    root_stmts = []
+    src_dst_equal = False
+    try:
+        if gather_call.args.exprs[0].expr.name.name.name == gather_call.args.exprs[3].expr.name.name.name:
+            src_dst_equal = True
+    except:
+        # so we are not sure...
+        src_dst_equal = False
+    if not src_dst_equal:
+        memcpy_args2 = []
+        memcpy_args2.append(orig_dst_buffer)
+        memcpy_args2.append(orig_src_buffer)
+        sizeof_args2 = []
+        sizeof_args2.append(c_ast.Constant('string', datatype_string))
+        memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy2 = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args2))
+        root_stmts.append(memcpy2)
+    recv2_cnt = 1  # start with 1, 0 is the node itself
+    for rn in rns:
+        group_rcv_nodes = replicator_nodes[rn]
+        size_of_this_group = len(group_rcv_nodes)
+        recv2_args = []
+        recv2_args.append(c_ast.BinaryOp('+', orig_src_buffer,
+                                         c_ast.BinaryOp('*', c_ast.Constant('int', str(recv2_cnt)),
+                                                        orig_chunk_size)))
+        recv2_cnt += size_of_this_group + 1
+        recv2_args.append(c_ast.BinaryOp('*', c_ast.Constant('int', str(size_of_this_group+1)), orig_chunk_size))
+        recv2_args.append(orig_datatype)
+        recv2_args.append(c_ast.Constant('int', str(rn)))
+        recv2_args.append(__scatter_tag__)
+        recv2_args.append(orig_communicator)
+        recv2_args.append(__status_ignore__)
+        recv2_call = c_ast.FuncCall(c_ast.ID("MPI_Recv"), c_ast.ExprList(recv2_args))
+        root_stmts.append(recv2_call)
     root_part = c_ast.Compound(root_stmts)
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
