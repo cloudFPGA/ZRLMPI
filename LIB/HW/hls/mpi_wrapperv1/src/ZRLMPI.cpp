@@ -38,6 +38,16 @@ void setMMIO_out(ap_uint<16> *MMIO_out)
   *MMIO_out = Display0;
 }
 
+
+void my_memcpy(int * dst, int* src, int length)
+{
+  for(int i = 0; i < length/sizeof(int); i++)
+  {
+    dst[i] = src[i];
+  }
+}
+
+
 void MPI_Init()
 {
 #pragma HLS inline
