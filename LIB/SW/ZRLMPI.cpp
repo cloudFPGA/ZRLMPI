@@ -686,8 +686,9 @@ int main(int argc, char **argv)
   if(max_udp_payload_bytes > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
   {
     max_udp_payload_bytes = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
+    //inclusive MPI header!
   }
-  //printf("max payload bytes: %d.\n", max_udp_payload_bytes);
+  printf("max payload bytes: %d.\n", max_udp_payload_bytes);
 
   //init cache
   for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
