@@ -73,6 +73,8 @@ struct Axis {
 #define MPI_FLOAT   1
 
 
+void my_memcpy(int * dst, int* src, int length);
+
 //void MPI_Init(int* argc, char*** argv);
 void MPI_Init();
 //void MPI_Init(ap_uint<16> *MMIO_out);
