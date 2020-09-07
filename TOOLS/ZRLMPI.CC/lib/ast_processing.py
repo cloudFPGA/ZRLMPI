@@ -203,7 +203,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         print("No invariant rank statement for FPGAs found.")
         new_ast = c_ast_tmpl
 
-    # 5. replace sizes
+    # 5. replace sizes TODO: do first
     sizes_to_replace = []
     for e in size_variable_obj:
         new_entry = {}
@@ -219,6 +219,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         sizes_to_replace.append(new_entry)
     replace_stmt_visitor2 = replace_visitor.MpiStatementReplaceVisitor(sizes_to_replace)
     replace_stmt_visitor2.visit(new_ast)
+
+    # TODO: constant folding
 
     # 6. determine buffer size (and return them) AFTER the AST has been modified
     # TODO: also replace buffers of void type with dynamic type?
