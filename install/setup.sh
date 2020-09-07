@@ -27,6 +27,8 @@ echo "Installing $1 into $cFpRootDir ..."
 # a) we update the present Makefile (alternative: copy Makefile.template from install folder)
 # 1. add ZRLMPI Dir and update env
 sed -i "19iZRLMPI_DIR=\$(cFpRootDir)/$1/" $cFpRootDir/Makefile
+sed -i "20iCLUSTER_DESCRIPTION=\$(cFpRootDir)/cluster.json/" $cFpRootDir/Makefile
+sed -i "22iCFP_DESCRIPTION=\$(cFpRootDir)/cFp.json/" $cFpRootDir/Makefile
 
 /bin/echo -e "export zrlmpiDir=\"\$rootDir/$1/\"\n\n" >> $cFpRootDir/env/setenv.sh
 
@@ -48,7 +50,7 @@ assert_cluster: \n\t@test -f $(CLUSTER_DESCRIPTION) || ( /bin/echo -e "{\n\
 }" > $(CLUSTER_DESCRIPTION) ; ( [ -d .git/ ] && (git add $(CLUSTER_DESCRIPTION) ) ) ; echo "Please define the cluster setup in $(CLUSTER_DESCRIPTION)" ; exit 1)\
 \n\n\
 update_mpi_app: assert_env assert_cluster  ## launches the ZRLMPI cross-compiler\n\
-\t$(ZRLMPI_DIR)/TOOLS/ZRLMPI.CC/zrlmpi.cc  $(cFpRootDir) $(ZRLMPI_DIR) ./APP/*.cpp ./APP/*.hpp $(usedRoleDir) $(CLUSTER_DESCRIPTION)\n\n\
+\t$(ZRLMPI_DIR)/TOOLS/ZRLMPI.CC/zrlmpi.cc  $(cFpRootDir) $(ZRLMPI_DIR) ./APP/*.cpp ./APP/*.hpp $(usedRoleDir) $(CLUSTER_DESCRIPTION) $(CFP_DESCRIPTION)\n\n\
 pr_mpi: assert_env update_mpi_app pr  ## cross-compiles the application and builds the PR bitstream\n\n\
 mono_mpi: assert_env update_mpi_app monolithic  ## cross-compiles the application and builds a monolithic bitstream\n\n' $cFpRootDir/Makefile
 

@@ -153,8 +153,8 @@ def add_header_line_after(pattern_escaped, line_to_add, filename_old, filename_n
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 8:
-        print("USAGE: {0} mpi_input.c mpi_input.h hw_output_file.c hw_output_file.h sw_output_file.c sw_output_file.h cluster.json".format(sys.argv[0]))
+    if len(sys.argv) != 9:
+        print("USAGE: {0} mpi_input.c mpi_input.h hw_output_file.c hw_output_file.h sw_output_file.c sw_output_file.h cluster.json cFp.json".format(sys.argv[0]))
         exit(1)
 
     own_dir = os.path.dirname(os.path.realpath(__file__))
@@ -188,6 +188,10 @@ if __name__ == '__main__':
         cluster_description = json.load(in_config)
     # TODO: support range definitions in JSON (convert to array here)
 
+    cFp_description = {}
+    with open(sys.argv[8], 'r') as in_config:
+        cFp_description = json.load(in_config)
+
     tmp3_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw3.c"
     tmp3_sw_file_c = own_dir + __TMP_DIR__ + "/tmp_sw3.c"
     # tmp3_hw_file_h = own_dir + "/tmp_hw3.h" # header will not change
@@ -195,12 +199,12 @@ if __name__ == '__main__':
     # replicator nodes must be the same for all versions
     replicator_nodes = template_generator.calculate_replicator_nodes(cluster_description)
     main_ast = get_main_ast(parsed_file)
-    zrlmpi_max_buffer_size_bytes = ast_processing.process_ast(main_ast, cluster_description, tmp_hw_file_c, tmp3_hw_file_c
+    zrlmpi_max_buffer_size_bytes = ast_processing.process_ast(main_ast, cluster_description, cFp_description, tmp_hw_file_c, tmp3_hw_file_c
                                                               , replicator_nodes=replicator_nodes)
 
     # now, process template for SW file
     main_ast = get_main_ast(parsed_file)
-    ignore_return = ast_processing.process_ast(main_ast, cluster_description, tmp_sw_file_c, tmp3_sw_file_c,
+    ignore_return = ast_processing.process_ast(main_ast, cluster_description, cFp_description, tmp_sw_file_c, tmp3_sw_file_c,
                                                template_only=True, replicator_nodes=replicator_nodes)
 
     max_buffer_string = "#define ZRLMPI_MAX_DETECTED_BUFFER_SIZE ({})  //in BYTES!\n\n".format(zrlmpi_max_buffer_size_bytes)

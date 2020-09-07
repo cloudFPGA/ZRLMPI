@@ -19,7 +19,7 @@ import lib.mpi_variable_value_visitor as value_visitor
 import lib.mpi_affected_statement_visitor as statement_visitor
 import lib.mpi_replace_visitor as replace_visitor
 import lib.template_generator as template_generator
-
+import lib.resource_checker as resource_checker
 from lib.util import get_line_number_of_occurence
 
 
@@ -28,7 +28,7 @@ __fallback_max_buffer_size__ = 1500  # we have to find one
 __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 
 
-def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_file_name, template_only=False,
+def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_parsing, target_file_name, template_only=False,
                 replace_send_recv=True, optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False):
     # 0. process cluster description
     max_rank = 0
@@ -262,6 +262,9 @@ def process_ast(c_ast_orig, cluster_description, hw_file_pre_parsing, target_fil
 
     with open(target_file_name, 'w+') as target_file:
         target_file.write(concatenated_file)
+
+    # 9. check resource usages
+    ignore_ret = resource_checker.check_resources(cFp_description, max_dimension_bytes)
 
     return max_dimension_bytes    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
 

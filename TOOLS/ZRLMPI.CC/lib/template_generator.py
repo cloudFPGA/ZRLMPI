@@ -25,7 +25,8 @@ __random_name_suffix_length__ = 5
 
 # __max_packet_length__ = "(1024/sizeof({})"
 # __max_packet_length__ = 256
-__max_packet_length__ = 352
+# __max_packet_length__ = 352
+__max_packet_length__ = 348
 __packet_length_margin__ = 64
 
 __NO_OPTIMIZATION_MSG__ = "NO-Optimization-Possible"

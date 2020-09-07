@@ -23,9 +23,9 @@ OWN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 PY_ENV=$2/py_zrlmpi/
 
-if [ 6 -ne $# ]
+if [ 7 -ne $# ]
 then 
-  echo "USAGE: $0 path/to/cFp_root_dir path/to/ZRLMPI_dir path/to/MPI/c-file path/to/MPI/h-file path/to/ROLE_DIR path/to/cluster/description_json"
+  echo "USAGE: $0 path/to/cFp_root_dir path/to/ZRLMPI_dir path/to/MPI/c-file path/to/MPI/h-file path/to/ROLE_DIR path/to/cluster/description_json path/to/cFp_json"
   echo "This asumes that the the mpi_wrapper in ROLE_DIR will be used"
 else 
   make -C $OWN_DIR/unifdef/ 
@@ -34,7 +34,7 @@ else
   || [[ $6 -nt $HW_TARGET_C ]] || [[ $6 -nt $HW_TARGET_H ]]; then
     # the json only influences the HW targets...
     echo "$OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6"
-    $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6
+    $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6 $7
     ret=$?
   else
     ret=0

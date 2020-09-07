@@ -1,0 +1,16 @@
+{
+    "usedRoleDir": "1/",
+    "roleName2": "alternative",
+    "cFpSRAtype": "Themisto",
+    "usedRoleDir2": "2/",
+    "version": "This cFp was created by cFBuild 0.4",
+    "roleName1": "default",
+    "cFpMOD": "FMKU60",
+    "additional_lines": [
+        "export zrlmpiDir=\"$rootDir/ZRLMPI/\"",
+        "export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:/usr/local/lib64:/usr/lib64"
+    ],
+    "cFa": [
+        "ZRLMPI"
+    ]
+}
