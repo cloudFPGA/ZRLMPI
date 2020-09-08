@@ -218,6 +218,11 @@ class MpiVariableValueSearcher(object):
                     return
                 parsed = False
                 while True:
+                    if type(current_obj) is c_ast.IdentifierType:
+                        # last in a chain...
+                        buffer_type = current_obj.names[0]
+                        parsed = True
+                        break
                     new_obj['further_def'].append(current_obj)
                     if hasattr(current_obj, 'dim'):
                         if type(current_obj.dim) is c_ast.Constant:

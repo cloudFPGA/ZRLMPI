@@ -140,54 +140,27 @@ class MpiConstantFoldingVisitor(object):
     #     sref = self._parenthesize_unless_simple(n.name)
     #     return sref + n.type + self.visit(n.field)
 
-    #def visit_FuncCall(self, n):
-    #    func_name = n.name.name
-    #    # print("visiting FuncCall {}\n".format(func_name))
-    #    if func_name in __mpi_api_signatures_buffers__:
-    #        # it's always the first argument
-    #        arg_0 = n.args.exprs[0]
-    #        # print("found 1st arg: {}\n".format(str(arg_0)))
-    #        buffer_name = ""
-    #        current_obj = arg_0
-    #        while True:
-    #           if hasattr(current_obj, 'name'):
-    #               buffer_name = current_obj.name
-    #               break
-    #           elif hasattr(current_obj, 'expr'):
-    #               current_obj = current_obj.expr
-    #           elif hasattr(current_obj, 'stmt'):
-    #               current_obj = current_obj.stmt
-    #           else:
-    #               break
-    #        # print("found buffer name {}\n".format(buffer_name))
-    #        if buffer_name not in self.found_buffers_names:
-    #            self.found_buffers_names.append(buffer_name)
-    #            self.found_buffers_obj.append(arg_0)
-    #    elif func_name in __mpi_api_signatures_rank__:
-    #        # it's always the second argument
-    #        arg_1 = n.args.exprs[1]
-    #        # print("found 2nd arg: {}\n".format(str(arg_1)))
-    #        rank_name = ""
-    #        current_obj = arg_1
-    #        while True:
-    #            if hasattr(current_obj, 'name'):
-    #                rank_name = current_obj.name
-    #                break
-    #            elif hasattr(current_obj, 'expr'):
-    #                current_obj = current_obj.expr
-    #            elif hasattr(current_obj, 'stmt'):
-    #                current_obj = current_obj.stmt
-    #            else:
-    #                break
-    #        # print("found rank name {}\n".format(rank_name))
-    #        if rank_name not in self.found_rank_names:
-    #            self.found_rank_names.append(rank_name)
-    #            self.found_rank_obj.append(arg_1)
-    #    return
+    def visit_FuncCall(self, n):
+        func_name = n.name.name
+        if func_name == 'sizeof' and len(n.args.exprs) == 1:
+            cmd = "ctypes.sizeof(ctypes.c_{})".format(n.args.exprs[0].value)
+            result_value = eval(cmd)
+            new_node = c_ast.Constant('int', str(result_value))
+            new_entry = {'old': n, 'new': new_node}
+            self.new_objects_list.append(new_entry)
+            lnh = self.get_list_of_visible_obj_hashs(n)
+            for e in lnh:
+                self.replaced_constant_cache[e] = new_node
+        else:
+            for c in n:
+                self.visit(c)
+        return
 
     def visit_Assignment(self, n):
-        self.visit(n.lvalue)
-        self.visit(n.rvalue)
+        if type(n.lvalue) is not c_ast.ID:
+            self.visit(n.lvalue)
+        if type(n.rvalue) is not c_ast.ID:
+            self.visit(n.rvalue)
         # rh = self.get_context_based_obj_hash(n.rvalue)
         rhl = self.get_list_of_visible_obj_hashs(n.rvalue)
         rhl.reverse()
@@ -386,19 +359,17 @@ class MpiConstantFoldingVisitor(object):
 
     def visit_UnaryOp(self, n):
         operand = None
-        nh = self.get_context_based_obj_hash(n.expr)
         if type(n.expr) is c_ast.Constant:
             operand = n.expr
         # elif type(n.expr) is c_ast.ID:
-        elif nh in self.replaced_constant_cache:
-            operand = self.replaced_constant_cache[nh]
-            assert type(operand) is c_ast.Constant
         else:
             self.visit(n.expr)
-            # check afterwards again
-            if nh in self.replaced_constant_cache:
-                operand = self.replaced_constant_cache[nh]
-                assert type(operand) is c_ast.Constant
+            nhl = self.get_list_of_visible_obj_hashs(n.expr)
+            nhl.reverse()
+            for nh in nhl:
+                if nh in self.replaced_constant_cache:
+                    operand = self.replaced_constant_cache[nh]
+                    assert type(operand) is c_ast.Constant
         if operand is not None:
             # we execute it
             result_value = 0
@@ -418,7 +389,8 @@ class MpiConstantFoldingVisitor(object):
             if cmd_exectued:
                 new_node = c_ast.Constant(operand.type, str(result_value))
                 new_entry = {'old': n, 'new': new_node}
-                self.new_objects_list.append(new_entry)
+                # do NOT replace in code, could lead to empty statements
+                # self.new_objects_list.append(new_entry)
                 # nh = self.get_context_based_obj_hash(n)
                 # self.replaced_constant_cache[nh] = new_node
                 lnh = self.get_list_of_visible_obj_hashs(n)
@@ -431,17 +403,24 @@ class MpiConstantFoldingVisitor(object):
         self.visit(n.right)
         right_operand = None
         left_operand = None
-        lh = self.get_context_based_obj_hash(n.left)
-        rh = self.get_context_based_obj_hash(n.right)
+        lhs = self.get_list_of_visible_obj_hashs(n.left)
+        lhs.reverse()
+        rhs = self.get_list_of_visible_obj_hashs(n.right)
+        rhs.reverse()
         if type(n.left) is c_ast.Constant:
             left_operand = n.left
-        elif lh in self.replaced_constant_cache:
-            left_operand = self.replaced_constant_cache[lh]
-            assert type(left_operand) is c_ast.Constant
+        else:
+            for lh in lhs:
+                if lh in self.replaced_constant_cache:
+                    left_operand = self.replaced_constant_cache[lh]
+                    assert type(left_operand) is c_ast.Constant
         if type(n.right) is c_ast.Constant:
             right_operand = n.right
-        elif rh in self.replaced_constant_cache:
-            right_operand = self.replaced_constant_cache[rh]
+        else:
+            for rh in rhs:
+                if rh in self.replaced_constant_cache:
+                    right_operand = self.replaced_constant_cache[rh]
+                    assert type(right_operand) is c_ast.Constant
 
         if right_operand is not None and left_operand is not None:
             # we can execute it
@@ -468,11 +447,14 @@ class MpiConstantFoldingVisitor(object):
     def visit_TernaryOp(self, n):
         self.visit(n.cond)
         compare = None
-        nc = self.get_context_based_obj_hash(n.cond)
+        ncl = self.get_list_of_visible_obj_hashs(n.cond)
+        ncl.reverse()
         if type(n.cond) is c_ast.Constant:
             compare = n.cond
-        elif nc in self.replaced_constant_cache:
-            compare = self.replaced_constant_cache[nc]
+        else:
+            for nc in ncl:
+                if nc in self.replaced_constant_cache:
+                    compare = self.replaced_constant_cache[nc]
 
         if compare is not None:
             result_node = None
