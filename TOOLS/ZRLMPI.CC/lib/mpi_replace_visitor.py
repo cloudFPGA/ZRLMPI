@@ -58,6 +58,16 @@ class MpiStatementReplaceVisitor(object):
             self.objects_to_replace.append(e['new'])
             self.objects_to_search.append(e['old'])
 
+    def check_and_replace_list(self, list_to_replace):
+        ret = False
+        for i in range(0, len(list_to_replace)):
+            e = list_to_replace[i]
+            if e in self.objects_to_search:
+                target_index = self.objects_to_search.index(e)
+                list_to_replace[i] = self.objects_to_replace[target_index]
+                ret = True
+        return ret
+
     def visit(self, node):
         """ Visit a node.
         """
@@ -80,29 +90,34 @@ class MpiStatementReplaceVisitor(object):
         for c in node:
             if c in self.objects_to_search:
                 target_index = self.objects_to_search.index(c)
-                insert_index = node.block_items.index(c)
-                # node.block_items[ni] = self.objects_to_replace[oi]
-                # ok, now we know where to insert, but we have to split  the "stmt" of if/else, otherwise there would be
-                # some unnecessary {..} in the code
-                list_to_insert = []
-                if type(self.objects_to_replace[target_index]) is list:
-                    for e in self.objects_to_replace[target_index]:
-                        if type(e) is c_ast.Compound:
-                            list_to_insert.extend(e.block_items)
-                        else:
-                            list_to_insert.append(e)
-                else:
-                    if type(self.objects_to_replace[target_index]) is c_ast.Compound:
-                        list_to_insert.extend(self.objects_to_replace[target_index].block_items)
+                # if node.block_items:
+                if hasattr(node, 'block_items'):
+                    insert_index = node.block_items.index(c)
+                    # node.block_items[ni] = self.objects_to_replace[oi]
+                    # ok, now we know where to insert, but we have to split  the "stmt" of if/else, otherwise there would be
+                    # some unnecessary {..} in the code
+                    list_to_insert = []
+                    if type(self.objects_to_replace[target_index]) is list:
+                        for e in self.objects_to_replace[target_index]:
+                            if type(e) is c_ast.Compound:
+                                list_to_insert.extend(e.block_items)
+                            else:
+                                list_to_insert.append(e)
                     else:
-                        list_to_insert.append(self.objects_to_replace[target_index])
-                del node.block_items[insert_index]
-                # insert_index -= 1 #TODO
-                if insert_index < 0:
-                    insert_index = 0
-                for e in list_to_insert:
-                    node.block_items.insert(insert_index, e)
-                    insert_index += 1
+                        if type(self.objects_to_replace[target_index]) is c_ast.Compound:
+                            list_to_insert.extend(self.objects_to_replace[target_index].block_items)
+                        else:
+                            list_to_insert.append(self.objects_to_replace[target_index])
+                    del node.block_items[insert_index]
+                    # insert_index -= 1 #TODO
+                    if insert_index < 0:
+                        insert_index = 0
+                    for e in list_to_insert:
+                        node.block_items.insert(insert_index, e)
+                        insert_index += 1
+                else:
+                    # node[c] = self.objects_to_replace[target_index]
+                    self.visit(c)
             else:
                 self.visit(c)
 
@@ -172,32 +187,38 @@ class MpiStatementReplaceVisitor(object):
     #             self.found_rank_obj.append(arg_1)
     #     return
 
-    # # def visit_UnaryOp(self, n):
-    #     operand = self._parenthesize_unless_simple(n.expr)
-    #     if n.op == 'p++':
-    #         return '%s++' % operand
-    #     elif n.op == 'p--':
-    #         return '%s--' % operand
-    #     elif n.op == 'sizeof':
-    #         # Always parenthesize the argument of sizeof since it can be
-    #         # a name.
-    #         return 'sizeof(%s)' % self.visit(n.expr)
-    #     else:
-    #         return '%s%s' % (n.op, operand)
-    #
-    # def visit_BinaryOp(self, n):
-    #     lval_str = self._parenthesize_if(n.left,
-    #                                      lambda d: not self._is_simple_node(d))
-    #     rval_str = self._parenthesize_if(n.right,
-    #                                      lambda d: not self._is_simple_node(d))
-    #     return '%s %s %s' % (lval_str, n.op, rval_str)
-    #
-    # def visit_Assignment(self, n):
-    #     rval_str = self._parenthesize_if(
-    #         n.rvalue,
-    #         lambda n: isinstance(n, c_ast.Assignment))
-    #     return '%s %s %s' % (self.visit(n.lvalue), n.op, rval_str)
-    #
+    def visit_UnaryOp(self, n):
+        list_to_replace = [n.expr]
+        was_replaced = self.check_and_replace_list(list_to_replace)
+        # assumption: if one thing was replaced, we don't need to visit further
+        if not was_replaced:
+            for e in list_to_replace:
+                self.visit(e)
+        else:
+            n.expr = list_to_replace[0]
+
+    def visit_BinaryOp(self, n):
+        list_to_replace = [n.left, n.right]
+        was_replaced = self.check_and_replace_list(list_to_replace)
+        # assumption: if one thing was replaced, we don't need to visit further
+        if not was_replaced:
+            for e in list_to_replace:
+                self.visit(e)
+        else:
+            n.left = list_to_replace[0]
+            n.right = list_to_replace[1]
+
+    def visit_Assignment(self, n):
+        list_to_replace = [n.rvalue, n.lvalue]
+        was_replaced = self.check_and_replace_list(list_to_replace)
+        # assumption: if one thing was replaced, we don't need to visit further
+        if not was_replaced:
+            for e in list_to_replace:
+                self.visit(e)
+        else:
+            n.rvalue = list_to_replace[0]
+            n.lvalue = list_to_replace[1]
+
     # def visit_IdentifierType(self, n):
     #     return ' '.join(n.names)
     #
@@ -208,17 +229,38 @@ class MpiStatementReplaceVisitor(object):
     #         return '(' + self.visit(n) + ')'
     #     else:
     #         return self.visit(n)
-    #
-    # def visit_Decl(self, n, no_type=False):
-    #     # no_type is used when a Decl is part of a DeclList, where the type is
-    #     # explicitly only for the first declaration in a list.
-    #     #
-    #     s = n.name if no_type else self._generate_decl(n)
-    #     if n.bitsize: s += ' : ' + self.visit(n.bitsize)
-    #     if n.init:
-    #         s += ' = ' + self._visit_expr(n.init)
-    #     return s
-    #
+
+    def visit_Decl(self, n):
+        if n.init:
+            list_to_replace = [n.init]
+            was_replaced = self.check_and_replace_list(list_to_replace)
+            # assumption: if one thing was replaced, we don't need to visit further
+            if not was_replaced:
+                for e in list_to_replace:
+                    self.visit(e)
+            else:
+                n.init = list_to_replace[0]
+        if n.type:
+            list_to_replace = [n.type]
+            was_replaced = self.check_and_replace_list(list_to_replace)
+            # assumption: if one thing was replaced, we don't need to visit further
+            if not was_replaced:
+                for e in list_to_replace:
+                    self.visit(e)
+            else:
+                n.type = list_to_replace[0]
+
+    def visit_ArrayDecl(self, n):
+        if n.type:
+            list_to_replace = [n.type]
+            was_replaced = self.check_and_replace_list(list_to_replace)
+            # assumption: if one thing was replaced, we don't need to visit further
+            if not was_replaced:
+                for e in list_to_replace:
+                    self.visit(e)
+            else:
+                n.type = list_to_replace[0]
+
     # def visit_DeclList(self, n):
     #     s = self.visit(n.decls[0])
     #     if len(n.decls) > 1:

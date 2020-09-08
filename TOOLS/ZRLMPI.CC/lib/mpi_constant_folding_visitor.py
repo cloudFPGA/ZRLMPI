@@ -21,6 +21,26 @@ import ctypes
 __c_int_compare_operators__ = ["==", "<=", ">=", ">", "<", "!="]
 __root_context_hash__ = hash("ast_root_context")
 
+def _equalize_node(n):
+    new_n = n
+    if hasattr(new_n, 'coord'):
+        new_n.coord = None
+    return new_n
+
+
+def _own_poor_ast_hash(n):
+    # TODO: improve
+    h = str(_equalize_node(n))
+    return h
+
+__c_implicit_type_pyramide__ = ['bool', 'char', 'short int', 'int' , 'unsigned int', 'long', 'unsigned',
+                                'long long', 'float', 'double', 'long double']
+
+def _get_c_highest_shared_type(t1, t2):
+    r1 = __c_implicit_type_pyramide__.index(t1)
+    r2 = __c_implicit_type_pyramide__.index(t2)
+    st = __c_implicit_type_pyramide__[max(r1,r2)]
+    return st
 
 class MpiConstantFoldingVisitor(object):
     """
@@ -65,9 +85,18 @@ class MpiConstantFoldingVisitor(object):
     def get_new_objects(self):
         return self.new_objects_list
 
-    def _get_context_based_obj_hash(self, n):
-        nhs = "{}_{}".format(self.current_context_hash, hash(n))
+    def get_context_based_obj_hash(self, n):
+        # nhs = "{}_{}".format(self.current_context_hash, hash(_equalize_node(n)))
+        nhs = "{}_{}".format(self.current_context_hash, _own_poor_ast_hash(n))
         return hash(nhs)
+
+    def get_list_of_visible_obj_hashs(self, n):
+        ret = []
+        for c in self.context_stack:
+            nhs = "{}_{}".format(c, _own_poor_ast_hash(n))
+            ret.append(hash(nhs))
+        ret.append(self.get_context_based_obj_hash(n))
+        return ret
 
     def visit(self, node):
         """ Visit a node.
@@ -156,12 +185,46 @@ class MpiConstantFoldingVisitor(object):
     #            self.found_rank_obj.append(arg_1)
     #    return
 
-    # def visit_Assignment(self, n):
-    #     rval_str = self._parenthesize_if(
-    #         n.rvalue,
-    #         lambda n: isinstance(n, c_ast.Assignment))
-    #     return '%s %s %s' % (self.visit(n.lvalue), n.op, rval_str)
-    #
+    def visit_Assignment(self, n):
+        self.visit(n.lvalue)
+        self.visit(n.rvalue)
+        # rh = self.get_context_based_obj_hash(n.rvalue)
+        rhl = self.get_list_of_visible_obj_hashs(n.rvalue)
+        rhl.reverse()
+        # nh = self.get_context_based_obj_hash(n)
+        if type(n.lvalue) is c_ast.ID:
+            if type(n.rvalue) is c_ast.Constant:
+                constant = n.rvalue
+                # add id to replace values
+                decl_ID = c_ast.ID(n.lvalue.name)
+                # nih = self.get_context_based_obj_hash(decl_ID)
+                # overwrite if necessary...
+                # self.replaced_constant_cache[nih] = constant
+                lnh = self.get_list_of_visible_obj_hashs(decl_ID)
+                for e in lnh:
+                    self.replaced_constant_cache[e] = constant
+            else:
+                for rh in rhl:
+                    if rh in self.replaced_constant_cache:
+                        constant = self.replaced_constant_cache[rh]
+                        new_node = c_ast.Assignment(op=n.op, lvalue=n.lvalue, rvalue=constant, coord=n.coord)
+                        new_entry = {'old': n, 'new': new_node}
+                        self.new_objects_list.append(new_entry)
+                        # self.replaced_constant_cache[nh] = new_node
+                        lnh = self.get_list_of_visible_obj_hashs(n)
+                        for e in lnh:
+                            self.replaced_constant_cache[e] = new_node
+                        # also add ID
+                        decl_ID = c_ast.ID(n.lvalue.name)
+                        # nih = self.get_context_based_obj_hash(decl_ID)
+                        # overwrite if necessary...
+                        # self.replaced_constant_cache[nih] = constant
+                        lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
+                        for e in lnh2:
+                            self.replaced_constant_cache[e] = constant
+                        break
+        return
+
     # def visit_IdentifierType(self, n):
     #     return ' '.join(n.names)
     #
@@ -173,27 +236,64 @@ class MpiConstantFoldingVisitor(object):
     #     else:
     #         return self.visit(n)
 
-    def visit_Decl(self, n, no_type=False):
+    def visit_Decl(self, n):
         if n.init:
             self.visit(n.init)
-        ch = self._get_context_based_obj_hash(n.init)
-        if ch in self.replaced_constant_cache:
-            new_node = c_ast.Decl(name=n.name, quals=n.quals, storage=n.storage, funcspec=n.funcspec, type=n.type,
-                                  bitsize=n.bitsize, coord=n.coord, init=self.replaced_constant_cache[ch])
-            new_entry = {'old': n, 'new': new_node}
-            self.new_objects_list.append(new_entry)
-            nh = self._get_context_based_obj_hash(n)
-            self.replaced_constant_cache[nh] = new_node
-            # also add hash of ID and replace, if already constant
-            if type(self.replaced_constant_cache[ch]) is c_ast.Constant:
+            if type(n.init) is c_ast.Constant:
                 decl_ID = c_ast.ID(n.name)
-                nih = self._get_context_based_obj_hash(decl_ID)
-                self.replaced_constant_cache[nih] = self.replaced_constant_cache[ch]
+                # nih = self.get_context_based_obj_hash(decl_ID)
+                # self.replaced_constant_cache[nih] = self.replaced_constant_cache[ch]
+                lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
+                for e in lnh2:
+                    self.replaced_constant_cache[e] = n.init
+            else:
+                # ch = self.get_context_based_obj_hash(n.init)
+                chl = self.get_list_of_visible_obj_hashs(n.init)
+                chl.reverse()
+                for ch in chl:
+                    if ch in self.replaced_constant_cache:
+                        new_node = c_ast.Decl(name=n.name, quals=n.quals, storage=n.storage, funcspec=n.funcspec, type=n.type,
+                                          bitsize=n.bitsize, coord=n.coord, init=self.replaced_constant_cache[ch])
+                        new_entry = {'old': n, 'new': new_node}
+                        self.new_objects_list.append(new_entry)
+                        # nh = self.get_context_based_obj_hash(n)
+                        # self.replaced_constant_cache[nh] = new_node
+                        lnh = self.get_list_of_visible_obj_hashs(n)
+                        for e in lnh:
+                            self.replaced_constant_cache[e] = new_node
+                        # also add hash of ID and replace, if already constant
+                        # if type(self.replaced_constant_cache[ch]) is c_ast.Constant:
+                        decl_ID = c_ast.ID(n.name)
+                        # nih = self.get_context_based_obj_hash(decl_ID)
+                        # self.replaced_constant_cache[nih] = self.replaced_constant_cache[ch]
+                        lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
+                        for e in lnh2:
+                            self.replaced_constant_cache[e] = self.replaced_constant_cache[ch]
+        if n.type:
+            self.visit(n.type)
 
     def visit_DeclList(self, n):
-        # TODO
-        print("[Constant Folding] visit of DeclList NOT YET IMPLEMENTED")
+        # for i in n.decls:
+        #    self.visit(i)
+        # DeclLists are part of FOR etc...so we better do nothing
         return
+
+    def visit_ArrayDecl(self, n):
+        self.visit(n.type)
+        if n.dim:
+            self.visit(n.dim)
+            # ch = self.get_context_based_obj_hash(n.dim)
+            chl = self.get_list_of_visible_obj_hashs(n.dim)
+            chl.reverse()
+            for ch in chl:
+                if ch in self.replaced_constant_cache:
+                    constant = self.replaced_constant_cache[ch]
+                    new_node = c_ast.ArrayDecl(type=n.type, dim_quals=n.dim_quals, coord=n.coord,
+                                               dim=constant)
+                    new_entry = {'old': n, 'new': new_node}
+                    self.new_objects_list.append(new_entry)
+                    # no entry in replaced_cache...since it is "just" the definition
+
 
     # def visit_Typedef(self, n):
     #     s = ''
@@ -286,13 +386,13 @@ class MpiConstantFoldingVisitor(object):
 
     def visit_UnaryOp(self, n):
         operand = None
-        nh = self._get_context_based_obj_hash(n.expr)
+        nh = self.get_context_based_obj_hash(n.expr)
         if type(n.expr) is c_ast.Constant:
             operand = n.expr
-        elif type(n.expr) is c_ast.ID:
-            if nh in self.replaced_constant_cache:
-                operand = self.replaced_constant_cache[nh]
-                assert type(operand) is c_ast.Constant
+        # elif type(n.expr) is c_ast.ID:
+        elif nh in self.replaced_constant_cache:
+            operand = self.replaced_constant_cache[nh]
+            assert type(operand) is c_ast.Constant
         else:
             self.visit(n.expr)
             # check afterwards again
@@ -319,59 +419,97 @@ class MpiConstantFoldingVisitor(object):
                 new_node = c_ast.Constant(operand.type, str(result_value))
                 new_entry = {'old': n, 'new': new_node}
                 self.new_objects_list.append(new_entry)
-                nh = self._get_context_based_obj_hash(n)
-                self.replaced_constant_cache[nh] = new_node
+                # nh = self.get_context_based_obj_hash(n)
+                # self.replaced_constant_cache[nh] = new_node
+                lnh = self.get_list_of_visible_obj_hashs(n)
+                for e in lnh:
+                    self.replaced_constant_cache[e] = new_node
         return
 
     def visit_BinaryOp(self, n):
-        if n.op in __c_int_compare_operators__:
-            new_compare = {}
-            if hasattr(n.left, 'name') and n.left.name in self.variable_names_to_comapre:
-                new_compare['name'] = n.left.name
-                new_compare['other'] = n.right
-                new_compare['position'] = "left"
-            elif hasattr(n.right, 'name') and n.right.name in self.variable_names_to_comapre:
-                new_compare['name'] = n.right.name
-                new_compare['other'] = n.left
-                new_compare['position'] = "right"
+        self.visit(n.left)
+        self.visit(n.right)
+        right_operand = None
+        left_operand = None
+        lh = self.get_context_based_obj_hash(n.left)
+        rh = self.get_context_based_obj_hash(n.right)
+        if type(n.left) is c_ast.Constant:
+            left_operand = n.left
+        elif lh in self.replaced_constant_cache:
+            left_operand = self.replaced_constant_cache[lh]
+            assert type(left_operand) is c_ast.Constant
+        if type(n.right) is c_ast.Constant:
+            right_operand = n.right
+        elif rh in self.replaced_constant_cache:
+            right_operand = self.replaced_constant_cache[rh]
 
-            if 'other' in new_compare.keys() and type(new_compare['other']) == c_ast.Constant:
-                new_compare['c_value'] = new_compare['other'].value
-                new_compare['c_type'] = new_compare['other'].type
-
-            if 'other' in new_compare.keys():
-                new_compare['op'] = n.op
-                new_compare['operator_object'] = n
-                self.found_compares.append(new_compare)
+        if right_operand is not None and left_operand is not None:
+            # we can execute it
+            cmd = "{} {} {}".format(left_operand.value, n.op, right_operand.value)
+            result_value = eval(cmd)
+            if left_operand.type == right_operand.type:
+                result_type = left_operand.type
+            else:
+                result_type = _get_c_highest_shared_type(left_operand.type, right_operand.type)
+                # result_type = type(result_value).__name__
+            # if result_type == 'int':
+            if result_type != 'float' and result_type != 'double' and result_type != 'long double':
+                    result_value = int(result_value)
+            new_node = c_ast.Constant(result_type, str(result_value))
+            new_entry = {'old': n, 'new': new_node}
+            self.new_objects_list.append(new_entry)
+            # nh = self.get_context_based_obj_hash(n)
+            # self.replaced_constant_cache[nh] = new_node
+            lnh = self.get_list_of_visible_obj_hashs(n)
+            for e in lnh:
+                self.replaced_constant_cache[e] = new_node
+        return
 
     def visit_TernaryOp(self, n):
-        for e in self.conditions_to_search:
-            if n.cond == e['operator_object']:
-                new_found = {}
-                new_found['old'] = n
-                if e['fpga_decision_value'] == "True":
-                    new_found['new'] = n.iftrue
-                else:
-                    new_found['new'] = n.iffalse
-                self.found_statements.append(new_found)
+        self.visit(n.cond)
+        compare = None
+        nc = self.get_context_based_obj_hash(n.cond)
+        if type(n.cond) is c_ast.Constant:
+            compare = n.cond
+        elif nc in self.replaced_constant_cache:
+            compare = self.replaced_constant_cache[nc]
 
-    def visit_If(self, n):
-        for e in self.conditions_to_search:
-            if n.cond == e['operator_object']:
-                new_found = {}
-                result_value = -1
-                new_found['old'] = n
-                if e['fpga_decision_value'] == "True":
-                    new_found['new'] = n.iftrue
-                    result_value = 1
-                else:
-                    if n.iffalse is not None:
-                        new_found['new'] = n.iffalse
-                    else:
-                        new_found['new'] = c_ast.EmptyStatement()
-                    result_value = 0
-                self.found_statements.append(new_found)
-                n.cond = c_ast.Constant('int', str(result_value))
+        if compare is not None:
+            result_node = None
+            if compare.value == "True":
+                result_node = n.iftrue
+            elif compare.value == "False":
+                result_node = n.iffalse
+            else:
+                print("ERROR: TenaryOperation with constant result that is not a booolean varuable, skipping this node: {}".format(n))
+                return
+            new_entry = {'old': n, 'new': result_node}
+            self.new_objects_list.append(new_entry)
+            if type(result_node) is c_ast.Constant:
+                # nh = self.get_context_based_obj_hash(n)
+                # self.replaced_constant_cache[nh] = result_node
+                lnh = self.get_list_of_visible_obj_hashs(n)
+                for e in lnh:
+                    self.replaced_constant_cache[e] = result_node
+        return
+
+    # def visit_If(self, n):
+    #     for e in self.conditions_to_search:
+    #         if n.cond == e['operator_object']:
+    #             new_found = {}
+    #             result_value = -1
+    #             new_found['old'] = n
+    #             if e['fpga_decision_value'] == "True":
+    #                 new_found['new'] = n.iftrue
+    #                 result_value = 1
+    #             else:
+    #                 if n.iffalse is not None:
+    #                     new_found['new'] = n.iffalse
+    #                 else:
+    #                     new_found['new'] = c_ast.EmptyStatement()
+    #                 result_value = 0
+    #             self.found_statements.append(new_found)
+    #             n.cond = c_ast.Constant('int', str(result_value))
 
     # def visit_For(self, n):
     #     s = 'for ('
@@ -399,10 +537,10 @@ class MpiConstantFoldingVisitor(object):
     #     s += ');'
     #     return s
 
-    def visit_Switch(self, n):
-        for e in self.conditions_to_search:
-            if n.cond == e['operator_object']:
-                print("A switch statement has a rank condition: NOT YET IMPLEMENTED\n".format(n.cond))
+    # def visit_Switch(self, n):
+    #     for e in self.conditions_to_search:
+    #         if n.cond == e['operator_object']:
+    #             print("A switch statement has a rank condition: NOT YET IMPLEMENTED\n".format(n.cond))
 
     # def visit_Case(self, n):
     #     s = 'case ' + self.visit(n.expr) + ':\n'
