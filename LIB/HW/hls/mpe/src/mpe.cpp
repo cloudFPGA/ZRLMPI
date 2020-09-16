@@ -127,7 +127,7 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<32> > &out)
   {
 //#pragma HLS unroll
     //out.full? 
-    Axis<32> tmp = Axis<32>(); 
+    Axis<32> tmp = Axis<32>();
     if(i == positionOfTlast)
     //if(i == 0)
     {
@@ -988,6 +988,8 @@ void mpe_main(
       //if( !siTcp_data.empty() && !siTcp_meta.empty() && !sFifoDataRX.full() )
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
       {
+        //read meta
+        metaSrc = siTcp_meta.read().tdata;
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
         {
@@ -1010,7 +1012,6 @@ void mpe_main(
           }
         }
 
-        metaSrc = siTcp_meta.read().tdata;
         ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
         if(ret == 0)
         {
@@ -1054,7 +1055,7 @@ void mpe_main(
         //convertAxisToMpiWidth(word, sFifoDataRX);
         for(int i = 0; i < 2; i++)
         {
-#pragma HLS unroll factor=2
+//#pragma HLS unroll factor=2
           if((word.tkeep >> i*4) == 0)
           {
             continue;

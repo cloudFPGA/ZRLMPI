@@ -242,18 +242,21 @@ int main(){
     stepDut();
   }
 
-  //Data 
+  //Data
   out_meta = soTcp_meta.read().tdata;
   printf("Dst node id: %d\n", (unsigned int) out_meta.dst_rank);
   assert(out_meta.dst_rank == 2);
 
+  ap_uint<1> last_tlast = 0;
   while(!soTcp_data.empty())
   {
     stepDut();
     tmp64 = soTcp_data.read();
     printf("MPE out: %#016llx\n", (unsigned long long) tmp64.tdata);
+    last_tlast = tmp64.tlast;
     storeData.write(tmp64);
   }
+  assert(last_tlast == 1);
 
   //assemble ACK
   strcpy(current_phase, "send ACK");
