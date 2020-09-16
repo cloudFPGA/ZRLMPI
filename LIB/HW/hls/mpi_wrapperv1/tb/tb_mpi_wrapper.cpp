@@ -24,8 +24,8 @@ int main(){
     // ----- MPI_Interface -----
     //stream<MPI_Interface> siMPIif;
     stream<MPI_Interface> soMPIif;
-    stream<Axis<8> > siMPI_data;
-    stream<Axis<8> > soMPI_data;
+    stream<Axis<32> > siMPI_data;
+    stream<Axis<32> > soMPI_data;
     // ----- FROM SMC -----
     ap_uint<32> role_rank = 0;
     ap_uint<32> cluster_size = 0;
@@ -61,25 +61,30 @@ int main(){
 
   MPI_Interface info = MPI_Interface();
   info.mpi_call = MPI_SEND_INT;
-  info.count = (DIM/cluster_size + 1)*4;
+  //info.count = (DIM/cluster_size + 1)*4;
+  info.count = (DIM/cluster_size)*DIM;
   info.rank = 0;
 
   //siMPIif.write(info);
 
-  char* data = (char* ) grid;
+  //char* data = (char* ) grid;
+  //Axis<8>  tmp8 = Axis<8>();
+  uint32_t* data = (uint32_t* ) grid;
 
   for(int i = 0; i< info.count; i++)
   {
-    Axis<8>  tmp8 = Axis<8>();
-    tmp8.tdata = data[i];
+    Axis<32>  tmp32 = Axis<32>();
+    tmp32.tdata = data[i];
+    tmp32.tkeep = 0xFF; //TODO
     if(i == info.count - 1)
     {
-      tmp8.tlast = 1; 
+      tmp32.tlast = 1;
     } else {
-      tmp8.tlast = 0;
+      tmp32.tlast = 0;
     }
-   printf("write MPI .tdata: %#02x, .tkeep %d, .tlast %d\n", (int) tmp8.tdata, (int) tmp8.tkeep, (int) tmp8.tlast);
-    siMPI_data.write(tmp8);
+   //printf("write MPI .tdata: %#02x, .tkeep %d, .tlast %d\n", (int) tmp8.tdata, (int) tmp8.tkeep, (int) tmp8.tlast);
+   printf("write MPI .tdata: %#08x, .tkeep %d, .tlast %d\n", (int) tmp32.tdata, (int) tmp32.tkeep, (int) tmp32.tlast);
+    siMPI_data.write(tmp32);
   }
 
 
@@ -97,12 +102,12 @@ int main(){
 
   for(int i = 0; i< info.count; i++)
   {//not while...because we want test if there are exactly i bytes left 
-    Axis<8>  tmp8 = Axis<8>();
-    soMPI_data.read(tmp8);
-    printf("read MPI .tdata: %#02x, .tkeep %d, .tlast %d\n", (int) tmp8.tdata, (int) tmp8.tkeep, (int) tmp8.tlast);
+    Axis<32>  tmp32 = Axis<32>();
+    soMPI_data.read(tmp32);
+    printf("read MPI .tdata: %#08x, .tkeep %d, .tlast %d\n", (int) tmp32.tdata, (int) tmp32.tkeep, (int) tmp32.tlast);
     if(i == info.count -1)
     {
-      assert(tmp8.tlast == 1);
+      assert(tmp32.tlast == 1);
     }
   }
 

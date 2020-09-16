@@ -85,7 +85,7 @@ void MPI_Comm_size( MPI_Comm communicator, int* size);
 void MPI_Send(
   // ----- MPI_Interface -----
   stream<MPI_Interface> *soMPIif,
-  stream<Axis<8> > *soMPI_data,
+  stream<Axis<32> > *soMPI_data,
   // ----- MPI Signature -----
     int* data,
     int count,
@@ -98,7 +98,7 @@ void MPI_Send(
 void MPI_Recv(
   // ----- MPI_Interface -----
   stream<MPI_Interface> *soMPIif,
-  stream<Axis<8> > *siMPI_data,
+  stream<Axis<32> > *siMPI_data,
   // ----- MPI Signature -----
     int* data,
     int count,
@@ -124,8 +124,8 @@ void mpi_wrapper(
   // ----- MPI_Interface -----
   //stream<MPI_Interface> *soMPIif,
   stream<MPI_Interface> *soMPIif,
-  stream<Axis<8> > *soMPI_data,
-  stream<Axis<8> > *siMPI_data
+  stream<Axis<32> > *soMPI_data,
+  stream<Axis<32> > *siMPI_data
     );
 
 

@@ -93,8 +93,11 @@ using namespace hls;
 
 #define HEADER_CACHE_LENTH 64
 
-void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out);
-void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out);
+//void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out);
+void convertAxisToNtsWidth(stream<Axis<32> > &small, NetworkWord &out);
+//void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out);
+void convertAxisToMpiWidth(NetworkWord big, stream<Axis<32> > &out);
+
 //int bytesToHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header);
 //void headerToBytes(MPI_Header header, ap_uint<8> bytes[MPIF_HEADER_LENGTH]);
 
@@ -120,8 +123,8 @@ void mpe_main(
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,
     //stream<MPI_Interface> &soMPIif,
-    stream<Axis<8> > &siMPI_data,
-    stream<Axis<8> > &soMPI_data
+    stream<Axis<32> > &siMPI_data,
+    stream<Axis<32> > &soMPI_data
 );
 
 

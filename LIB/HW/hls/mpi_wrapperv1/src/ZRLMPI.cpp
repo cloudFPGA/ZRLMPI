@@ -21,8 +21,9 @@ ap_uint<4> sendCnt = 0;
 ap_uint<4> recvCnt = 0;
 
   
-uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE]; //TODO!
-//#pragma HLS RESOURCE variable=bytes core=RAM_2P_BRAM
+//uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE];
+uint32_t words[(ZRLMPI_MAX_DETECTED_BUFFER_SIZE+3)/4]; //TODO!
+//#pragma HLS RESOURCE variable=words core=RAM_2P_BRAM
 
 void setMMIO_out(ap_uint<16> *MMIO_out)
 {
@@ -72,9 +73,10 @@ void MPI_Comm_size(MPI_Comm communicator, int* size)
 
 int send_internal(
   stream<MPI_Interface> *soMPIif,
-  stream<Axis<8> > *soMPI_data,
-    uint8_t* data,
+  stream<Axis<32> > *soMPI_data,
+    uint32_t* data,
     int count,
+    uint8_t tkeep_last_word,
     MPI_Datatype datatype,
     int destination,
     int tag,
@@ -94,24 +96,26 @@ int send_internal(
   {
     case MPI_INTEGER:
       info.mpi_call = MPI_SEND_INT;
-      typeWidth = 4;
+      //typeWidth = 4;
+      typeWidth = 1;
       break;
     case MPI_FLOAT:
       info.mpi_call = MPI_SEND_FLOAT;
-      typeWidth = 4;
+      //typeWidth = 4;
+      typeWidth = 1;
       break;
     default:
       //not yet implemented 
       return 1;
   }
 
-  uint32_t byte_count = typeWidth*count;
-  info.count = byte_count;
+  uint32_t word_count = typeWidth*count;
+  info.count = word_count;
 
   //we are using blocking calls, since we are in a blocking synchronization method
   WrapperSendState sendState = SEND_WRITE_INFO;
   uint32_t send_i = 0;
-  Axis<8>  tmp8 = Axis<8>();
+  Axis<32>  tmp32 = Axis<32>();
   //uint32_t send_i_per_packet = 0;
   while(sendState != SEND_DONE)
   {
@@ -127,20 +131,23 @@ int send_internal(
       case SEND_WRITE_DATA:
         //  if(!soMPI_data->full())
         //  {
-        tmp8.tdata = data[send_i];
-        //if(send_i_per_packet >= ZRLMPI_MAX_MESSAGE_SIZE_BYTES || //--> better by UOE/MPE? TODO
+        tmp32.tdata = data[send_i];
+        tmp32.tkeep = 0xFF;
+        //if(send_i_per_packet >= ZRLMPI_MAX_MESSAGE_SIZE_words || //--> better by UOE/MPE? TODO
         //if(send_i >= info.count - 1)
-        if(send_i >= (byte_count -1))
+        if(send_i >= (word_count -1))
         {
-          tmp8.tlast = 1;
+          tmp32.tlast = 1;
+          tmp32.tkeep = tkeep_last_word;
           sendState = SEND_FINISH;
         } else {
-          tmp8.tlast = 0;
+          tmp32.tlast = 0;
         }
         //just to be sure
-        tmp8.tkeep = 1;
-        printf("write MPI data: %#02x\n", (int) tmp8.tdata);
-        soMPI_data->write(tmp8);
+        //tmp8.tkeep = 1;
+        //printf("write MPI data: %#02x\n", (int) tmp8.tdata);
+        printf("write MPI data: %#08x\n", (int) tmp32.tdata);
+        soMPI_data->write(tmp32);
         send_i++;
         //send_i_per_packet++;
         //if(send_i >= info.count - 1)
@@ -172,7 +179,7 @@ int send_internal(
 void MPI_Send(
   // ----- MPI_Interface -----
   stream<MPI_Interface> *soMPIif,
-  stream<Axis<8> > *soMPI_data,
+  stream<Axis<32> > *soMPI_data,
   // ----- MPI Signature -----
     int* data,
     int count,
@@ -183,21 +190,27 @@ void MPI_Send(
 {
 #pragma HLS inline
   
-  for(int i=0; i< count*4; i+=4)
+  //for(int i=0; i< count*4; i+=4)
+  //{
+  //  words[i + 0] = (data[i/4] >> 24) & 0xFF;
+  //  words[i + 1] = (data[i/4] >> 16) & 0xFF;
+  //  words[i + 2] = (data[i/4] >> 8) & 0xFF;
+  //  words[i + 3] = data[i/4] & 0xFF;
+  //}
+  for(int i=0; i< count; i++)
   {
-    bytes[i + 0] = (data[i/4] >> 24) & 0xFF;
-    bytes[i + 1] = (data[i/4] >> 16) & 0xFF;
-    bytes[i + 2] = (data[i/4] >> 8) & 0xFF;
-    bytes[i + 3] = data[i/4] & 0xFF;
+#pragma HLS unroll
+    words[i] = data[i];
   }
-  send_internal(soMPIif, soMPI_data, bytes, count,datatype, destination, tag, communicator);
+  //0xFF, because we have int/uint32_t = 1 for all sizes
+  send_internal(soMPIif, soMPI_data, words, count, 0xFF, datatype, destination, tag, communicator);
 }
 
 
 int recv_internal(
   stream<MPI_Interface> *soMPIif,
-  stream<Axis<8> > *siMPI_data,
-  uint8_t* data,
+  stream<Axis<32> > *siMPI_data,
+  uint32_t* data,
   int count,
   MPI_Datatype datatype,
   int source,
@@ -219,11 +232,13 @@ int recv_internal(
   {
     case MPI_INTEGER:
       info.mpi_call = MPI_RECV_INT;
-      typeWidth = 4;
+      //typeWidth = 4;
+      typeWidth = 1;
       break;
     case MPI_FLOAT:
       info.mpi_call = MPI_RECV_FLOAT;
-      typeWidth = 4;
+      //typeWidth = 4;
+      typeWidth = 1;
       break;
     default:
       //not yet implemented 
@@ -251,13 +266,14 @@ int recv_internal(
 
         if(!siMPI_data->empty())
         {
-          Axis<8> tmp8 = siMPI_data->read();
-          printf("read MPI data: %#02x\n", (int) tmp8.tdata);
+          Axis<32> tmp32 = siMPI_data->read();
+          printf("read MPI data: %#08x\n", (int) tmp32.tdata);
 
-          data[recv_i] = (uint8_t) tmp8.tdata;
+          data[recv_i] = (uint8_t) tmp32.tdata;
+          //we assume tkeep = 0xFF, becuase we sent it...
           recv_i++;
 
-          if( tmp8.tlast == 1)
+          if( tmp32.tlast == 1)
           {
             printf("received TLAST at count %d!\n", recv_i);
             recv_tlastOccured = true;
@@ -276,7 +292,7 @@ int recv_internal(
         if(!recv_tlastOccured && !siMPI_data->empty() )
         {
           printf("received stream longer than count!\n");
-          Axis<8>  tmp8 = siMPI_data->read();
+          Axis<32>  tmp32 = siMPI_data->read();
           if(status != MPI_STATUS_IGNORE)
           {
             *status = 2;
@@ -309,7 +325,7 @@ int recv_internal(
 void MPI_Recv(
     // ----- MPI_Interface -----
     stream<MPI_Interface> *soMPIif,
-    stream<Axis<8> > *siMPI_data,
+    stream<Axis<32> > *siMPI_data,
     // ----- MPI Signature -----
     int* data,
     int count,
@@ -321,15 +337,22 @@ void MPI_Recv(
 {
 #pragma HLS inline
 
-  recv_internal(soMPIif, siMPI_data, bytes, count, datatype, source, tag, communicator, status);
+  int word_count = (count+3)/4;
+  recv_internal(soMPIif, siMPI_data, words, word_count, datatype, source, tag, communicator, status);
 
+  //for(int i=0; i<count; i++)
+  //{
+  //  data[i]  = 0;
+  //  data[i]  = ((int) words[i*4 + 3]);
+  //  data[i] |= ((int) words[i*4 + 2]) << 8;
+  //  data[i] |= ((int) words[i*4 + 1]) << 16;
+  //  data[i] |= ((int) words[i*4 + 0]) << 24;
+  //}
   for(int i=0; i<count; i++)
   {
-    data[i]  = 0;
-    data[i]  = ((int) bytes[i*4 + 3]);
-    data[i] |= ((int) bytes[i*4 + 2]) << 8;
-    data[i] |= ((int) bytes[i*4 + 1]) << 16;
-    data[i] |= ((int) bytes[i*4 + 0]) << 24;
+#pragma HLS unroll
+    data[i]  = (int) words[i];
+    //if count-1 (last word), handle non complete words (here not necessary)
   }
 
 }
@@ -356,8 +379,8 @@ void mpi_wrapper(
     // ----- MPI_Interface -----
     //stream<MPI_Interface> *siMPIif,
     stream<MPI_Interface> *soMPIif,
-    stream<Axis<8> > *soMPI_data,
-    stream<Axis<8> > *siMPI_data
+    stream<Axis<32> > *soMPI_data,
+    stream<Axis<32> > *siMPI_data
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return

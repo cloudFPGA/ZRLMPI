@@ -11,7 +11,7 @@ using namespace hls;
 //ap_uint<32> status[NUMBER_STATUS_WORDS];
 
 //sendState fsmSendState = WRITE_STANDBY;
-stream<Axis<8> > sFifoDataTX("sFifoDataTX");
+stream<Axis<32> > sFifoDataTX("sFifoDataTX");
 //static stream<IPMeta> sFifoIPdstTX("sFifoIPdstTX");
 int enqueueCnt = 0;
 bool tlast_occured_TX = false;
@@ -22,8 +22,8 @@ uint32_t send_total_cnt = 0;
 
 //receiveState fsmReceiveState = READ_STANDBY;
 //stream<Axis<8> > sFifoDataRX("sFifoDataRX");
-stream<uint8_t> sFifoDataRX("sFifoDataRX");
-stream<uint8_t> rx_overflow_fifo("rx_overflow_fifo");
+stream<uint32_t> sFifoDataRX("sFifoDataRX");
+stream<uint32_t> rx_overflow_fifo("rx_overflow_fifo");
 
 mpeState fsmMpeState = IDLE;
 deqState sendDeqFsm = DEQ_IDLE;
@@ -34,7 +34,7 @@ mpiType currentDataType = MPI_INT;
 int handshakeLinesCnt = 0;
 
 //stream<ap_uint<MPIF_HEADER_LENGTH*8> > sFifoHeaderCache("sFifoHeaderCache");
-stream<ap_uint<8> > sFifoHeaderCache("sFifoHeaderCache");
+stream<ap_uint<32> > sFifoHeaderCache("sFifoHeaderCache");
 bool checked_cache = false;
 uint32_t expected_src_rank = 0;
 uint16_t current_cache_data_cnt = 0;
@@ -66,7 +66,7 @@ void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes)
 }
 */
 
-void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
+void convertAxisToNtsWidth(stream<Axis<32> > &small, NetworkWord &out)
 {
 #pragma HLS inline
 
@@ -74,18 +74,18 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
   out.tlast = 0;
   out.tkeep = 0;
 
-  for(int i = 0; i < 8; i++)
+  for(int i = 0; i < 2; i++)
   //for(int i = 7; i >=0 ; i--)
   {
 //#pragma HLS unroll
-    Axis<8> tmpl = Axis<8>();
+    Axis<32> tmpl = Axis<32>();
     //if(!small.empty())
     if(small.read_nb(tmpl))
     {
      // Axis<8> tmp = small.read();
       //printf("read from fifo: %#02x\n", (unsigned int) tmp.tdata);
-      out.tdata |= ((ap_uint<64>) (tmpl.tdata) )<< (i*8);
-      out.tkeep |= (ap_uint<8>) 0x01 << i;
+      out.tdata |= ((ap_uint<64>) (tmpl.tdata) )<< (i*32);
+      out.tkeep |= (ap_uint<8>) 0x0F << i*4;
       //TODO? NO latch, because last read from small is still last read
       if(out.tlast == 0)
       {
@@ -102,17 +102,20 @@ void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out)
 
 }
 
-void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
+void convertAxisToMpiWidth(NetworkWord big, stream<Axis<32> > &out)
 {
 //#pragma HLS inline
 
-  int positionOfTlast = 8; 
+  int positionOfTlast = 2;
   ap_uint<8> tkeep = big.tkeep;
-  for(int i = 0; i<8; i++) //no reverse order!
+  for(int i = 0; i<2; i++) //no reverse order!
   {
 //#pragma HLS unroll
-    tkeep = (tkeep >> 1);
-    if((tkeep & 0x01) == 0)
+    //tkeep = (tkeep >> 1);
+    tkeep = (tkeep >> 4);
+    //printf("\tshifted tkeep %#02x\n",(uint8_t) tkeep);
+    //if((tkeep & 0x01) == 0)
+    if((tkeep & 0x0F) == 0)
     {
       positionOfTlast = i;
       break;
@@ -120,11 +123,11 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
   }
 
   //for(int i = 7; i >=0 ; i--)
-  for(int i = 0; i < 8; i++)
+  for(int i = 0; i < 2; i++)
   {
 //#pragma HLS unroll
     //out.full? 
-    Axis<8> tmp = Axis<8>(); 
+    Axis<32> tmp = Axis<32>(); 
     if(i == positionOfTlast)
     //if(i == 0)
     {
@@ -134,9 +137,9 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
     } else {
       tmp.tlast = 0;
     }
-    tmp.tdata = (ap_uint<8>) (big.tdata >> i*8);
+    tmp.tdata = (ap_uint<32>) (big.tdata >> i*32);
     //tmp.tdata = (ap_uint<8>) (big.tdata >> (7-i)*8);
-    tmp.tkeep = (ap_uint<1>) (big.tkeep >> i);
+    tmp.tkeep = (ap_uint<4>) (big.tkeep >> i*4);
     //tmp.tkeep = (ap_uint<1>) (big.tkeep >> (7-i));
 
     if(tmp.tkeep == 0)
@@ -153,7 +156,7 @@ void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out)
 uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, NetworkMeta &metaSrc,
                      packetType expected_type, mpiCall expected_call, bool skip_meta, uint32_t expected_src_rank)
 {
-//#pragma HLS inline
+#pragma HLS inline
 
         int ret = bytesToHeader(bytes, header);
         bool unexpected_header = false;
@@ -230,14 +233,22 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
           } else {
             //ap_uint<MPIF_HEADER_LENGTH*8> new_cache_line = 0x0;
             printf("wrong header; put to cache: \n\t");
-            for(int j = 0; j<32; j++)
+            for(int j = 0; j<MPIF_HEADER_LENGTH/4; j++)
             {
               //#pragma HLS unroll
               //new_cache_line |= ((ap_uint<MPIF_HEADER_LENGTH*8>) bytes[j]) << (31-j);
               //new_cache_line |= ap_uint<MPIF_HEADER_LENGTH*8>(bytes[j]) << (31-j);
               //blocking...
-              sFifoHeaderCache.write(bytes[j]);
-              printf("%02x", (int) bytes[j]);
+              //sFifoHeaderCache.write(bytes[j]);
+              ap_uint<32> cache_tmp = 0x0;
+              for(int k = 0; k<4; k++)
+              {
+                //cache_tmp |= (ap_uint<32>) (bytes[j*4+k] << (3-k)*8 );
+                cache_tmp |= ((ap_uint<32>) bytes[j*4+k]) << (3-k)*8;
+                printf("%02x", (int) bytes[j*4+k]);
+              }
+              //blocking...
+              sFifoHeaderCache.write(cache_tmp);
             }
             printf("\n");
             //blocking...
@@ -281,8 +292,8 @@ void mpe_main(
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,
     //stream<MPI_Interface> &soMPIif,
-    stream<Axis<8> > &siMPI_data,
-    stream<Axis<8> > &soMPI_data
+    stream<Axis<32> > &siMPI_data,
+    stream<Axis<32> > &soMPI_data
     )
 {
 #pragma HLS INTERFACE axis register both port=siTcp_data
@@ -312,9 +323,9 @@ void mpe_main(
 // Core-wide pragmas
 
 #pragma HLS DATAFLOW
-#pragma HLS STREAM variable=sFifoDataTX depth=2048
-#pragma HLS STREAM variable=sFifoDataRX depth=2048
-#pragma HLS STREAM variable=rx_overflow_fifo depth=8
+#pragma HLS STREAM variable=sFifoDataTX depth=512
+#pragma HLS STREAM variable=sFifoDataRX depth=512
+#pragma HLS STREAM variable=rx_overflow_fifo depth=2
 //#pragma HLS STREAM variable=sFifoHeaderCache depth=64
 #pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
 #pragma HLS INTERFACE ap_ctrl_none port=return
@@ -401,7 +412,7 @@ void mpe_main(
 // MPE GLOBAL STATE 
 
     bool word_tlast_occured = false;
-    Axis<8> current_read_byte = Axis<8>();
+    Axis<32> current_read_word = Axis<32>();
     uint8_t cnt = 0;
 
   switch(fsmMpeState) {
@@ -460,11 +471,20 @@ void mpe_main(
         soTcp_meta.write(NetworkMetaStream(metaDst));
 
         //write header
-        for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+        for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
         {
-          Axis<8> tmp = Axis<8>(bytes[i]);
+          //Axis<8> tmp = Axis<8>(bytes[i]);
+          Axis<32> tmp = Axis<32>();
+          tmp.tdata = 0x0;
+          tmp.tkeep = 0x0F;
+          for(int j = 0; j<4; j++)
+          {
+            //tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << (3-j)*8;
+            tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+          }
+          printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
           tmp.tlast = 0;
-          if ( i == MPIF_HEADER_LENGTH - 1)
+          if ( i == (MPIF_HEADER_LENGTH/4) - 1)
           {
             tmp.tlast = 1;
           }
@@ -530,12 +550,16 @@ void mpe_main(
           //  break;
           //}
           printf("check cache entry: ");
-          for(int j = 0; j < 32; j++)
+          for(int j = 0; j < MPIF_HEADER_LENGTH/4; j++)
           {
-//#pragma HLS unroll
             //bytes[j] = (ap_uint<8>) (cache_line >> (32-j));
-            bytes[j] = sFifoHeaderCache.read();
-            printf("%02x", (int) bytes[j]);
+            //bytes[j] = sFifoHeaderCache.read();
+            ap_uint<32> cache_tmpr = sFifoHeaderCache.read();
+            for(int k = 0; k<4; k++)
+            {
+              bytes[j*4+k] = (uint8_t) (cache_tmpr >> (3-k)*8);
+              printf("%02x", (int) bytes[j*4+k]);
+            }
           }
           printf("\n");
           current_cache_data_cnt--;
@@ -574,6 +598,7 @@ void mpe_main(
             break;
           }*/
 
+          printf("Data read: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
           for(int j = 0; j<8; j++)
           {
 //#pragma HLS unroll
@@ -611,10 +636,17 @@ void mpe_main(
         headerToBytes(header, bytes);
 
         //write header
-        for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+        for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
         {
-          Axis<8> tmp = Axis<8>(bytes[i]);
-          tmp.tlast = 0;
+          //Axis<8> tmp = Axis<8>(bytes[i]);
+          Axis<32> tmp = Axis<32>();
+          tmp.tdata = 0x0;
+          tmp.tkeep = 0x0F;
+          for(int j = 0; j<4; j++)
+          {
+            tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+          }
+          tmp.tlast = 0; //in this case, always
           sFifoDataTX.write(tmp);
           printf("Writing Header byte: %#02x\n", (int) bytes[i]);
         }
@@ -626,7 +658,7 @@ void mpe_main(
         send_total_cnt = 0;
 
         tlast_occured_TX = false;
-        enqueueCnt = MPIF_HEADER_LENGTH;
+        enqueueCnt = MPIF_HEADER_LENGTH/4;
         fsmMpeState = SEND_DATA_RD;
         //start dequeue FSM
         sendDeqFsm = DEQ_WRITE;
@@ -637,27 +669,28 @@ void mpe_main(
       cnt = 0;
       //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
       //if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
-      while( cnt<=8 && !tlast_occured_TX)
+      //while( cnt<=8 && !tlast_occured_TX)
+      while( cnt<=2 && !tlast_occured_TX)
       {
         //current_read_byte = siMPI_data.read();
-        if(!siMPI_data.read_nb(current_read_byte))
+        if(!siMPI_data.read_nb(current_read_word))
         {
           break;
         }
         if(send_total_cnt >= (expected_send_count - 1))
         {// to be sure...
-          current_read_byte.tlast = 1;
+          current_read_word.tlast = 1;
         }
         //TODO: ? use "blocking" version!! better matches to MPI_Wrapper...
-        sFifoDataTX.write(current_read_byte);
+        sFifoDataTX.write(current_read_word);
         cnt++;
         send_total_cnt++;
-        if(current_read_byte.tlast == 1)
+        if(current_read_word.tlast == 1)
         {
           tlast_occured_TX = true;
           fsmMpeState = SEND_DATA_WRD;
           printf("tlast Occured.\n");
-          printf("MPI read data: %#02x, tkeep: %d, tlast %d\n", (int) current_read_byte.tdata, (int) current_read_byte.tkeep, (int) current_read_byte.tlast);
+          printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
           //fsmMpeState = SEND_DATA_WRD;
         }
         enqueueCnt++;
@@ -700,12 +733,17 @@ void mpe_main(
           //  break;
           //}
           printf("check cache entry: ");
-          for(int j = 0; j < 32; j++)
+          for(int j = 0; j < MPIF_HEADER_LENGTH/4; j++)
           {
-//#pragma HLS unroll
             //bytes[j] = (ap_uint<8>) (cache_line >> (31-j));
-            bytes[j] = sFifoHeaderCache.read();
-            printf("%02x", (int) bytes[j]);
+            //bytes[j] = sFifoHeaderCache.read();
+            //printf("%02x", (int) bytes[j]);
+            ap_uint<32> cache_tmpr = sFifoHeaderCache.read();
+            for(int k = 0; k<4; k++)
+            {
+              bytes[j*4+k] = (uint8_t) (cache_tmpr >> (3-k)*8);
+              printf("%02x", (int) bytes[j*4+k]);
+            }
           }
           printf("\n");
           current_cache_data_cnt--;
@@ -787,12 +825,17 @@ void mpe_main(
           //  break;
           //}
           printf("check cache entry: ");
-          for(int j = 0; j < 32; j++)
+          for(int j = 0; j < MPIF_HEADER_LENGTH/4; j++)
           {
-//#pragma HLS unroll
             //bytes[j] = (ap_uint<8>) (cache_line >> (31-j));
-            bytes[j] = sFifoHeaderCache.read();
-            printf("%02x", (int) bytes[j]);
+            //bytes[j] = sFifoHeaderCache.read();
+            //printf("%02x", (int) bytes[j]);
+            ap_uint<32> cache_tmpr = sFifoHeaderCache.read();
+            for(int k = 0; k<4; k++)
+            {
+              bytes[j*4+k] = (uint8_t) (cache_tmpr >> (3-k)*8);
+              printf("%02x", (int) bytes[j*4+k]);
+            }
           }
           printf("\n");
           current_cache_data_cnt--;
@@ -876,11 +919,18 @@ void mpe_main(
         soTcp_meta.write(NetworkMetaStream(metaDst));
 
         //write header
-        for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+        for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
         {
-          Axis<8> tmp = Axis<8>(bytes[i]);
+          //Axis<8> tmp = Axis<8>(bytes[i]);
+          Axis<32> tmp = Axis<32>();
+          tmp.tdata = 0x0;
+          tmp.tkeep = 0x0F;
+          for(int j = 0; j<4; j++)
+          {
+            tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+          }
           tmp.tlast = 0;
-          if ( i == MPIF_HEADER_LENGTH - 1)
+          if ( i == (MPIF_HEADER_LENGTH/4) - 1)
           {
             tmp.tlast = 1;
           }
@@ -987,10 +1037,10 @@ void mpe_main(
       {
        while(!rx_overflow_fifo.empty())
        {
-         uint8_t current_byte = rx_overflow_fifo.read();
-         if(!sFifoDataRX.write_nb(current_byte))
+         uint32_t current_word = rx_overflow_fifo.read();
+         if(!sFifoDataRX.write_nb(current_word))
          {
-           rx_overflow_fifo.write(current_byte);
+           rx_overflow_fifo.write(current_word);
            break;
          }
        }
@@ -1002,21 +1052,21 @@ void mpe_main(
         NetworkWord word = siTcp_data.read();
         printf("READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         //convertAxisToMpiWidth(word, sFifoDataRX);
-        for(int i = 0; i < 8; i++)
+        for(int i = 0; i < 2; i++)
         {
-#pragma HLS unroll factor=8
-          if((word.tkeep >> i) == 0)
+#pragma HLS unroll factor=2
+          if((word.tkeep >> i*4) == 0)
           {
             continue;
           }
           //with swap
           //bufferIn[bufferInPtrWrite] = (ap_uint<8>) (big.tdata >> (7-i)*8);
           //default
-          ap_uint<8> current_byte = (ap_uint<8>) (word.tdata >> i*8);
+          ap_uint<32> current_word = (ap_uint<32>) (word.tdata >> i*32);
           //we ignore the tlast!
-          if(!sFifoDataRX.write_nb(current_byte))
+          if(!sFifoDataRX.write_nb(current_word))
           {
-            rx_overflow_fifo.write(current_byte);
+            rx_overflow_fifo.write(current_word);
           }
         }
 
@@ -1055,11 +1105,18 @@ void mpe_main(
         soTcp_meta.write(NetworkMetaStream(metaDst));
 
         //write header
-        for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+        for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
         {
-          Axis<8> tmp = Axis<8>(bytes[i]);
+          //Axis<8> tmp = Axis<8>(bytes[i]);
+          Axis<32> tmp = Axis<32>();
+          tmp.tdata = 0x0;
+          tmp.tkeep = 0x0F;
+          for(int j = 0; j<4; j++)
+          {
+            tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+          }
           tmp.tlast = 0;
-          if ( i == MPIF_HEADER_LENGTH - 1)
+          if ( i == (MPIF_HEADER_LENGTH/4) - 1)
           {
             tmp.tlast = 1;
           }
@@ -1129,13 +1186,13 @@ void mpe_main(
     case DEQ_WRITE:
       printf("enqueueCnt: %d\n", enqueueCnt);
       word_tlast_occured = false;
-      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 8 || tlast_occured_TX))
+      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 2 || tlast_occured_TX))
       {
         NetworkWord word = NetworkWord();
         convertAxisToNtsWidth(sFifoDataTX, word);
         printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         soTcp_data.write(word);
-        enqueueCnt -= 8;
+        enqueueCnt -= 2;
 
         //split to packet sizes is done by UOE/TOE
         if(word.tlast == 1)
@@ -1178,15 +1235,15 @@ void mpe_main(
       //if( !sFifoDataRX.empty() )//&& !soMPI_data.full() ) try to solve combinatorial loops...
       //{
         //Axis<8> tmp = sFifoDataRX.read(); //USE "blocking" version!! better matches to MPI_Wrapper...
-        Axis<8> tmp = Axis<8>();
-        uint8_t new_data;
+        Axis<32> tmp = Axis<32>();
+        uint32_t new_data;
         if(!sFifoDataRX.read_nb(new_data))
         {
           break;
         }
 
         tmp.tdata = new_data;
-        tmp.tkeep = 1;
+        tmp.tkeep = 0xF; //TODO
 
         //if(tmp.tlast == 1)
         if(recv_total_cnt >= (expected_recv_count - 1))
@@ -1198,7 +1255,7 @@ void mpe_main(
         } else {
           tmp.tlast = 0;
         }
-        printf("toROLE: tkeep %#03x, tdata %#03x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
+        printf("toROLE: tkeep %#04x, tdata %#08x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
         soMPI_data.write(tmp);
         //cnt++;
         recv_total_cnt++;

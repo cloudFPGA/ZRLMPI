@@ -48,13 +48,16 @@ void integerToBigEndian(UINT32 n, UINT8 *bytes)
 
 int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
 {
+  int ret = 0;
   //check validity
   for(int i = 0; i< 4; i++)
   {
     if(bytes[i] != 0x96)
     {
       printf("no start seuquence found\n");
-      return -1;
+      //return -1;
+      ret = -1;
+      break;
     }
   }
   
@@ -63,7 +66,9 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
     if(bytes[i] != 0x00)
     {
       printf("empty bytes are not empty\n");
-      return -2;
+      //return -2;
+      ret = -2;
+      break;
     }
   }
   
@@ -72,9 +77,29 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
     if(bytes[i] != 0x96)
     {
       printf("no end seuquence found\n");
-      return -3;
+      //return -3;
+      ret = -3;
+      break;
     }
   }
+
+  if(ret != 0)
+  {
+#ifndef __SYNTHESIS__
+    printf("\tbuffer dump: \n");
+    for(int i = 0; i < 32/8; i++)
+    {
+      printf("\t\t");
+      for(int j = 0; j<8; j++)
+      {
+        printf("%02x", (uint8_t) bytes[i*8+j]);
+      }
+      printf("\n");
+    }
+#endif
+    return ret;
+  }
+
 
   //convert
   header.dst_rank = bigEndianToInteger(bytes, 4);

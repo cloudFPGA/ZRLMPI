@@ -23,8 +23,8 @@ ap_uint<32> poMPE_rx_ports = 0;
 
 stream<MPI_Interface> MPIif_in;
 //stream<MPI_Interface> MPIif_out;
-stream<Axis<8> > MPI_data_in;
-stream<Axis<8> > MPI_data_out, tmp8Stream;
+stream<Axis<32> > MPI_data_in;
+stream<Axis<32> > MPI_data_out, tmp32Stream;
 
 unsigned int         simCnt;
 char current_phase[101];
@@ -84,7 +84,8 @@ int main(){
   assert(poMPE_rx_ports == 1);
 
   NetworkWord tmp64 = NetworkWord();
-  Axis<8>  tmp8 = Axis<8>();
+  //Axis<8>  tmp8 = Axis<8>();
+  Axis<32>  tmp32 = Axis<32>();
   own_rank = 1;
 
   //MPI_send()
@@ -92,24 +93,29 @@ int main(){
 
   MPI_Interface info = MPI_Interface();
   info.mpi_call = MPI_SEND_INT;
-  info.count = 17;
+  info.count = 5;
   info.rank = 2;
 
   MPIif_in.write(info);
 
-  char* msg = "HELLO WORLD! 1234";
+  char* msg = "HELLO WORLD! 1234\0\0\0\0";
+  //17 payload bytes -> 5 words
 
-  for(int i = 0; i< 17; i++)
+  for(int i = 0; i< (17+3)/4; i++)
   {
-    tmp8.tdata = msg[i];
-    if(i == 16)
+    tmp32.tdata = 0x0;
+    for(int k = 0; k<4; k++)
     {
-      tmp8.tlast = 1; 
-    } else {
-      tmp8.tlast = 0;
+      tmp32.tdata |= ((ap_uint<32>) msg[i*4+k]) << (3-k)*8;
     }
-    printf("write MPI data: %#02x\n", (int) tmp8.tdata);
-    MPI_data_in.write(tmp8);
+    if(i == (17+3/4)-1)
+    {
+      tmp32.tlast = 1; 
+    } else {
+      tmp32.tlast = 0;
+    }
+    printf("TB: write MPI data: %#08x\n", (int) tmp32.tdata);
+    MPI_data_in.write(tmp32);
 
     stepDut();
   }
@@ -156,19 +162,28 @@ int main(){
   header.call = MPI_SEND_INT;
   headerToBytes(header, bytes);
   //write header
-  for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+  for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
   {
-    Axis<8> tmp = Axis<8>(bytes[i]);
+    //Axis<32> tmp = Axis<32>(bytes[i]);
+    Axis<32> tmp = Axis<32>();
+    tmp.tdata = 0x0;
+    tmp.tkeep = 0x0F;
+    for(int j = 0; j<4; j++)
+    {
+      //tmp.tdata |= (ap_uint<32>) (bytes[i*4+j] << (3-j)*8 );
+      tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+    }
+    printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
     tmp.tlast = 0;
     if ( i == MPIF_HEADER_LENGTH - 1)
     {
       tmp.tlast = 1;
     }
-    tmp8Stream.write(tmp);
+    tmp32Stream.write(tmp);
   }
   for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   {
-      convertAxisToNtsWidth(tmp8Stream, tmp64);
+      convertAxisToNtsWidth(tmp32Stream, tmp64);
       siTcp_data.write(tmp64);
       printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
   }
@@ -195,19 +210,26 @@ int main(){
   header.call = MPI_RECV_INT;
   headerToBytes(header, bytes);
   //write header
-  for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+  for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
   {
-    Axis<8> tmp = Axis<8>(bytes[i]);
+    //Axis<8> tmp = Axis<8>(bytes[i]);
+    Axis<32> tmp = Axis<32>();
+    tmp.tdata = 0x0;
+    tmp.tkeep = 0xF;
+    for(int j = 0; j<4; j++)
+    {
+      tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+    }
     tmp.tlast = 0;
     if ( i == MPIF_HEADER_LENGTH - 1)
     {
       tmp.tlast = 1;
     }
-    tmp8Stream.write(tmp);
+    tmp32Stream.write(tmp);
   }
   for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   {
-      convertAxisToNtsWidth(tmp8Stream, tmp64);
+      convertAxisToNtsWidth(tmp32Stream, tmp64);
       siTcp_data.write(tmp64);
       printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
   }
@@ -244,19 +266,26 @@ int main(){
   header.call = MPI_RECV_INT;
   headerToBytes(header, bytes);
   //write header
-  for(int i = 0; i < MPIF_HEADER_LENGTH; i++)
+  for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
   {
-    Axis<8> tmp = Axis<8>(bytes[i]);
+    //Axis<8> tmp = Axis<8>(bytes[i]);
+    Axis<32> tmp = Axis<32>();
+    tmp.tdata = 0x0;
+    tmp.tkeep = 0xF;
+    for(int j = 0; j<4; j++)
+    {
+      tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+    }
     tmp.tlast = 0;
     if ( i == MPIF_HEADER_LENGTH - 1)
     {
       tmp.tlast = 1;
     }
-    tmp8Stream.write(tmp);
+    tmp32Stream.write(tmp);
   }
   for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   {
-      convertAxisToNtsWidth(tmp8Stream, tmp64);
+      convertAxisToNtsWidth(tmp32Stream, tmp64);
       siTcp_data.write(tmp64);
       printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
   }
@@ -282,7 +311,7 @@ int main(){
   
   info = MPI_Interface();
   info.mpi_call = MPI_RECV_INT;
-  info.count = 17;
+  info.count = 5;
   info.rank = 1;
 
   MPIif_in.write(info);
@@ -361,25 +390,33 @@ int main(){
   //assert(info_out.count == info.count);
   //assert(info_out.rank == 1);
 
-  for(int i = 0; i< 17; i++)
+  for(int i = 0; i< (17+3)/4; i++)
   {
     //tmp8 = MPI_data_out.read();
-    if(!MPI_data_out.read_nb(tmp8))
+    if(!MPI_data_out.read_nb(tmp32))
     {
       break;
     }
     
-    printf("MPI read data: %#02x, i: %d, tlast %d\n", (int) tmp8.tdata, i, (int) tmp8.tlast);
+    printf("MPI read data: %#08x, i: %d, tlast %d\n", (int) tmp32.tdata, i, (int) tmp32.tlast);
 
     stepDut();
 
     // tlast => i=11 
     //assert( !(tmp8.tlast == 1) || i==11);
-    if(i == 16)
+    if(i == ((17+3)/4)-1)
     {
-      assert(tmp8.tlast == 1);
+      assert(tmp32.tlast == 1);
     }
-    assert(((int) tmp8.tdata) == msg[i]);
+    //assert(((int) tmp8.tdata) == msg[i]);
+    for(int k = 0; k<4; k++)
+    {
+      uint8_t cur_byte = (uint8_t) (tmp32.tdata >> (3-k)*8);
+      //uint8_t cur_byte = (uint8_t) (tmp32.tdata >> k*8);
+      //printf("cur byte: %02x\n", cur_byte);
+      //printf("should be: %02x\n", (uint8_t) msg[i*4+k]);
+      assert(cur_byte == msg[i*4+k]);
+    }
   }
   
   //receive ACK 
