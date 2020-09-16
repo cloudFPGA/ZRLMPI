@@ -493,24 +493,19 @@ class MpiConstantFoldingVisitor(object):
     #             self.found_statements.append(new_found)
     #             n.cond = c_ast.Constant('int', str(result_value))
 
-    # def visit_For(self, n):
-    #     s = 'for ('
-    #     if n.init: s += self.visit(n.init)
-    #     s += ';'
-    #     if n.cond: s += ' ' + self.visit(n.cond)
-    #     s += ';'
-    #     if n.next: s += ' ' + self.visit(n.next)
-    #     s += ')\n'
-    #     s += self._generate_stmt(n.stmt, add_indent=True)
-    #     return s
-    #
+    def visit_For(self, n):
+        # we better NOT visit n.init and n.next
+        self.visit(n.cond)
+        self.visit(n.stmt)
+        return
+
     # def visit_While(self, n):
     #     s = 'while ('
     #     if n.cond: s += self.visit(n.cond)
     #     s += ')\n'
     #     s += self._generate_stmt(n.stmt, add_indent=True)
     #     return s
-    #
+
     # def visit_DoWhile(self, n):
     #     s = 'do\n'
     #     s += self._generate_stmt(n.stmt, add_indent=True)
