@@ -291,7 +291,7 @@ void send_internal(
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
   //TODO make generic
-  int typewidth = 4;
+  int typewidth = 1; //meassured in SIZEOF(UINT32_T)!
   int corresponding_call_type = MPI_RECV_INT;
   int call_type = MPI_SEND_INT;
   
@@ -329,16 +329,16 @@ nanosleep(&kvm_net, &kvm_net);
   header.dst_rank = destination;
   //header.src_rank = MPI_OWN_RANK;
   header.src_rank = own_rank;
-  header.size = count*4;
+  header.size = count*typewidth;
   header.call = call_type;
   header.type = DATA;
 
-  uint8_t buffer[count*4 + MPIF_HEADER_LENGTH];
+  uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH];
 
   headerToBytes(header, buffer);
   //TODO generic
   memcpy(&buffer[MPIF_HEADER_LENGTH], data, count*4);
-  uint32_t byte_length = count*4 + MPIF_HEADER_LENGTH;
+  uint32_t byte_length = count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH;
   int total_send = 0;
   int total_packets = 0;
   struct timespec sleep;
@@ -418,7 +418,7 @@ void recv_internal(
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
   //TODO make generic
-  int typewidth = 4;
+  int typewidth = 1; //meassured in SIZEOF(UINT32_T)!
   int corresponding_call_type = MPI_SEND_INT;
   int call_type = MPI_RECV_INT;
   
@@ -449,16 +449,16 @@ nanosleep(&kvm_net, &kvm_net);
   std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
   
   //recv data
-  uint8_t buffer[count*typewidth + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
+  uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
 
-  ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth, buffer);
+  ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth*sizeof(uint32_t), buffer);
 
   printf("Receiving DATA ...\n");
 
   //copy only the number of bytes the sender send us but at most count*4 
-  if(ret > count*typewidth)
+  if(ret > count*typewidth*sizeof(uint32_t))
   {
-    memcpy(data, &buffer[MPIF_HEADER_LENGTH], count*typewidth);
+    memcpy(data, &buffer[MPIF_HEADER_LENGTH], count*typewidth*sizeof(uint32_t));
   } else {
     memcpy(data, &buffer[MPIF_HEADER_LENGTH], ret);
   }
