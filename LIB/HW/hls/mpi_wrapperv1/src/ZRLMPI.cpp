@@ -147,6 +147,7 @@ int send_internal(
         //tmp8.tkeep = 1;
         //printf("write MPI data: %#02x\n", (int) tmp8.tdata);
         printf("write MPI data: %#08x\n", (int) tmp32.tdata);
+        //blocking!
         soMPI_data->write(tmp32);
         send_i++;
         //send_i_per_packet++;
@@ -167,6 +168,7 @@ int send_internal(
       default:
       case SEND_DONE:
         //NOP
+        ap_wait();
         break;
     }
   }
@@ -250,6 +252,7 @@ int recv_internal(
   WrapperRecvState recvState = RECV_WRITE_INFO;
   int recv_i = 0;
   bool recv_tlastOccured = false;
+  Axis<32>  tmp32 = Axis<32>();
 
   while(recvState != RECV_DONE)
   {
@@ -264,9 +267,10 @@ int recv_internal(
         break;
       case RECV_READ_DATA:
 
-        if(!siMPI_data->empty())
-        {
-          Axis<32> tmp32 = siMPI_data->read();
+        //if(!siMPI_data->empty())
+        //{
+        //blocking!
+          tmp32 = siMPI_data->read();
           printf("read MPI data: %#08x\n", (int) tmp32.tdata);
 
           data[recv_i] = (uint8_t) tmp32.tdata;
@@ -284,7 +288,7 @@ int recv_internal(
           {
             recvState = RECV_FINISH;
           }
-        }
+        //}
         break;
       case RECV_FINISH:
 
@@ -314,6 +318,7 @@ int recv_internal(
       default:
       case RECV_DONE:
         //NOP
+        ap_wait();
         break;
     }
   }
