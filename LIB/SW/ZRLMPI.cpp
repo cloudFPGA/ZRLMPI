@@ -57,8 +57,8 @@ struct timespec kvm_net;
 #endif
 
 
-//returns the size
-int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer)
+//returns the size IN BYTES!
+uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer)
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
   struct sockaddr_in src_addr;
@@ -69,6 +69,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   int ret = 0, res = 0, cache_i = 0;
 
   bool multiple_packet_mode = false;
+  bool is_data_packet = false;
   uint32_t received_length = 0;
   uint32_t recv_packets_cnt = 0;
   uint32_t expected_length = MPIF_HEADER_LENGTH + payload_length;
@@ -76,6 +77,10 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   {
     printf("recv with multi packet mode.\n");
     multiple_packet_mode = true;
+  }
+  if(expType == DATA)
+  {
+    is_data_packet = true;
   }
 
 
@@ -144,7 +149,7 @@ nanosleep(&kvm_net, &kvm_net);
         printf("data_packet %d received.\n", recv_packets_cnt);
         received_length += res;
         recv_packets_cnt++;
-        printf("received_length %d; expected_length %d\n",received_length, expected_length);
+        printf("continous packet: received_length %d; expected_length %d\n",received_length, expected_length);
         if(received_length >= expected_length)
         {
           break;
@@ -162,6 +167,7 @@ nanosleep(&kvm_net, &kvm_net);
         received_length += res;
         recv_packets_cnt++;
         copyToCache = false;
+        printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
       }
 
     }
@@ -240,12 +246,13 @@ nanosleep(&kvm_net, &kvm_net);
 
   }
 
-  if(multiple_packet_mode)
+  if(multiple_packet_mode || is_data_packet)
   {
-    //if(received_length != header.size)
-    //{
-    //  printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, header.size);
-    //}
+    received_length -= MPIF_HEADER_LENGTH;
+    if(received_length != header.size*sizeof(uint32_t))
+    {
+      printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, header.size);
+    }
     return received_length;
   }
   return header.size;
@@ -451,11 +458,11 @@ nanosleep(&kvm_net, &kvm_net);
   //recv data
   uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
 
+  printf("Receiving DATA ...\n");
+  
   ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth*sizeof(uint32_t), buffer);
 
-  printf("Receiving DATA ...\n");
-
-  //copy only the number of bytes the sender send us but at most count*4 
+  //copy only the number of bytes the sender send us but at most count*4
   if(ret > count*typewidth*sizeof(uint32_t))
   {
     memcpy(data, &buffer[MPIF_HEADER_LENGTH], count*typewidth*sizeof(uint32_t));
