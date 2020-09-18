@@ -119,8 +119,8 @@ int send_internal(
   //uint32_t send_i_per_packet = 0;
   while(sendState != SEND_DONE)
   {
-#pragma HLS loop_flatten off
-#pragma HLS unroll factor=1
+//#pragma HLS loop_flatten off
+//#pragma HLS unroll factor=1
 
     switch(sendState) {
       case SEND_WRITE_INFO:
@@ -171,7 +171,7 @@ int send_internal(
       default:
       case SEND_DONE:
         //NOP
-        ap_wait();
+        //ap_wait();
         break;
     }
   }
@@ -259,8 +259,8 @@ int recv_internal(
 
   while(recvState != RECV_DONE)
   {
-#pragma HLS loop_flatten off
-#pragma HLS unroll factor=1
+//#pragma HLS loop_flatten off
+//#pragma HLS unroll factor=1
 
     switch(recvState) {
 
@@ -290,10 +290,11 @@ int recv_internal(
             recvState = RECV_FINISH;
             //break;
           }
-          if(recv_i == info.count)
-          {
-            recvState = RECV_FINISH;
-          }
+          //TODO: not necessary, we can trust the tlast from MPE
+          //if(recv_i == info.count)
+          //{
+          //  recvState = RECV_FINISH;
+          //}
         //}
         break;
       case RECV_FINISH:
@@ -324,7 +325,7 @@ int recv_internal(
       default:
       case RECV_DONE:
         //NOP
-        ap_wait();
+        //ap_wait();
         break;
     }
   }
@@ -348,8 +349,7 @@ void MPI_Recv(
 {
 #pragma HLS inline
 
-  int word_count = (count+3)/4;
-  recv_internal(soMPIif, siMPI_data, words, word_count, datatype, source, tag, communicator, status);
+  recv_internal(soMPIif, siMPI_data, words, count, datatype, source, tag, communicator, status);
 
   //for(int i=0; i<count; i++)
   //{
@@ -363,7 +363,7 @@ void MPI_Recv(
   {
 #pragma HLS unroll
     data[i]  = (int) words[i];
-    //if count-1 (last word), handle non complete words (here not necessary)
+    //TODO: if count-1 (last word), handle non complete words (here not necessary)
   }
 
 }
