@@ -56,7 +56,8 @@ void MPI_Finalize();
 
 //#define CUSTOM_MTU 1402 //VPN
 //#define CUSTOM_MTU 1000 //VPN2
-#define CUSTOM_MTU 1500 //ZC2
+//#define CUSTOM_MTU 1500 //ZC2
+#define CUSTOM_MTU 1416 //ZYC2
 
 //#define KVM_CORRECTION
 

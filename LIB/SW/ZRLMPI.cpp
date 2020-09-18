@@ -705,12 +705,13 @@ int main(int argc, char **argv)
   //printf("MTU is %d.\n", ifr.ifr_mtu);
   //max_udp_payload_bytes = ifr.ifr_mtu - UDP_HEADER_SIZE_BYTES;
   
-  max_udp_payload_bytes = CUSTOM_MTU - UDP_HEADER_SIZE_BYTES;
-  if(max_udp_payload_bytes > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
-  {
-    max_udp_payload_bytes = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
-    //inclusive MPI header!
-  }
+  //max_udp_payload_bytes = CUSTOM_MTU - UDP_HEADER_SIZE_BYTES;
+  //if(max_udp_payload_bytes > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
+  //{
+  //  max_udp_payload_bytes = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
+  //  //inclusive MPI header!
+  //}
+  max_udp_payload_bytes = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
   printf("max payload bytes: %d.\n", max_udp_payload_bytes);
 
   //init cache

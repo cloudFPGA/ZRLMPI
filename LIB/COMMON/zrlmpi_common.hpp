@@ -24,10 +24,9 @@
 #define ZRLMPI_DEFAULT_PORT 2718
 
 //UDP Header + MPIF Header = 74
-//1496 Bytes are 187 8 Byte lines
-//1422 is not divideable by 4 (size of MPI_Datatype)
-#define ZRLMPI_MAX_MESSAGE_SIZE_BYTES 1444   //Bytes inclusive header!
-#define ZRLMPI_MAX_MESSAGE_SIZE_WORDS 361   //int or float inclusive header!
+//main constraint is ZYC2 VXLAN setup
+#define ZRLMPI_MAX_MESSAGE_SIZE_BYTES 1416   //Bytes inclusive header!
+#define ZRLMPI_MAX_MESSAGE_SIZE_WORDS 354   //int or float inclusive header!
 
 /*
  * MPI-F Interface

@@ -20,6 +20,13 @@ uint32_t expected_send_count = 0;
 uint32_t recv_total_cnt = 0;
 uint32_t send_total_cnt = 0;
 
+uint32_t exp_recv_count_enqueue = 0;
+uint32_t enqueue_recv_total_cnt = 0;
+NodeId current_data_src_node_id = 0xFFF;
+NrcPort current_data_src_port = 0x0;
+NrcPort current_data_dst_port = 0x0;
+bool expect_more_data = false;
+
 //receiveState fsmReceiveState = READ_STANDBY;
 //stream<Axis<8> > sFifoDataRX("sFifoDataRX");
 stream<uint32_t> sFifoDataRX("sFifoDataRX");
@@ -364,6 +371,14 @@ void mpe_main(
 #pragma HLS reset variable=checked_cache
 #pragma HLS reset variable=expected_src_rank
 #pragma HLS reset variable=current_cache_data_cnt
+
+#pragma HLS reset variable=exp_recv_count_enqueue
+#pragma HLS reset variable=enqueue_recv_total_cnt
+#pragma HLS reset variable=expect_more_data
+#pragma HLS reset variable=current_data_src_node_id
+#pragma HLS reset variable=current_data_src_port
+#pragma HLS reset variable=current_data_dst_port
+
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -968,6 +983,10 @@ void mpe_main(
       if( handshakeLinesCnt <= 0 || sFifoDataTX.empty())
       {
         fsmMpeState = RECV_DATA_START;
+        expect_more_data = false;
+        current_data_src_node_id = 0xFFF;
+        current_data_src_port = 0x0;
+        current_data_dst_port = 0x0;
         //start subFSM
         //fsmReceiveState = READ_IDLE;
         //read_timeout_cnt  = 0;
@@ -990,6 +1009,16 @@ void mpe_main(
       {
         //read meta
         metaSrc = siTcp_meta.read().tdata;
+        
+        if(metaSrc.src_rank == current_data_src_node_id && metaSrc.src_port == current_data_src_port
+            && metaSrc.dst_port == current_data_dst_port && expect_more_data)
+        {
+          //continuation of data packet
+          fsmMpeState = RECV_DATA_RD;
+          printf("[MPI_Recv] new payload packet arrived.\n");
+          break;
+        }
+
         //read header
         for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
         {
@@ -1013,12 +1042,18 @@ void mpe_main(
         }
 
         ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
-        if(ret == 0)
+        if(ret == 0 
+            && !expect_more_data) //we don't start a new data packet here
         {
           //valid header && valid source
           expected_recv_count = header.size;
+          exp_recv_count_enqueue = header.size;
           printf("[MPI_Recv] expect %d bytes.\n",expected_recv_count);
           recv_total_cnt = 0;
+          enqueue_recv_total_cnt = 0;
+          current_data_src_node_id = metaSrc.src_rank;
+          current_data_src_port = metaSrc.src_port;
+          current_data_dst_port = metaSrc.dst_port;
 
           fsmMpeState = RECV_DATA_RD;
           recvDeqFsm = DEQ_WRITE;
@@ -1064,21 +1099,26 @@ void mpe_main(
           //bufferIn[bufferInPtrWrite] = (ap_uint<8>) (big.tdata >> (7-i)*8);
           //default
           ap_uint<32> current_word = (ap_uint<32>) (word.tdata >> i*32);
-          //we ignore the tlast!
+          enqueue_recv_total_cnt++;
           if(!sFifoDataRX.write_nb(current_word))
           {
             rx_overflow_fifo.write(current_word);
           }
+          //check if we have to receive a new packet meta
+          if(word.tlast == 1)
+          {
+            if(enqueue_recv_total_cnt < exp_recv_count_enqueue) //not <=
+            {//we expect more
+              fsmMpeState = RECV_DATA_START;
+              expect_more_data = true;
+            } else {
+              fsmMpeState = RECV_DATA_WRD;
+            }
+          }
         }
-
-        //we have to ignore the tlast here
-        //if(word.tlast == 1)
-        //{
-        //  fsmMpeState = RECV_DATA_WRD;
-        //}
       }
       break;
-    case RECV_DATA_WRD: //TODO: obsolete?
+    case RECV_DATA_WRD:
       //wait for dequeue FSM
       if(recvDeqFsm == DEQ_DONE)
       {
@@ -1256,7 +1296,7 @@ void mpe_main(
         } else {
           tmp.tlast = 0;
         }
-        printf("toROLE: tkeep %#04x, tdata %#08x, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
+        printf("toAPP: tkeep %#04x, tdata %#08x, tlast %d\n",(int) tmp.tkeep, (uint32_t) tmp.tdata, (int) tmp.tlast);
         soMPI_data.write(tmp);
         //cnt++;
         recv_total_cnt++;

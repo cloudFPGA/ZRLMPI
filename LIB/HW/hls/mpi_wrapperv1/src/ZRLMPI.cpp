@@ -204,7 +204,7 @@ void MPI_Send(
   //}
   for(int i=0; i< count; i++)
   {
-#pragma HLS unroll
+//#pragma HLS unroll
     words[i] = data[i];
   }
   //0xFF, because we have int/uint32_t = 1 for all sizes
@@ -361,7 +361,7 @@ void MPI_Recv(
   //}
   for(int i=0; i<count; i++)
   {
-#pragma HLS unroll
+//#pragma HLS unroll
     data[i]  = (int) words[i];
     //TODO: if count-1 (last word), handle non complete words (here not necessary)
   }
