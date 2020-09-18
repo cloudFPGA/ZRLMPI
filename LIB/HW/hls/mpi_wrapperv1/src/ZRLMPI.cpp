@@ -119,6 +119,9 @@ int send_internal(
   //uint32_t send_i_per_packet = 0;
   while(sendState != SEND_DONE)
   {
+#pragma HLS loop_flatten off
+#pragma HLS unroll factor=1
+
     switch(sendState) {
       case SEND_WRITE_INFO:
         //if(!soMPIif->full())
@@ -256,6 +259,9 @@ int recv_internal(
 
   while(recvState != RECV_DONE)
   {
+#pragma HLS loop_flatten off
+#pragma HLS unroll factor=1
+
     switch(recvState) {
 
       case RECV_WRITE_INFO:
