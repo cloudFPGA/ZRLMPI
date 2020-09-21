@@ -83,6 +83,7 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
     is_data_packet = true;
   }
 
+  uint32_t orig_header_size = 0x0;
 
   while(true)
   {
@@ -97,10 +98,14 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
         checkedCache = true;
         continue;
       }
+#ifdef DEBUG
       printf("checking cache entry %d\n", cache_i);
+#endif
       if(skip_cache_entry[cache_i])
       {
+#ifdef DEBUG
         printf("\tskipping entry.\n");
+#endif
         cache_i++;
         continue;
       }
@@ -149,7 +154,9 @@ nanosleep(&kvm_net, &kvm_net);
         printf("data_packet %d received.\n", recv_packets_cnt);
         received_length += res;
         recv_packets_cnt++;
+#ifdef DEBUG
         printf("continous packet: received_length %d; expected_length %d\n",received_length, expected_length);
+#endif
         if(received_length >= expected_length)
         {
           break;
@@ -167,7 +174,10 @@ nanosleep(&kvm_net, &kvm_net);
         received_length += res;
         recv_packets_cnt++;
         copyToCache = false;
+        orig_header_size = header.size;
+#ifdef DEBUG
         printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+#endif
       }
 
     }
@@ -249,13 +259,15 @@ nanosleep(&kvm_net, &kvm_net);
   if(multiple_packet_mode || is_data_packet)
   {
     received_length -= MPIF_HEADER_LENGTH;
-    if(received_length != header.size*sizeof(uint32_t))
+    if(received_length != orig_header_size*sizeof(uint32_t))
     {
-      printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, header.size);
+#ifdef DEBUG
+      printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, orig_header_size);
+#endif
     }
     return received_length;
   }
-  return header.size;
+  return orig_header_size;
 }
 
 
@@ -323,8 +335,9 @@ nanosleep(&kvm_net, &kvm_net);
     exit(-1);
   }
 
+#ifdef DEBUG
   std::cout << res << " bytes sent for SEND_REQUEST" << std::endl;
-
+#endif
   int ret = 0;
 
 
@@ -453,7 +466,9 @@ nanosleep(&kvm_net, &kvm_net);
     exit(-1);
   }
 
+#ifdef DEBUG
   std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
+#endif
   
   //recv data
   uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
@@ -491,7 +506,9 @@ nanosleep(&kvm_net, &kvm_net);
     exit(-1);
   }
 
+#ifdef DEBUG
   std::cout << res << " bytes sent for ACK" << std::endl;
+#endif
 
 }
 
@@ -689,8 +706,7 @@ int main(int argc, char **argv)
   
   //get MTU
   //1. get if name of ip addr https://man7.org/linux/man-pages/man3/getifaddrs.3.html
-  //TODO
-  //TODO: if we get the mtu automatically, all nodes have to agree on one...--> header?
+  //if we get the mtu automatically, all nodes have to agree on one...--> header?
   //https://stackoverflow.com/questions/38817023/how-to-send-packets-according-to-the-mtu-value
   //struct ifreq ifr;
   ////ifr.ifr_addr.sa_family = AF_INET;
@@ -712,7 +728,9 @@ int main(int argc, char **argv)
   //  //inclusive MPI header!
   //}
   max_udp_payload_bytes = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
-  printf("max payload bytes: %d.\n", max_udp_payload_bytes);
+#ifdef DEBUG
+  printf("ZRLMPI max payload bytes: %d.\n", max_udp_payload_bytes);
+#endif
 
   //init cache
   for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)

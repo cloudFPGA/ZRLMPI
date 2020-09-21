@@ -23,7 +23,21 @@ UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
   tmp |= ((UINT32) buffer[lsb + 2]) << 16; 
   tmp |= ((UINT32) buffer[lsb + 3]) << 24; 
 
-  //printf("LSB: %#1x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
+#ifndef __SYNTHESIS__
+#ifdef DEBUG
+  printf("LSB: %#02x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
+  printf("\tbuffer dump: \n");
+  for(int i = 0; i < 32/8; i++)
+  {
+    printf("\t\t");
+    for(int j = 0; j<8; j++)
+    {
+      printf("%02x", (uint8_t) buffer[lsb - 8 i*8+j]);
+    }
+    printf("\n");
+  }
+#endif
+#endif
 
   return tmp;
 }
@@ -86,6 +100,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   if(ret != 0)
   {
 #ifndef __SYNTHESIS__
+#ifdef DEBUG
     printf("\tbuffer dump: \n");
     for(int i = 0; i < 32/8; i++)
     {
@@ -96,6 +111,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
       }
       printf("\n");
     }
+#endif
 #endif
     return ret;
   }
