@@ -13,6 +13,7 @@ using namespace hls;
 //sendState fsmSendState = WRITE_STANDBY;
 stream<Axis<32> > sFifoDataTX("sFifoDataTX");
 stream<Axis<32> > sFifo_underflow_TX("sFifo_underflow_TX");
+stream<Axis<32> > tx_overflow_fifo("tx_overflow_fifo");
 //static stream<IPMeta> sFifoIPdstTX("sFifoIPdstTX");
 //int enqueueCnt = 0;
 bool tlast_occured_TX = false;
@@ -338,6 +339,7 @@ void mpe_main(
 #pragma HLS STREAM variable=sFifoDataRX depth=512
 #pragma HLS STREAM variable=rx_overflow_fifo depth=2
 #pragma HLS STREAM variable=sFifo_underflow_TX depth=1
+#pragma HLS STREAM variable=tx_overflow_fifo depth=2
 //#pragma HLS STREAM variable=sFifoHeaderCache depth=64
 #pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
 #pragma HLS INTERFACE ap_ctrl_none port=return
@@ -434,7 +436,7 @@ void mpe_main(
 
     bool word_tlast_occured = false;
     Axis<32> current_read_word = Axis<32>();
-    uint8_t cnt = 0;
+    int8_t cnt = 0;
 
   switch(fsmMpeState) {
     case IDLE:
@@ -690,36 +692,77 @@ void mpe_main(
       break;
     case SEND_DATA_RD:
       //enqueue 
+      //cnt = 0;
+      ////while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
+      ////if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
+      ////while( cnt<=8 && !tlast_occured_TX)
+      //while( cnt<=2 && !tlast_occured_TX)
+      //{
+      //  //current_read_byte = siMPI_data.read();
+      //  if(!siMPI_data.read_nb(current_read_word))
+      //  {
+      //    break;
+      //  }
+      //  if(send_total_cnt >= (expected_send_count - 1))
+      //  {// to be sure...
+      //    current_read_word.tlast = 1;
+      //  }
+      //  //use "blocking" version
+      //  sFifoDataTX.write(current_read_word);
+      //  cnt++;
+      //  send_total_cnt++;
+      //  if(current_read_word.tlast == 1)
+      //  {
+      //    tlast_occured_TX = true;
+      //    fsmMpeState = SEND_DATA_WRD;
+      //    printf("tlast Occured.\n");
+      //    printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
+      //  }
+      //  //enqueueCnt++;
+      //}
+      ////printf("cnt: %d\n", cnt);
       cnt = 0;
-      //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
-      //if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
-      //while( cnt<=8 && !tlast_occured_TX)
       while( cnt<=2 && !tlast_occured_TX)
       {
-        //current_read_byte = siMPI_data.read();
-        if(!siMPI_data.read_nb(current_read_word))
+        if(!sFifoDataTX.full())
         {
+          if(!tx_overflow_fifo.empty())
+          {
+            current_read_word = tx_overflow_fifo.read();
+            cnt--;
+          } else {
+            if(!siMPI_data.empty())
+            {
+              if(!siMPI_data.read_nb(current_read_word))
+              {
+                break;
+              }
+            } else {
+              break;
+            }
+          }
+          if(send_total_cnt >= (expected_send_count - 1))
+          {// to be sure...
+            current_read_word.tlast = 1;
+          }
+          if(!sFifoDataTX.write_nb(current_read_word))
+          {
+            tx_overflow_fifo.write(current_read_word);
+            break;
+          }
+          cnt++;
+          send_total_cnt++;
+          if(current_read_word.tlast == 1)
+          {
+            tlast_occured_TX = true;
+            fsmMpeState = SEND_DATA_WRD;
+            printf("tlast Occured.\n");
+          }
+          printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
+        } else {
           break;
         }
-        if(send_total_cnt >= (expected_send_count - 1))
-        {// to be sure...
-          current_read_word.tlast = 1;
-        }
-        //use "blocking" version
-        sFifoDataTX.write(current_read_word);
-        cnt++;
-        send_total_cnt++;
-        if(current_read_word.tlast == 1)
-        {
-          tlast_occured_TX = true;
-          fsmMpeState = SEND_DATA_WRD;
-          printf("tlast Occured.\n");
-          printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
-        }
-        //enqueueCnt++;
       }
-      //printf("cnt: %d\n", cnt);
-
       break;
     case SEND_DATA_WRD:
       //wait for dequeue fsm
