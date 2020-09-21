@@ -75,7 +75,9 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
   uint32_t expected_length = MPIF_HEADER_LENGTH + payload_length;
   if(expected_length > max_udp_payload_bytes)
   {
+#ifdef DEBUG
     printf("recv with multi packet mode.\n");
+#endif
     multiple_packet_mode = true;
   }
   if(expType == DATA)
@@ -98,12 +100,12 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
         checkedCache = true;
         continue;
       }
-#ifdef DEBUG
+#ifdef DEBUG2
       printf("checking cache entry %d\n", cache_i);
 #endif
       if(skip_cache_entry[cache_i])
       {
-#ifdef DEBUG
+#ifdef DEBUG2
         printf("\tskipping entry.\n");
 #endif
         cache_i++;
@@ -141,20 +143,26 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
 nanosleep(&kvm_net, &kvm_net);
 #endif
       
+#ifdef DEBUG
       printf("received packet from %s:%d with length %d\n",inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port), res);
+#endif
 
       if(ret != 0 && recv_packets_cnt == 0)
       {
+#ifdef DEBUG
         printf("invalid header. Dropping packet.\n");
+#endif
         //copyToCache = true;
         continue;
       } 
       else if(ret != 0 && recv_packets_cnt > 0 && multiple_packet_mode)
       {//is the continuation of a data packet
+#ifdef DEBUG
         printf("data_packet %d received.\n", recv_packets_cnt);
+#endif
         received_length += res;
         recv_packets_cnt++;
-#ifdef DEBUG
+#ifdef DEBUG2
         printf("continous packet: received_length %d; expected_length %d\n",received_length, expected_length);
 #endif
         if(received_length >= expected_length)
@@ -166,7 +174,9 @@ nanosleep(&kvm_net, &kvm_net);
       }
       else if(ret == 0 && multiple_packet_mode && recv_packets_cnt > 0)
       {
+#ifdef DEBUG
         printf("we've got another header in between.\n");
+#endif
         copyToCache = true;
       }
       else {
@@ -175,7 +185,7 @@ nanosleep(&kvm_net, &kvm_net);
         recv_packets_cnt++;
         copyToCache = false;
         orig_header_size = header.size;
-#ifdef DEBUG
+#ifdef DEBUG2
         printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
 #endif
       }
@@ -186,27 +196,35 @@ nanosleep(&kvm_net, &kvm_net);
     {
       if(ntohl(src_addr.sin_addr.s_addr) != expAddr)
       {
+#ifdef DEBUG
         printf("Header does not match ipAddress: Expected %ld, got %ld \n", expAddr, ntohl(src_addr.sin_addr.s_addr));
+#endif
         copyToCache = true;
       }
     }
 
     if(!copyToCache && header.src_rank != expSrcRank)
     {
+#ifdef DEBUG
       printf("Header does not match expected src rank: Expected %d, got %d \n", expSrcRank, header.src_rank);
+#endif
       copyToCache = true;
     }
 
     //if(header.dst_rank != MPI_OWN_RANK)
     if(!copyToCache && header.dst_rank != own_rank)
     {
+#ifdef DEBUG
       printf("I'm not the right recepient! Header is addressed for %d.\n", header.dst_rank);
+#endif
       copyToCache = true;
     }
 
     if(!copyToCache && header.type != expType)
     {
+#ifdef DEBUG
       printf("Expected type %d, got %d!\n",(int) expType, (int) header.type);
+#endif
       copyToCache = true;
     }
 
@@ -214,7 +232,9 @@ nanosleep(&kvm_net, &kvm_net);
     //TODO: generic
     if(!copyToCache && header.call != expCall)
     {
+#ifdef DEBUG
       printf("receiver expects different call: %d.\n", (int) header.call);
+#endif
       copyToCache = true;
     }
 
@@ -233,12 +253,16 @@ nanosleep(&kvm_net, &kvm_net);
           skip_cache_entry[i] = false;
         }
       }
+#ifdef DEBUG
       printf("put header to cache\n");
+#endif
       cache_num++;
-    } 
+    }
     if(!checkedCache && !copyToCache)
     {//delete from cache
+#ifdef DEBUG
       printf("found header in cache\n");
+#endif
       header_recv_cache[cache_i-1] = MPI_Header();
       skip_cache_entry[cache_i-1] = true;
       cache_num--;
@@ -261,7 +285,7 @@ nanosleep(&kvm_net, &kvm_net);
     received_length -= MPIF_HEADER_LENGTH;
     if(received_length != orig_header_size*sizeof(uint32_t))
     {
-#ifdef DEBUG
+#ifdef DEBUG2
       printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, orig_header_size);
 #endif
     }
@@ -335,14 +359,16 @@ nanosleep(&kvm_net, &kvm_net);
     exit(-1);
   }
 
-#ifdef DEBUG
+#ifdef DEBUG2
   std::cout << res << " bytes sent for SEND_REQUEST" << std::endl;
 #endif
   int ret = 0;
 
 
   ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, corresponding_call_type, destination, 0, 0);
+#ifdef DEBUG
   printf("Got CLEAR to SEND\n");
+#endif
 
   //Send data
   header = MPI_Header(); 
@@ -373,7 +399,9 @@ nanosleep(&kvm_net, &kvm_net);
     {
       count_of_this_message = max_udp_payload_bytes;
     }
+#ifdef DEBUG
     printf("sending %d bytes from address %d as data junk...\n",count_of_this_message, i);
+#endif
     ret = sendto(udp_sock, &buffer[i], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
 #ifdef KVM_CORRECTION
 nanosleep(&kvm_net, &kvm_net);
@@ -393,10 +421,14 @@ nanosleep(&kvm_net, &kvm_net);
   //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
   //std::cout << res << " bytes sent for DATA" <<std::endl;
 
+#ifdef DEBUG
   std::cout << total_send << " bytes sent for DATA (in " << total_packets << " packets) " <<std::endl;
+#endif
   
   ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, corresponding_call_type, destination, 0, 0);
+#ifdef DEBUG
   printf("Got ACK\n");
+#endif
 
 }
 
@@ -408,7 +440,9 @@ void MPI_Send(
     int tag,
     MPI_Comm communicator)
 {
+#ifdef DEBUG
   printf("[MPI_Send] count: %d, datatype %d, destination %d, tag %d, comm: %d.\n",count,(int) datatype, destination, tag, (int) communicator);
+#endif
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   //for now, only datatypes of size 4
   //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
@@ -444,7 +478,9 @@ void recv_internal(
   
   int ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), SEND_REQUEST, corresponding_call_type, source, 0, 0);
 
+#ifdef DEBUG
   printf("Got SEND_REQUEST\n");
+#endif
 
   MPI_Header header = MPI_Header(); 
   header.dst_rank = source;
@@ -466,14 +502,16 @@ nanosleep(&kvm_net, &kvm_net);
     exit(-1);
   }
 
-#ifdef DEBUG
+#ifdef DEBUG2
   std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
 #endif
   
   //recv data
   uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
 
+#ifdef DEBUG
   printf("Receiving DATA ...\n");
+#endif
   
   ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth*sizeof(uint32_t), buffer);
 
@@ -506,7 +544,7 @@ nanosleep(&kvm_net, &kvm_net);
     exit(-1);
   }
 
-#ifdef DEBUG
+#ifdef DEBUG2
   std::cout << res << " bytes sent for ACK" << std::endl;
 #endif
 
@@ -521,7 +559,9 @@ void MPI_Recv(
     MPI_Comm communicator,
     MPI_Status* status)
 {
+#ifdef DEBUG
   printf("[MPI_Recv] count: %d, datatype %d, source %d, tag %d, comm: %d.\n",count,(int) datatype, source, tag, (int) communicator);
+#endif
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES
   //for now, only datatypes of size 4
   //ZRLMPI_MAX_MESSAGE_SIZE is divideable by 4
@@ -728,7 +768,7 @@ int main(int argc, char **argv)
   //  //inclusive MPI header!
   //}
   max_udp_payload_bytes = ZRLMPI_MAX_MESSAGE_SIZE_BYTES;
-#ifdef DEBUG
+#ifdef DEBUG2
   printf("ZRLMPI max payload bytes: %d.\n", max_udp_payload_bytes);
 #endif
 
