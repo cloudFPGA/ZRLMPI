@@ -59,7 +59,8 @@ void MPI_Finalize();
 //#define CUSTOM_MTU 1500 //ZC2
 #define CUSTOM_MTU 1416 //ZYC2
 
-//#define KVM_CORRECTION
+#define KVM_CORRECTION
+#define ZC2_NETWORK
 
 //forward declaration
 int app_main();
