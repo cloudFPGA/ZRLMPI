@@ -23,6 +23,10 @@
 
 #define ZRLMPI_DEFAULT_PORT 2718
 
+//to disable debug printfs
+#define DEBUG
+#define DEBUG2
+
 //UDP Header + MPIF Header = 74
 //main constraint is ZYC2 VXLAN setup
 #define ZRLMPI_MAX_MESSAGE_SIZE_BYTES 1416  //Bytes inclusive header!

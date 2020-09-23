@@ -389,7 +389,8 @@ nanosleep(&kvm_net, &kvm_net);
   int total_packets = 0;
   struct timespec sleep;
   sleep.tv_sec = 0;
-  sleep.tv_nsec = 200; //0.2us, based on experiments...
+  //sleep.tv_nsec = 200; //0.2us, based on experiments...
+  sleep.tv_nsec = 2000; //2us, based on experiments with 10G links...
   
   //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
   for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)

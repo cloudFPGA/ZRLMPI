@@ -32,7 +32,7 @@ UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
     printf("\t\t");
     for(int j = 0; j<8; j++)
     {
-      printf("%02x", (uint8_t) buffer[lsb - 8 i*8+j]);
+      printf("%02x", (uint8_t) buffer[lsb - 8 + i*8+j]);
     }
     printf("\n");
   }
