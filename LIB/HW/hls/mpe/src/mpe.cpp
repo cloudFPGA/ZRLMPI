@@ -12,8 +12,10 @@ using namespace hls;
 
 //sendState fsmSendState = WRITE_STANDBY;
 stream<Axis<32> > sFifoDataTX("sFifoDataTX");
+stream<Axis<32> > sFifo_underflow_TX("sFifo_underflow_TX");
+stream<Axis<32> > tx_overflow_fifo("tx_overflow_fifo");
 //static stream<IPMeta> sFifoIPdstTX("sFifoIPdstTX");
-int enqueueCnt = 0;
+//int enqueueCnt = 0;
 bool tlast_occured_TX = false;
 uint32_t expected_recv_count = 0;
 uint32_t expected_send_count = 0;
@@ -26,6 +28,9 @@ NodeId current_data_src_node_id = 0xFFF;
 NrcPort current_data_src_port = 0x0;
 NrcPort current_data_dst_port = 0x0;
 bool expect_more_data = false;
+
+NodeId current_send_dst_id = 0xFFF;
+uint32_t current_packet_line_cnt = 0x0;
 
 //receiveState fsmReceiveState = READ_STANDBY;
 //stream<Axis<8> > sFifoDataRX("sFifoDataRX");
@@ -333,6 +338,8 @@ void mpe_main(
 #pragma HLS STREAM variable=sFifoDataTX depth=512
 #pragma HLS STREAM variable=sFifoDataRX depth=512
 #pragma HLS STREAM variable=rx_overflow_fifo depth=2
+#pragma HLS STREAM variable=sFifo_underflow_TX depth=1
+#pragma HLS STREAM variable=tx_overflow_fifo depth=2
 //#pragma HLS STREAM variable=sFifoHeaderCache depth=64
 #pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
 #pragma HLS INTERFACE ap_ctrl_none port=return
@@ -378,7 +385,8 @@ void mpe_main(
 #pragma HLS reset variable=current_data_src_node_id
 #pragma HLS reset variable=current_data_src_port
 #pragma HLS reset variable=current_data_dst_port
-
+#pragma HLS reset variable=current_send_dst_id
+#pragma HLS reset variable=current_packet_line_cnt
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -428,7 +436,7 @@ void mpe_main(
 
     bool word_tlast_occured = false;
     Axis<32> current_read_word = Axis<32>();
-    uint8_t cnt = 0;
+    int8_t cnt = 0;
 
   switch(fsmMpeState) {
     case IDLE:
@@ -673,46 +681,88 @@ void mpe_main(
         send_total_cnt = 0;
 
         tlast_occured_TX = false;
-        enqueueCnt = MPIF_HEADER_LENGTH/4;
+        //enqueueCnt = MPIF_HEADER_LENGTH/4;
         fsmMpeState = SEND_DATA_RD;
         //start dequeue FSM
         sendDeqFsm = DEQ_WRITE;
+
+        current_send_dst_id = header.dst_rank;
+        current_packet_line_cnt = 0;
       }
       break;
     case SEND_DATA_RD:
       //enqueue 
+      //cnt = 0;
+      ////while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
+      ////if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
+      ////while( cnt<=8 && !tlast_occured_TX)
+      //while( cnt<=2 && !tlast_occured_TX)
+      //{
+      //  //current_read_byte = siMPI_data.read();
+      //  if(!siMPI_data.read_nb(current_read_word))
+      //  {
+      //    break;
+      //  }
+      //  if(send_total_cnt >= (expected_send_count - 1))
+      //  {// to be sure...
+      //    current_read_word.tlast = 1;
+      //  }
+      //  //use "blocking" version
+      //  sFifoDataTX.write(current_read_word);
+      //  cnt++;
+      //  send_total_cnt++;
+      //  if(current_read_word.tlast == 1)
+      //  {
+      //    tlast_occured_TX = true;
+      //    fsmMpeState = SEND_DATA_WRD;
+      //    printf("tlast Occured.\n");
+      //    printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
+      //  }
+      //  //enqueueCnt++;
+      //}
+      ////printf("cnt: %d\n", cnt);
       cnt = 0;
-      //while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
-      //if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
-      //while( cnt<=8 && !tlast_occured_TX)
       while( cnt<=2 && !tlast_occured_TX)
       {
-        //current_read_byte = siMPI_data.read();
-        if(!siMPI_data.read_nb(current_read_word))
+        if(!sFifoDataTX.full())
         {
+          if(!tx_overflow_fifo.empty())
+          {
+            current_read_word = tx_overflow_fifo.read();
+            cnt--;
+          } else {
+            if(!siMPI_data.empty())
+            {
+              if(!siMPI_data.read_nb(current_read_word))
+              {
+                break;
+              }
+            } else {
+              break;
+            }
+          }
+          if(send_total_cnt >= (expected_send_count - 1))
+          {// to be sure...
+            current_read_word.tlast = 1;
+          }
+          if(!sFifoDataTX.write_nb(current_read_word))
+          {
+            tx_overflow_fifo.write(current_read_word);
+            break;
+          }
+          cnt++;
+          send_total_cnt++;
+          if(current_read_word.tlast == 1)
+          {
+            tlast_occured_TX = true;
+            fsmMpeState = SEND_DATA_WRD;
+            printf("tlast Occured.\n");
+          }
+          printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
+        } else {
           break;
         }
-        if(send_total_cnt >= (expected_send_count - 1))
-        {// to be sure...
-          current_read_word.tlast = 1;
-        }
-        //TODO: ? use "blocking" version!! better matches to MPI_Wrapper...
-        sFifoDataTX.write(current_read_word);
-        cnt++;
-        send_total_cnt++;
-        if(current_read_word.tlast == 1)
-        {
-          tlast_occured_TX = true;
-          fsmMpeState = SEND_DATA_WRD;
-          printf("tlast Occured.\n");
-          printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
-          //fsmMpeState = SEND_DATA_WRD;
-        }
-        enqueueCnt++;
       }
-      //enqueueCnt += cnt;
-      //printf("cnt: %d\n", cnt);
-
       break;
     case SEND_DATA_WRD:
       //wait for dequeue fsm
@@ -1225,22 +1275,93 @@ void mpe_main(
       break;
     
     case DEQ_WRITE:
-      printf("enqueueCnt: %d\n", enqueueCnt);
+      //printf("enqueueCnt: %d\n", enqueueCnt);
       word_tlast_occured = false;
-      if( !soTcp_data.full() && !sFifoDataTX.empty() && (enqueueCnt >= 2 || tlast_occured_TX))
+      if( !soTcp_data.full() && !sFifoDataTX.empty() //&& (enqueueCnt >= 2 || tlast_occured_TX))
+          && !soTcp_meta.full() )
       {
         NetworkWord word = NetworkWord();
-        convertAxisToNtsWidth(sFifoDataTX, word);
-        printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        soTcp_data.write(word);
-        enqueueCnt -= 2;
+        //convertAxisToNtsWidth(sFifoDataTX, word);
+        word.tdata = 0x0;
+        word.tlast = 0x0;
+        word.tkeep = 0x0;
 
-        //split to packet sizes is done by UOE/TOE
+        Axis<32> tmpl1 = Axis<32>();
+        Axis<32> tmpl2 = Axis<32>();
+        bool only_one_word_read = false;
+        if(!sFifo_underflow_TX.empty())
+        {
+          //first word
+          tmpl1 = sFifo_underflow_TX.read();
+          //second word
+          if(!sFifoDataTX.read_nb(tmpl2))
+          {
+            if(tlast_occured_TX)
+            {
+              only_one_word_read = true;
+            } else {
+              sFifo_underflow_TX.write(tmpl1);
+              break;
+            }
+          }
+        } else {
+          //first word
+          if(!sFifoDataTX.read_nb(tmpl1))
+          {
+            break;
+          }
+          //second word
+          if(!sFifoDataTX.read_nb(tmpl2))
+          {
+            if(tlast_occured_TX)
+            {
+              only_one_word_read = true;
+            } else {
+              sFifo_underflow_TX.write(tmpl1);
+              break;
+            }
+          }
+        }
+        //combine to NetworkWord
+        word.tdata = tmpl1.tdata;
+        word.tkeep = 0xF; //TODO: smaller than 4 byte data types?
+        word.tlast = tmpl1.tlast;
+        if(!only_one_word_read)
+        {
+          word.tdata |= ((ap_uint<64>) tmpl2.tdata) << 32;
+          word.tkeep |= ((ap_uint<8>) 0x0F) << 4;
+          if(word.tlast == 0)
+          {
+            word.tlast = tmpl2.tlast;
+          }
+        } else {
+          //just to be sure..
+          word.tlast = 1;
+        }
+        //check before we split in parts
         if(word.tlast == 1)
         {
           printf("SEND_DATA finished writing.\n");
           word_tlast_occured = true;
         }
+
+        if(current_packet_line_cnt >= ZRLMPI_MAX_MESSAGE_SIZE_LINES)
+        {//last write was last one
+          NetworkMeta metaDst = NetworkMeta(current_send_dst_id, ZRLMPI_DEFAULT_PORT, *own_rank, ZRLMPI_DEFAULT_PORT, 0);
+          soTcp_meta.write(NetworkMetaStream(metaDst));
+          current_packet_line_cnt = 0;
+          printf("started new DATA part packet\n");
+        }
+
+        if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
+        {//last one in this packet
+          word.tlast = 1;
+        }
+
+        printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+        soTcp_data.write(word);
+        current_packet_line_cnt++;
+        //enqueueCnt -= 2;
       }
       
       if(word_tlast_occured)

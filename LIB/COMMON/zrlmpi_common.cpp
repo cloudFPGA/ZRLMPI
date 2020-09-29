@@ -23,7 +23,21 @@ UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
   tmp |= ((UINT32) buffer[lsb + 2]) << 16; 
   tmp |= ((UINT32) buffer[lsb + 3]) << 24; 
 
-  //printf("LSB: %#1x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
+#ifndef __SYNTHESIS__
+#ifdef DEBUG2
+  printf("LSB: %#02x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
+  printf("\tbuffer dump: \n");
+  for(int i = 0; i < 32/8; i++)
+  {
+    printf("\t\t");
+    for(int j = 0; j<8; j++)
+    {
+      printf("%02x", (uint8_t) buffer[lsb - 8 + i*8+j]);
+    }
+    printf("\n");
+  }
+#endif
+#endif
 
   return tmp;
 }
@@ -54,7 +68,9 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x96)
     {
+#ifdef DEBUG
       printf("no start seuquence found\n");
+#endif
       //return -1;
       ret = -1;
       break;
@@ -65,7 +81,9 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x00)
     {
+#ifdef DEBUG
       printf("empty bytes are not empty\n");
+#endif
       //return -2;
       ret = -2;
       break;
@@ -76,7 +94,9 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x96)
     {
+#ifdef DEBUG
       printf("no end seuquence found\n");
+#endif
       //return -3;
       ret = -3;
       break;
@@ -86,6 +106,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   if(ret != 0)
   {
 #ifndef __SYNTHESIS__
+#ifdef DEBUG2
     printf("\tbuffer dump: \n");
     for(int i = 0; i < 32/8; i++)
     {
@@ -96,6 +117,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
       }
       printf("\n");
     }
+#endif
 #endif
     return ret;
   }
