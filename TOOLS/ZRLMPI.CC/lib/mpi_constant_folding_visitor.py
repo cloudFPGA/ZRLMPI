@@ -157,6 +157,8 @@ class MpiConstantFoldingVisitor(object):
         return
 
     def visit_Assignment(self, n):
+        # TODO: check if variable on the left ist part of "variables that are used as consants"
+        # and only those should be part of constant cache and new list
         if type(n.lvalue) is not c_ast.ID:
             self.visit(n.lvalue)
         if type(n.rvalue) is not c_ast.ID:
@@ -249,6 +251,7 @@ class MpiConstantFoldingVisitor(object):
         # for i in n.decls:
         #    self.visit(i)
         # DeclLists are part of FOR etc...so we better do nothing
+        # TODO: remove explicit function if variables are marked as constants?
         return
 
     def visit_ArrayDecl(self, n):
@@ -497,6 +500,7 @@ class MpiConstantFoldingVisitor(object):
         # we better NOT visit n.init and n.next
         self.visit(n.cond)
         self.visit(n.stmt)
+        # TODO: visit n.next if variables are marked as constants
         return
 
     # def visit_While(self, n):
