@@ -17,6 +17,7 @@
 }*/
 UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
 {
+#pragma HLS INLINE
   UINT32 tmp = 0;
   tmp  = ((UINT32) buffer[lsb + 0]); 
   tmp |= ((UINT32) buffer[lsb + 1]) << 8; 
@@ -52,6 +53,7 @@ UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
 
 void integerToBigEndian(UINT32 n, UINT8 *bytes)
 {
+#pragma HLS INLINE
   bytes[3] = (n >> 24) & 0xFF;
   bytes[2] = (n >> 16) & 0xFF;
   bytes[1] = (n >> 8) & 0xFF;
@@ -62,6 +64,7 @@ void integerToBigEndian(UINT32 n, UINT8 *bytes)
 
 int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
 {
+#pragma HLS INLINE
   int ret = 0;
   //check validity
   for(int i = 0; i< 4; i++)
@@ -138,6 +141,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
 
 void headerToBytes(MPI_Header header, UINT8 bytes[MPIF_HEADER_LENGTH])
 {
+#pragma HLS INLINE
   for(int i = 0; i< 4; i++)
   {
     bytes[i] = 0x96;
