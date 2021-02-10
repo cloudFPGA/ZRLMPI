@@ -138,12 +138,16 @@ uint16_t get_next_cache_line(
     ap_uint<256> &next_cache_line
     )
 {
-  //#pragma HLS inline off
+#pragma HLS inline
 
   uint16_t ret = INVALID_CACHE_LINE_NUMBER;
-  for(uint16_t i = start_value; i < HEADER_CACHE_LENGTH; i++)
+  for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
   {
-    //#pragma HLS unroll
+	    //#pragma HLS unroll
+	 if(i < start_value)
+	 {
+		 continue;
+	 }
     if(header_cache_valid[i])
     {
       next_cache_line = header_cache[i];
@@ -161,6 +165,7 @@ void add_cache_line(
     ap_uint<256> &new_cache_line
     )
 {
+#pragma HLS inline
   for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
   {
     //#pragma HLS unroll
@@ -180,6 +185,7 @@ void delete_cache_line(
     uint16_t index_to_delete
     )
 {
+#pragma HLS inline
   if(index_to_delete < HEADER_CACHE_LENGTH)
   {
     header_cache_valid[index_to_delete] = false;
