@@ -104,7 +104,7 @@ optional:
 |        0 --  3    | `0x96 0x96 0x96 0x96`     | 
 |        4 --  7    |  Destination rank |
 |        8 -- 11    |  Source rank | 
-|       12 -- 15    |  Size *in Bytes* (excluding header) |
+|       12 -- 15    |  Size *in Words* (excluding header) |
 |          16       | type of call (see `mpi_call`) |
 |          17       | type of packet (see `packet_type`) |
 |          18       | (optional) Tag | 
@@ -113,5 +113,5 @@ optional:
   
 **Length: 32 Bytes**
 
-
+The size is given in 32-bit *words*, since only `MPI_INT` and `MPI_FLOAT` are supported as data type (yet).
 

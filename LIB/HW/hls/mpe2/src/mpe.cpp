@@ -293,10 +293,11 @@ void pDeqRecv(
         tmp.tdata = new_data;
         tmp.tkeep = 0xFFF;
 
+        recv_total_cnt++; //we are counting LINES!
         //if(tmp.tlast == 1)
-        if(recv_total_cnt >= (expected_recv_count - 1))
+        if(recv_total_cnt >= (expected_recv_count))
         {
-          printf("[MPI_Recv] expected byte count reached.\n");
+          printf("[pDeqRecv] [MPI_Recv] expected byte count reached.\n");
           //word_tlast_occured = true;
           tmp.tlast = 1;
           recvDeqFsm = DEQ_DONE;
@@ -304,10 +305,9 @@ void pDeqRecv(
         	//in ALL other cases
           tmp.tlast = 0;
         }
-        printf("toAPP: tkeep %#04x, tdata %#08x, tlast %d\n",(int) tmp.tkeep, (uint32_t) tmp.tdata, (int) tmp.tlast);
+        printf("[pDeqRecv] toAPP: tkeep %#04x, tdata %#0llx, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
         soMPI_data.write(tmp);
         //cnt++;
-        recv_total_cnt++; //we are counting LINES!
         //}
   }
   //read_timeout_cnt++;
@@ -359,7 +359,7 @@ void pDeqSend(
   static uint32_t current_packet_line_cnt = 0x0;
   static NodeId current_send_dst_id = 0xFFF;
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
-  bool word_tlast_occured = false;
+  //bool word_tlast_occured = false;
 
 
   switch(sendDeqFsm)
@@ -376,7 +376,7 @@ void pDeqSend(
 
     case DEQ_WRITE:
       //printf("enqueueCnt: %d\n", enqueueCnt);
-      word_tlast_occured = false;
+      //word_tlast_occured = false;
       if( !soTcp_data.full() && !sFifoDataTX.empty() //&& (enqueueCnt >= 2 || tlast_occured_TX))
         && !soTcp_meta.full() )
         {
@@ -442,8 +442,9 @@ void pDeqSend(
           //check before we split in parts
           if(word.tlast == 1)
           {
-            printf("SEND_DATA finished writing.\n");
-            word_tlast_occured = true;
+            printf("[pDeqSend] SEND_DATA finished writing.\n");
+            //word_tlast_occured = true;
+            sendDeqFsm = DEQ_DONE;
           }
 
           //if(current_packet_line_cnt >= ZRLMPI_MAX_MESSAGE_SIZE_LINES)
@@ -451,7 +452,7 @@ void pDeqSend(
           {//last write was last one or first one
             NetworkMeta metaDst = NetworkMeta(current_send_dst_id, ZRLMPI_DEFAULT_PORT, *own_rank, ZRLMPI_DEFAULT_PORT, 0);
             soTcp_meta.write(NetworkMetaStream(metaDst));
-            printf("started new DATA part packet\n");
+            printf("[pDeqSend] started new DATA part packet\n");
           }
 
           if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
@@ -462,15 +463,15 @@ void pDeqSend(
             current_packet_line_cnt++;
           }
 
-          printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+          printf("[pDeqSend] tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
           soTcp_data.write(word);
           //enqueueCnt -= 2;
         }
-
-      if(word_tlast_occured)
-      {
-        sendDeqFsm = DEQ_DONE;
-      }
+//
+//      if(word_tlast_occured)
+//      {
+//        sendDeqFsm = DEQ_DONE;
+//      }
       break;
 
     case DEQ_DONE:
@@ -504,7 +505,7 @@ void pMpeGlobal(
 #pragma HLS INLINE off
   //  #pragma HLS pipeline II=1 //TODO
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
-  mpeState fsmMpeState = IDLE;
+  static mpeState fsmMpeState = IDLE;
 
 #pragma HLS reset variable=fsmMpeState
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
@@ -629,7 +630,7 @@ void pMpeGlobal(
           tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
         }
         //printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
-        printf("tdata64: %#016x\n",(uint64_t) tmp.tdata);
+        printf("tdata64: %#0llx\n",(uint64_t) tmp.tdata);
         tmp.tlast = 0;
         //          if ( i == (MPIF_HEADER_LENGTH/4) - 1)
         //          {
@@ -668,7 +669,7 @@ void pMpeGlobal(
           //tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << (3-j)*8;
           tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
         }
-        printf("tdata64: %#016x\n",(uint64_t) tmp.tdata);
+        printf("tdata64: %#0llx\n",(uint64_t) tmp.tdata);
         tmp.tlast = 0;
         if ( header_i_cnt >= (MPIF_HEADER_LENGTH/8) - 1)
         {
@@ -879,8 +880,8 @@ void pMpeGlobal(
 
         sDeqSendDestId.write((NodeId) header.dst_rank);
 
-        expected_send_count = header.size;
-        printf("[MPI_send] expect %d bytes.\n",expected_send_count);
+        expected_send_count = header.size; //in WORDS
+        printf("[MPI_send] expect %d words.\n",expected_send_count);
         send_total_cnt = 0;
 
         //enqueueCnt = MPIF_HEADER_LENGTH/4;
@@ -909,6 +910,7 @@ void pMpeGlobal(
         }
 
       }
+      break;
     case SEND_DATA_RD:
       //enqueue 
       //cnt = 0;
@@ -985,26 +987,27 @@ void pMpeGlobal(
       if(!sFifoDataTX.full() && !siMPI_data.empty())
       {
         current_read_word = siMPI_data.read();
-        if(send_total_cnt >= (expected_send_count - 2))
+        //send_total_cnt += 8; //we read EIGHT BYTES per line
+        send_total_cnt += 2; //two WORDS ber line
+        if(send_total_cnt >= (expected_send_count))
         {// to be sure...
           current_read_word.tlast = 1;
         }
-        send_total_cnt += 2; //we read TWO words per line
 
         if(current_read_word.tlast == 1)
         {
           fsmMpeState = SEND_DATA_WRD;
-          printf("tlast Occured.\n");
+          printf("\t[pMpeGlobal] tlast Occured.\n");
         }
-        printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
-
+        sFifoDataTX.write(current_read_word);
+        printf("\t[pMpeGlobal] MPI read data: %#08x, tkeep: %d, tlast %d\n", (unsigned long long) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
       }
       break;
     case SEND_DATA_WRD:
       //wait for dequeue fsm
-      if(!sDeqRecvDone.empty())
+      if(!sDeqSendDone.empty())
       {
-        if(sDeqRecvDone.read())
+        if(sDeqSendDone.read())
         {
           checked_cache = false;
           fsmMpeState = WAIT4ACK_CACHE;
@@ -1275,7 +1278,7 @@ void pMpeGlobal(
     case ASSEMBLE_CLEAR:
       if(//!soTcp_meta.full() &&
           !sFifoDataTX.full()
-          && sDeqSendDestId.full()
+          && !sDeqSendDestId.full()
         )
       {
         header = MPI_Header(); 
@@ -1480,10 +1483,13 @@ void pMpeGlobal(
 				  {
 					//valid header && valid source
 					//expected_recv_count = header.size;
-					  sExpectedLength.write(header.size);
+					  //uint16_t expected_length_in_lines = (header.size+7)/8;
+					  uint16_t expected_length_in_lines = (header.size+1)/2;
+					  printf("[pMpeGlobal] expect %d LINES of data.\n", expected_length_in_lines);
+					  sExpectedLength.write(expected_length_in_lines);
 
-					  exp_recv_count_enqueue = header.size;
-					printf("[MPI_Recv] expect %d bytes.\n",exp_recv_count_enqueue);
+					  exp_recv_count_enqueue = header.size; //in WORDS!!
+					printf("[MPI_Recv] expect %d words.\n",exp_recv_count_enqueue);
 					//recv_total_cnt = 0;
 					enqueue_recv_total_cnt = 0;
 					current_data_src_node_id = metaSrc.src_rank;
@@ -1524,7 +1530,7 @@ void pMpeGlobal(
         )
       {
         NetworkWord word = siTcp_data.read();
-        printf("READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+        printf("\t[pMpeGlobal] READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         //convertAxisToMpiWidth(word, sFifoDataRX);
 //        for(int i = 0; i < 2; i++)
 //        {
@@ -1538,7 +1544,8 @@ void pMpeGlobal(
 //          //default
 //          ap_uint<32> current_word = (ap_uint<32>) (word.tdata >> i*32);
         	sFifoDataRX.write(word.tdata);
-          enqueue_recv_total_cnt++;
+            //enqueue_recv_total_cnt++;
+        	enqueue_recv_total_cnt += 2; //two WORDS per line
 //          if(!sFifoDataRX.write_nb(current_word))
 //          {
 //            rx_overflow_fifo.write(current_word);
@@ -1550,6 +1557,7 @@ void pMpeGlobal(
             {//we expect more
               fsmMpeState = RECV_DATA_START;
               expect_more_data = true;
+              printf("\t[pMpeGlobal] we expect more: received: %d, expected %d;", enqueue_recv_total_cnt, exp_recv_count_enqueue);
             } else {
               fsmMpeState = RECV_DATA_WRD;
             }

@@ -93,20 +93,21 @@ int main(){
 
   MPI_Interface info = MPI_Interface();
   info.mpi_call = MPI_SEND_INT;
-  info.count = 5;
+  info.count = 5; //in WORDS!
   info.rank = 2;
 
   MPIif_in.write(info);
 
-  char* msg = "HELLO WORLD! 1234\0\0\0\0";
-  //17 payload bytes -> 5 words
+  char* msg = "HELLO WORLD! 1234\0\0\0\0\0\0\0\0\0\0\0";
+  //17 payload bytes -> 5 words --> 3 lines
 
   for(int i = 0; i< (17+7)/8; i++)
   {
     tmp64_2.tdata = 0x0;
     for(int k = 0; k<8; k++)
     {
-      tmp64_2.tdata |= ((ap_uint<64>) msg[i*8+k]) << (3-k)*8;
+      tmp64_2.tdata |= ((ap_uint<64>) msg[i*8+k]) << (7-k)*8;
+      //printf("tdata construction: %#0llx\n", (uint64_t) tmp64_2.tdata);
     }
     if(i == (17+7/8)-1)
     {
@@ -114,7 +115,8 @@ int main(){
     } else {
       tmp64_2.tlast = 0;
     }
-    printf("TB: write MPI data: %#08x\n", (int) tmp64_2.tdata);
+    tmp64_2.tkeep = 0xFF;
+    printf("TB: write MPI data: %#0llx\n", (uint64_t) tmp64_2.tdata);
     MPI_data_in.write(tmp64_2);
 
     stepDut();
@@ -123,10 +125,7 @@ int main(){
   ap_uint<8> bytes[MPIF_HEADER_LENGTH];
   MPI_Header header = MPI_Header(); 
 
-  stepDut();
-  stepDut();
-  stepDut();
-  stepDut();
+
   stepDut();
   //SEND_REQUEST expected 
   NetworkMeta out_meta = soTcp_meta.read().tdata;
@@ -401,32 +400,32 @@ int main(){
   //assert(info_out.count == info.count);
   //assert(info_out.rank == 1);
 
-  for(int i = 0; i< (17+3)/4; i++)
+  for(int i = 0; i< (17+7)/8; i++)
   {
+	    stepDut();
+
     //tmp8 = MPI_data_out.read();
     if(!MPI_data_out.read_nb(tmp64_2))
     {
       break;
     }
-    
-    printf("MPI read data: %#08x, i: %d, tlast %d\n", (int) tmp64_2.tdata, i, (int) tmp64_2.tlast);
 
-    stepDut();
+    printf("MPI read data: %#0llx, i: %d, tlast %d\n", (unsigned long long) tmp64_2.tdata, i, (int) tmp64_2.tlast);
 
     // tlast => i=11 
     //assert( !(tmp8.tlast == 1) || i==11);
-    if(i == ((17+3)/4)-1)
+    if(i == ((17+7)/8)-1)
     {
       assert(tmp64_2.tlast == 1);
     }
     //assert(((int) tmp8.tdata) == msg[i]);
-    for(int k = 0; k<4; k++)
+    for(int k = 0; k<8; k++)
     {
-      uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> (3-k)*8);
+      uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> (7-k)*8);
       //uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> k*8);
-      //printf("cur byte: %02x\n", cur_byte);
-      //printf("should be: %02x\n", (uint8_t) msg[i*4+k]);
-      assert(cur_byte == msg[i*4+k]);
+      printf("cur byte: %02x\n", cur_byte);
+      printf("should be: %02x\n", (uint8_t) msg[i*4+k]);
+      assert(cur_byte == msg[i*8+k]);
     }
   }
   
@@ -461,7 +460,16 @@ int main(){
 
   printf("received ACK...\n");
   
-
+  if(!MPI_data_in.empty())
+  {
+	  printf("MPI_data_in not empty, this is not expected!\n");
+	  succeded = false;
+  }
+  if(!MPI_data_out.empty())
+  {
+	  printf("MPI_data_out not empty, this is not expected!!\n");
+	  succeded = false;
+  }
 
   printf("DONE\n");
   return succeded? 0 : -1;
