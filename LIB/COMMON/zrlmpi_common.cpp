@@ -26,7 +26,7 @@ UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
 
 #ifndef __SYNTHESIS__
 #ifdef DEBUG2
-  printf("LSB: %#02x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
+  printf("LSB: %#02x, return: %#04x\n",(uint8_t) buffer[lsb + 3], (uint32_t) tmp);
   printf("\tbuffer dump: \n");
   for(int i = 0; i < 32/8; i++)
   {

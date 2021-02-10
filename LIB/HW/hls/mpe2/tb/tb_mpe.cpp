@@ -18,13 +18,13 @@ stream<NetworkWord> soTcp_data;
 stream<NetworkMetaStream> soTcp_meta;
 
 ap_uint<32> own_rank = 0;
-ap_uint<32> po_MMIO= 0;
+//ap_uint<32> po_MMIO= 0;
 ap_uint<32> poMPE_rx_ports = 0;
 
 stream<MPI_Interface> MPIif_in;
 //stream<MPI_Interface> MPIif_out;
-stream<Axis<32> > MPI_data_in;
-stream<Axis<32> > MPI_data_out, tmp32Stream;
+stream<Axis<64> > MPI_data_in;
+stream<Axis<64> > MPI_data_out;//, tmp64Stream;
 
 unsigned int         simCnt;
 char current_phase[101];
@@ -43,7 +43,7 @@ void stepDut() {
       siTcp_data, siTcp_meta,
       soTcp_data, soTcp_meta,
       &poMPE_rx_ports, &own_rank,
-      &po_MMIO,
+     // &po_MMIO,
       MPIif_in,
       MPI_data_in, MPI_data_out
       );
@@ -85,7 +85,7 @@ int main(){
 
   NetworkWord tmp64 = NetworkWord();
   //Axis<8>  tmp8 = Axis<8>();
-  Axis<32>  tmp32 = Axis<32>();
+  Axis<64>  tmp64_2 = Axis<64>();
   own_rank = 1;
 
   //MPI_send()
@@ -101,21 +101,21 @@ int main(){
   char* msg = "HELLO WORLD! 1234\0\0\0\0";
   //17 payload bytes -> 5 words
 
-  for(int i = 0; i< (17+3)/4; i++)
+  for(int i = 0; i< (17+7)/8; i++)
   {
-    tmp32.tdata = 0x0;
-    for(int k = 0; k<4; k++)
+    tmp64_2.tdata = 0x0;
+    for(int k = 0; k<8; k++)
     {
-      tmp32.tdata |= ((ap_uint<32>) msg[i*4+k]) << (3-k)*8;
+      tmp64_2.tdata |= ((ap_uint<64>) msg[i*8+k]) << (3-k)*8;
     }
-    if(i == (17+3/4)-1)
+    if(i == (17+7/8)-1)
     {
-      tmp32.tlast = 1; 
+      tmp64_2.tlast = 1;
     } else {
-      tmp32.tlast = 0;
+      tmp64_2.tlast = 0;
     }
-    printf("TB: write MPI data: %#08x\n", (int) tmp32.tdata);
-    MPI_data_in.write(tmp32);
+    printf("TB: write MPI data: %#08x\n", (int) tmp64_2.tdata);
+    MPI_data_in.write(tmp64_2);
 
     stepDut();
   }
@@ -123,6 +123,10 @@ int main(){
   ap_uint<8> bytes[MPIF_HEADER_LENGTH];
   MPI_Header header = MPI_Header(); 
 
+  stepDut();
+  stepDut();
+  stepDut();
+  stepDut();
   stepDut();
   //SEND_REQUEST expected 
   NetworkMeta out_meta = soTcp_meta.read().tdata;
@@ -162,31 +166,33 @@ int main(){
   header.call = MPI_SEND_INT;
   headerToBytes(header, bytes);
   //write header
-  for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
+  for(int i = 0; i < MPIF_HEADER_LENGTH/8; i++)
   {
     //Axis<32> tmp = Axis<32>(bytes[i]);
-    Axis<32> tmp = Axis<32>();
+    NetworkWord tmp = NetworkWord();
     tmp.tdata = 0x0;
-    tmp.tkeep = 0x0F;
-    for(int j = 0; j<4; j++)
+    tmp.tkeep = 0xFF;
+    for(int j = 0; j<8; j++)
     {
       //tmp.tdata |= (ap_uint<32>) (bytes[i*4+j] << (3-j)*8 );
-      tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+      tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
     }
-    printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
+   // printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
     tmp.tlast = 0;
     if ( i == MPIF_HEADER_LENGTH - 1)
     {
       tmp.tlast = 1;
     }
-    tmp32Stream.write(tmp);
+    //tmp64Stream.write(tmp);
+    siTcp_data.write(tmp);
+    printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
   }
-  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
-  {
-      convertAxisToNtsWidth(tmp32Stream, tmp64);
-      siTcp_data.write(tmp64);
-      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
-  }
+//  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
+//  {
+//      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
+//      siTcp_data.write(tmp64);
+//      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
+//  }
 
   //meta does not fit header, but it is enough to test the cache
   NetworkMeta meta_1 = NetworkMeta(1,2718,2,2718,0);
@@ -210,29 +216,30 @@ int main(){
   header.call = MPI_RECV_INT;
   headerToBytes(header, bytes);
   //write header
-  for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
+  for(int i = 0; i < MPIF_HEADER_LENGTH/8; i++)
   {
     //Axis<8> tmp = Axis<8>(bytes[i]);
-    Axis<32> tmp = Axis<32>();
+    NetworkWord tmp = NetworkWord();
     tmp.tdata = 0x0;
-    tmp.tkeep = 0xF;
-    for(int j = 0; j<4; j++)
+    tmp.tkeep = 0xFF;
+    for(int j = 0; j<8; j++)
     {
-      tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+      tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
     }
     tmp.tlast = 0;
     if ( i == MPIF_HEADER_LENGTH - 1)
     {
       tmp.tlast = 1;
     }
-    tmp32Stream.write(tmp);
+    siTcp_data.write(tmp);
+    printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
   }
-  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
-  {
-      convertAxisToNtsWidth(tmp32Stream, tmp64);
-      siTcp_data.write(tmp64);
-      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
-  }
+//  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
+//  {
+//      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
+//      siTcp_data.write(tmp64);
+//      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
+//  }
 
   meta_1 = NetworkMeta(1,2718,2,2718,0);
   siTcp_meta.write(NetworkMetaStream(meta_1));
@@ -269,29 +276,30 @@ int main(){
   header.call = MPI_RECV_INT;
   headerToBytes(header, bytes);
   //write header
-  for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
-  {
-    //Axis<8> tmp = Axis<8>(bytes[i]);
-    Axis<32> tmp = Axis<32>();
-    tmp.tdata = 0x0;
-    tmp.tkeep = 0xF;
-    for(int j = 0; j<4; j++)
+  for(int i = 0; i < MPIF_HEADER_LENGTH/8; i++)
     {
-      tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << j*8;
+      //Axis<8> tmp = Axis<8>(bytes[i]);
+      NetworkWord tmp = NetworkWord();
+      tmp.tdata = 0x0;
+      tmp.tkeep = 0xFF;
+      for(int j = 0; j<8; j++)
+      {
+        tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
+      }
+      tmp.tlast = 0;
+      if ( i == MPIF_HEADER_LENGTH - 1)
+      {
+        tmp.tlast = 1;
+      }
+      siTcp_data.write(tmp);
+      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
     }
-    tmp.tlast = 0;
-    if ( i == MPIF_HEADER_LENGTH - 1)
-    {
-      tmp.tlast = 1;
-    }
-    tmp32Stream.write(tmp);
-  }
-  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
-  {
-      convertAxisToNtsWidth(tmp32Stream, tmp64);
-      siTcp_data.write(tmp64);
-      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
-  }
+//  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
+//  {
+//      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
+//      siTcp_data.write(tmp64);
+//      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
+//  }
 
 
   siTcp_meta.write(NetworkMetaStream(meta_1));
@@ -396,12 +404,12 @@ int main(){
   for(int i = 0; i< (17+3)/4; i++)
   {
     //tmp8 = MPI_data_out.read();
-    if(!MPI_data_out.read_nb(tmp32))
+    if(!MPI_data_out.read_nb(tmp64_2))
     {
       break;
     }
     
-    printf("MPI read data: %#08x, i: %d, tlast %d\n", (int) tmp32.tdata, i, (int) tmp32.tlast);
+    printf("MPI read data: %#08x, i: %d, tlast %d\n", (int) tmp64_2.tdata, i, (int) tmp64_2.tlast);
 
     stepDut();
 
@@ -409,13 +417,13 @@ int main(){
     //assert( !(tmp8.tlast == 1) || i==11);
     if(i == ((17+3)/4)-1)
     {
-      assert(tmp32.tlast == 1);
+      assert(tmp64_2.tlast == 1);
     }
     //assert(((int) tmp8.tdata) == msg[i]);
     for(int k = 0; k<4; k++)
     {
-      uint8_t cur_byte = (uint8_t) (tmp32.tdata >> (3-k)*8);
-      //uint8_t cur_byte = (uint8_t) (tmp32.tdata >> k*8);
+      uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> (3-k)*8);
+      //uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> k*8);
       //printf("cur byte: %02x\n", cur_byte);
       //printf("should be: %02x\n", (uint8_t) msg[i*4+k]);
       assert(cur_byte == msg[i*4+k]);

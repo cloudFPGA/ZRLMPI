@@ -83,9 +83,8 @@ enum mpeState {IDLE = 0, START_SEND, START_SEND_1, SEND_REQ,
 	           SEND_DATA_START, SEND_DATA_START_1, SEND_DATA_RD, SEND_DATA_WRD,
 			   WAIT4ACK_CACHE, WAIT4ACK, WAIT4ACK_1,
 	           START_RECV, WAIT4REQ_CACHE, WAIT4REQ, WAIT4REQ_1, ASSEMBLE_CLEAR,
-			   ASSEMBLE_CLEAR_1, RECV_DATA_START,
-			   RECV_DATA_RD, RECV_DATA_WRD, RECV_DATA_DONE, RECV_DATA_ERROR,
-			   SEND_ACK};
+			   ASSEMBLE_CLEAR_1, SEND_CLEAR, RECV_DATA_START, RECV_DATA_START_1,
+			   RECV_DATA_RD, RECV_DATA_WRD, RECV_DATA_DONE, SEND_ACK_0, SEND_ACK};
 
 
 //#define MPI_INT 0
@@ -105,9 +104,9 @@ enum deqState {DEQ_IDLE = 0, DEQ_WRITE, DEQ_DONE};
 #define HEADER_CACHE_LENTH 64
 
 //void convertAxisToNtsWidth(stream<Axis<8> > &small, NetworkWord &out);
-void convertAxisToNtsWidth(stream<Axis<32> > &small, NetworkWord &out);
+//void convertAxisToNtsWidth(stream<Axis<32> > &small, NetworkWord &out);
 //void convertAxisToMpiWidth(NetworkWord big, stream<Axis<8> > &out);
-void convertAxisToMpiWidth(NetworkWord big, stream<Axis<32> > &out);
+//void convertAxisToMpiWidth(NetworkWord big, stream<Axis<32> > &out);
 
 //int bytesToHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header);
 //void headerToBytes(MPI_Header header, ap_uint<8> bytes[MPIF_HEADER_LENGTH]);
@@ -132,56 +131,4 @@ void mpe_main(
 
 
 #endif
-
-if (false )
-{
-
-stream<Axis<64> > sFifoDataTX("sFifoDataTX");
-//stream<Axis<64> > sFifo_underflow_TX("sFifo_underflow_TX");
-//stream<Axis<64> > tx_overflow_fifo("tx_overflow_fifo");
-//static stream<IPMeta> sFifoIPdstTX("sFifoIPdstTX");
-//int enqueueCnt = 0;
-
-uint32_t exp_recv_count_enqueue = 0;
-uint32_t enqueue_recv_total_cnt = 0;
-
-
-
-//receiveState fsmReceiveState = READ_STANDBY;
-//stream<Axis<8> > sFifoDataRX("sFifoDataRX");
-stream<uint32_t> sFifoDataRX("sFifoDataRX");
-stream<uint32_t> rx_overflow_fifo("rx_overflow_fifo");
-
-//packetType currentPacketType = ERROR;
-
-//stream<ap_uint<MPIF_HEADER_LENGTH*8> > sFifoHeaderCache("sFifoHeaderCache");
-
-
-
-
-//#pragma HLS reset variable=currentPacketType
-#pragma HLS reset variable=currentDataType
-#pragma HLS reset variable=handshakeLinesCnt
-
-#pragma HLS reset variable=expected_recv_count
-#pragma HLS reset variable=recv_total_cnt
-#pragma HLS reset variable=expected_send_count
-#pragma HLS reset variable=send_total_cnt
-#pragma HLS reset variable=checked_cache
-#pragma HLS reset variable=expected_src_rank
-#pragma HLS reset variable=current_cache_data_cnt
-
-#pragma HLS reset variable=exp_recv_count_enqueue
-#pragma HLS reset variable=enqueue_recv_total_cnt
-#pragma HLS reset variable=expect_more_data
-#pragma HLS reset variable=current_data_src_node_id
-#pragma HLS reset variable=current_data_src_port
-#pragma HLS reset variable=current_data_dst_port
-#pragma HLS reset variable=current_send_dst_id
-#pragma HLS reset variable=current_packet_line_cnt
-
-
-}
-
-
 
