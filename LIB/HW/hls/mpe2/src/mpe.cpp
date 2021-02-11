@@ -143,7 +143,7 @@ uint16_t get_next_cache_line(
   uint16_t ret = INVALID_CACHE_LINE_NUMBER;
   for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
   {
-	    //#pragma HLS unroll
+	    #pragma HLS unroll
 	 if(i < start_value)
 	 {
 		 continue;
@@ -168,7 +168,7 @@ void add_cache_line(
 #pragma HLS inline
   for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
   {
-    //#pragma HLS unroll
+    #pragma HLS unroll
     if(!header_cache_valid[i])
     {
       header_cache[i] = new_cache_line;
