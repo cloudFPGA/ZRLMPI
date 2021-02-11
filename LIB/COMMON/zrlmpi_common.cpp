@@ -71,7 +71,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x96)
     {
-#ifdef DEBUG
+#ifdef DEBUG2
       printf("no start seuquence found\n");
 #endif
       //return -1;
@@ -84,7 +84,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x00)
     {
-#ifdef DEBUG
+#ifdef DEBUG2
       printf("empty bytes are not empty\n");
 #endif
       //return -2;
@@ -97,7 +97,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
   {
     if(bytes[i] != 0x96)
     {
-#ifdef DEBUG
+#ifdef DEBUG2
       printf("no end seuquence found\n");
 #endif
       //return -3;
