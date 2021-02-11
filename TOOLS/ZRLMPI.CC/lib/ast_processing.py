@@ -42,6 +42,20 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         total_size += 1
         if e > max_rank:
             max_rank = e
+    if 'config' in cluster_description:
+        if 'optimization' in cluster_description['config']:
+            opt_val = cluster_description['config']['optimization']
+            if opt_val == 0:
+                optimize_scatter_gather = False
+                reuse_interim_buffers = False
+                print("disabled optimizations as configured")
+            else:
+                if opt_val >= 1:
+                    optimize_scatter_gather = True
+                    print("enabled Collective Tree Optimizations")
+                if opt_val >= 3:
+                    reuse_interim_buffers = True
+                    print("enabled buffer reuse")
     # print("Maximum rank in cluster: {}\n".format(max_rank))
     all_ranks = list(range(0, max_rank+1))
     fpga_ranks = cluster_description['nodes']['fpga']
@@ -70,6 +84,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     ast_m_1 = c_ast_orig
     replace_stmt_visitor1.visit(ast_m_1)
     # 3. constant folding
+    # TODO: another visitor that finds "variables that are used as constants"
+    # only those variables should be part of constant folding at their time of assignment
     constant_folding_visitor1 = constant_visitor.MpiConstantFoldingVisitor()
     constant_folding_visitor1.visit(ast_m_1)
     constants_to_replace = constant_folding_visitor1.get_new_objects()
@@ -155,6 +171,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     else:
         c_ast_tmpl = ast_m_3
     # 6. another constant folding
+    # TODO: another visitor that finds "variables that are used as constants"
+    # only those variables should be part of constant folding at their time of assignment
     constant_folding_visitor2 = constant_visitor.MpiConstantFoldingVisitor()
     constant_folding_visitor2.visit(c_ast_tmpl)
     constants_to_replace2 = constant_folding_visitor2.get_new_objects()
