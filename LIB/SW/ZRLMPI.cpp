@@ -73,16 +73,20 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
   uint32_t received_length = 0;
   uint32_t recv_packets_cnt = 0;
   uint32_t expected_length = MPIF_HEADER_LENGTH + payload_length;
+  uint32_t expected_packet_cnt = 0;
   if(expected_length > max_udp_payload_bytes)
   {
 #ifdef DEBUG
     printf("recv with multi packet mode.\n");
 #endif
     multiple_packet_mode = true;
+    expected_packet_cnt = (expected_length+max_udp_payload_bytes-1)/max_udp_payload_bytes;
   }
   if(expType == DATA)
   {
     is_data_packet = true;
+    //no chache
+    checkedCache = true;
   }
 
   uint32_t orig_header_size = 0x0;
@@ -91,7 +95,8 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
   {
 
     //first: look up cache:
-    if(!checkedCache)
+    //but not for data
+    if(!checkedCache && !is_data_packet)
     {
 
       //if(cache_i >= MPI_CLUSTER_SIZE_MAX || cache_num == 0)
@@ -120,11 +125,24 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
       header = MPI_Header();
       if(payload_length > 0)
       {
-        //printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+        //i.e. expecting DATA packet
+#ifdef DEBUG3
+        printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+#endif
         uint8_t *start_address = buffer + received_length;
-        res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
+        //if(multiple_packet_mode)
+        //{
+        //    uint32_t received_until_now = 0;
+        //    uint32_t received_cnt = 0;
+        //    while
+        //	res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
+	//} else {
+        	res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
+        //}
         ret = bytesToHeader(start_address, header);
+#ifdef DEBUG3
         //for debugging
+        printf("[recvfrom] returned %d\n",res);
         //for(int d = 0; d < 32; d++)
         //{
         //  printf(" %#02x", start_address[d]);
@@ -134,6 +152,7 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
         //  }
         //}
         //printf("\n");
+#endif
       } else {
         res = recvfrom(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&src_addr, &slen);
         ret = bytesToHeader(bytes, header);
@@ -181,12 +200,13 @@ nanosleep(&kvm_net, &kvm_net);
       }
       else {
         //valid header
-        received_length += res;
-        recv_packets_cnt++;
+        //received_length += res;
+        //recv_packets_cnt++;
         copyToCache = false;
         orig_header_size = header.size;
 #ifdef DEBUG2
-        printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+        //printf("valid header: received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+        printf("valid header received\n");
 #endif
       }
 
@@ -269,6 +289,11 @@ nanosleep(&kvm_net, &kvm_net);
     }
     if(!copyToCache)
     {//we got what we wanted
+        received_length += res;
+        recv_packets_cnt++;
+#ifdef DEBUG2
+        printf("we've got what we wanted: received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+#endif
       if(!multiple_packet_mode 
           || (received_length >= expected_length)
         )
@@ -684,7 +709,6 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-
   udp_sock = sock;
   uint16_t own_port = MPI_PORT;
   std::vector<std::string> rank_ip_addrs;
@@ -776,6 +800,28 @@ int main(int argc, char **argv)
 #ifdef DEBUG2
   printf("ZRLMPI max payload bytes: %d.\n", max_udp_payload_bytes);
 #endif
+  
+  //increase buffer size
+  int recvBufSize = 0x1000000;
+  int err = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &recvBufSize, sizeof(recvBufSize));
+  
+  if(err != 0)
+  {
+    std::cerr <<" error socket buffer: " << err << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  int real_buffer_size = 0;
+  socklen_t len2 = sizeof(real_buffer_size);
+  err = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &real_buffer_size, &len2);
+#ifdef DEBUG2
+  printf("got %d as buffer size (requested %d)\n",real_buffer_size/2, recvBufSize);
+#endif
+  if(real_buffer_size/2 != recvBufSize)
+  {
+    std::cerr << "set SO_RCVBUF failed! got only: " << real_buffer_size/2 << "; trying to continue..." << std::endl;
+  }
+
 
   //init cache
   for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
