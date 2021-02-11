@@ -54,14 +54,14 @@ def create_new_cluster(number_of_FPGA_nodes, role_image_id, host_address, sw_ran
     print("Creating FPGA cluster...")
     cluster_req = []
     rank0node = {'image_id': __NON_FPGA_IDENTIFIER__,
-                 'node_id': sw_rank,
+                 'node_id': int(sw_rank),
                   'node_ip': host_address}
     cluster_req.append(rank0node)
     size = number_of_FPGA_nodes+1
     for i in range(1, size):
         fpgaNode = {
             'image_id': str(role_image_id),
-            'node_id': i
+            'node_id': int(i)
         }
         cluster_req.append(fpgaNode)
 
