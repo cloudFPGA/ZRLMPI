@@ -101,7 +101,7 @@ enum deqState {DEQ_IDLE = 0, DEQ_WRITE, DEQ_DONE};
 //ap_uint<32> littleEndianToInteger(ap_uint<8> *buffer, int lsb);
 //void integerToLittleEndian(ap_uint<32> n, ap_uint<8> *bytes);
 
-#define HEADER_CACHE_LENGTH 64
+#define HEADER_CACHE_LENGTH 64 //similar to max cluster size
 #define INVALID_CACHE_LINE_NUMBER 0xFEF //must be bigger than 64
 
 
