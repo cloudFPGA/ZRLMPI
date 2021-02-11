@@ -7,93 +7,6 @@ using namespace hls;
 
 
 
-//void convertAxisToNtsWidth(stream<Axis<32> > &small, NetworkWord &out)
-//{
-//#pragma HLS inline
-//
-//  out.tdata = 0;
-//  out.tlast = 0;
-//  out.tkeep = 0;
-//
-//  for(int i = 0; i < 2; i++)
-//    //for(int i = 7; i >=0 ; i--)
-//  {
-//    //#pragma HLS unroll
-//    Axis<32> tmpl = Axis<32>();
-//    //if(!small.empty())
-//    if(small.read_nb(tmpl))
-//    {
-//      // Axis<8> tmp = small.read();
-//      //printf("read from fifo: %#02x\n", (unsigned int) tmp.tdata);
-//      out.tdata |= ((ap_uint<64>) (tmpl.tdata) )<< (i*32);
-//      out.tkeep |= (ap_uint<8>) 0x0F << i*4;
-//      //TODO? NO latch, because last read from small is still last read
-//      if(out.tlast == 0)
-//      {
-//        out.tlast = tmpl.tlast;
-//      }
-//
-//    } else {
-//      printf("\ttried to read empty small stream!\n");
-//      //now, we set tlast just to be sure...TODO?
-//      out.tlast = 1;
-//      break;
-//    }
-//  }
-//
-//}
-//
-//void convertAxisToMpiWidth(NetworkWord big, stream<Axis<32> > &out)
-//{
-//  //#pragma HLS inline
-//
-//  int positionOfTlast = 2;
-//  ap_uint<8> tkeep = big.tkeep;
-//  for(int i = 0; i<2; i++) //no reverse order!
-//  {
-//    //#pragma HLS unroll
-//    //tkeep = (tkeep >> 1);
-//    tkeep = (tkeep >> 4);
-//    //printf("\tshifted tkeep %#02x\n",(uint8_t) tkeep);
-//    //if((tkeep & 0x01) == 0)
-//    if((tkeep & 0x0F) == 0)
-//    {
-//      positionOfTlast = i;
-//      break;
-//    }
-//  }
-//
-//  //for(int i = 7; i >=0 ; i--)
-//  for(int i = 0; i < 2; i++)
-//  {
-//    //#pragma HLS unroll
-//    //out.full?
-//    Axis<32> tmp = Axis<32>();
-//    if(i == positionOfTlast)
-//      //if(i == 0)
-//    {
-//      //only possible position...
-//      tmp.tlast = big.tlast;
-//      printf("tlast set.\n");
-//    } else {
-//      tmp.tlast = 0;
-//    }
-//    tmp.tdata = (ap_uint<32>) (big.tdata >> i*32);
-//    //tmp.tdata = (ap_uint<8>) (big.tdata >> (7-i)*8);
-//    tmp.tkeep = (ap_uint<4>) (big.tkeep >> i*4);
-//    //tmp.tkeep = (ap_uint<1>) (big.tkeep >> (7-i));
-//
-//    if(tmp.tkeep == 0)
-//    {
-//      continue;
-//    }
-//
-//    out.write(tmp);
-//  }
-//
-//}
-
-
 uint8_t extractByteCnt(Axis<64> currWord)
 {
 #pragma HLS INLINE
@@ -142,13 +55,13 @@ uint16_t get_next_cache_line(
 
   uint16_t ret = INVALID_CACHE_LINE_NUMBER;
   for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
-  //for(uint16_t i = start_value; i < HEADER_CACHE_LENGTH; i++)
+    //for(uint16_t i = start_value; i < HEADER_CACHE_LENGTH; i++)
   {
-    #pragma HLS unroll
-	if(i < start_value)
-	{
-	  continue;
-	}
+#pragma HLS unroll
+    if(i < start_value)
+    {
+      continue;
+    }
     if(header_cache_valid[i])
     {
       next_cache_line = header_cache[i];
@@ -169,7 +82,7 @@ void add_cache_line(
 #pragma HLS inline off
   for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
   {
-    #pragma HLS unroll
+#pragma HLS unroll
     if(!header_cache_valid[i])
     {
       header_cache[i] = new_cache_line;
@@ -207,27 +120,6 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
   if(ret != 0)
   {
     printf("invalid header.\n");
-    //fsmMpeState = RECV_DATA_ERROR;
-    //fsmReceiveState = READ_ERROR; //to clear streams?
-    //status[MPE_STATUS_READ_ERROR_CNT]++;
-    //status[MPE_STATUS_LAST_READ_ERROR] = RX_INVALID_HEADER;
-    //status[MPE_STATUS_LAST_READ_ERROR] = ret;
-    //status[MPE_STATUS_LAST_READ_ERROR] = 10 - ret;
-    //status[MPE_STATUS_READOUT] = 0;
-    //status[MPE_STATUS_READOUT + 1] = 0;
-    //status[MPE_STATUS_READOUT + 2] = 0;
-    //  for(int i = 0; i< 4; i++)
-    //  {
-    //   //status[MPE_STATUS_READOUT] |= ((ap_uint<32>) bytes[i]) << i*8;
-    //  }
-    //  for(int i = 0; i< 4; i++)
-    //  {
-    //   //status[MPE_STATUS_READOUT + 1] |= ((ap_uint<32>) bytes[4 + i]) << i*8;
-    //  }
-    //  for(int i = 0; i< 4; i++)
-    //  {
-    //   //status[MPE_STATUS_READOUT + 2] |= ((ap_uint<32>) bytes[8 + i]) << i*8;
-    //  }
     unexpected_header = true;
   }
   else if(!skip_meta && (header.src_rank != metaSrc.src_rank))
@@ -246,9 +138,6 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
   else if(header.type != expected_type)
   {
     printf("Header type missmatch! Expected %d, got %d!\n",(int) expected_type, (int) header.type);
-    //fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-    //status[MPE_STATUS_READ_ERROR_CNT]++;
-    //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DATA_TYPE;
     unexpected_header = true;
   }
   //check data type 
@@ -256,9 +145,6 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
   else if(header.call != expected_call)
   {
     printf("receiver expects different data type: %d.\n", (int) header.call);
-    //fsmMpeState = RECV_DATA_ERROR; //to clear streams?
-    //status[MPE_STATUS_READ_ERROR_CNT]++;
-    //status[MPE_STATUS_LAST_READ_ERROR] = MPE_RX_WRONG_DST_RANK;
     unexpected_header = true;
   }
 
@@ -271,79 +157,79 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
 }
 
 mpeState checkCache(
-		uint16_t 		&last_checked_cache_line,
-	    ap_uint<256> 	header_cache[HEADER_CACHE_LENGTH],
-	    bool 			header_cache_valid[HEADER_CACHE_LENGTH],
-		ap_uint<8> 		bytes[MPIF_HEADER_LENGTH],
-		MPI_Header 		&header,
-		NetworkMeta 	&metaSrc,
-		packetType      expected_type,
-		mpiCall         expected_call,
-		uint32_t        expected_src_rank,
-		const mpeState  found_state,
-		const mpeState  miss_state,
-		const mpeState  stay_state
-		)
+    uint16_t    &last_checked_cache_line,
+    ap_uint<256>  header_cache[HEADER_CACHE_LENGTH],
+    bool      header_cache_valid[HEADER_CACHE_LENGTH],
+    ap_uint<8>    bytes[MPIF_HEADER_LENGTH],
+    MPI_Header    &header,
+    NetworkMeta   &metaSrc,
+    packetType      expected_type,
+    mpiCall         expected_call,
+    uint32_t        expected_src_rank,
+    const mpeState  found_state,
+    const mpeState  miss_state,
+    const mpeState  stay_state
+    )
 {
 #pragma HLS inline off
-//#pragma HLS pipeline II=1
+  //#pragma HLS pipeline II=1
 
 
-	  ap_uint<256> next_cache_line = 0x0;
-	  uint16_t next_cache_line_number = INVALID_CACHE_LINE_NUMBER;
-	  uint8_t ret = 255;
-	  mpeState ret_val = IDLE;
+  ap_uint<256> next_cache_line = 0x0;
+  uint16_t next_cache_line_number = INVALID_CACHE_LINE_NUMBER;
+  uint8_t ret = 255;
+  mpeState ret_val = IDLE;
 
-next_cache_line_number = get_next_cache_line(header_cache, header_cache_valid,
-         last_checked_cache_line, next_cache_line);
-     if(next_cache_line_number != INVALID_CACHE_LINE_NUMBER)
-     {
-       printf("check cache line %d\n", (uint16_t) next_cache_line_number);
-       last_checked_cache_line = next_cache_line_number;
-       printf("check cache entry: ");
-       for(int j = 0; j < MPIF_HEADER_LENGTH; j++)
-       {
+  next_cache_line_number = get_next_cache_line(header_cache, header_cache_valid,
+      last_checked_cache_line, next_cache_line);
+  if(next_cache_line_number != INVALID_CACHE_LINE_NUMBER)
+  {
+    printf("check cache line %d\n", (uint16_t) next_cache_line_number);
+    last_checked_cache_line = next_cache_line_number;
+    printf("check cache entry: ");
+    for(int j = 0; j < MPIF_HEADER_LENGTH; j++)
+    {
 #pragma HLS unroll
-         bytes[j] = (uint8_t) (next_cache_line >> (31-j)*8);
-         printf("%02x", (int) bytes[j]);
-       }
-       printf("\n");
-       ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
-       if(ret == 0)
-       {//found desired header
-         printf("Cache HIT\n");
-         ret_val = found_state;
-         delete_cache_line(header_cache, header_cache_valid, last_checked_cache_line);
-       } else {
-    	   //else, we continue
-    	   ret_val = stay_state;
-       }
-       last_checked_cache_line++;
-     } else {
-       ret_val = miss_state;
-     }
-     return ret_val;
+      bytes[j] = (uint8_t) (next_cache_line >> (31-j)*8);
+      printf("%02x", (int) bytes[j]);
+    }
+    printf("\n");
+    ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+    if(ret == 0)
+    {//found desired header
+      printf("Cache HIT\n");
+      ret_val = found_state;
+      delete_cache_line(header_cache, header_cache_valid, last_checked_cache_line);
+    } else {
+      //else, we continue
+      ret_val = stay_state;
+    }
+    last_checked_cache_line++;
+  } else {
+    ret_val = miss_state;
+  }
+  return ret_val;
 }
 
 
 void add_cache_bytes(
-	    ap_uint<256> 	header_cache[HEADER_CACHE_LENGTH],
-	    bool 			header_cache_valid[HEADER_CACHE_LENGTH],
-		ap_uint<8> 		bytes[MPIF_HEADER_LENGTH]
-		)
+    ap_uint<256>  header_cache[HEADER_CACHE_LENGTH],
+    bool      header_cache_valid[HEADER_CACHE_LENGTH],
+    ap_uint<8>    bytes[MPIF_HEADER_LENGTH]
+    )
 {
 #pragma HLS inline off
-//#pragma HLS pipeline II=1
-	              ap_uint<256> cache_tmp = 0x0;
-	              printf("[pMpeGlobal] adding data to cache:\n\t");
-	              for(int j = 0; j<MPIF_HEADER_LENGTH; j++)
-	              {
-	  #pragma HLS unroll
-	                cache_tmp |= ((ap_uint<256>) bytes[j]) << (31-j)*8;
-	                printf("%02x", (int) bytes[j]);
-	              }
-	              printf("\n");
-	              add_cache_line(header_cache, header_cache_valid, cache_tmp);
+  //#pragma HLS pipeline II=1
+  ap_uint<256> cache_tmp = 0x0;
+  printf("[pMpeGlobal] adding data to cache:\n\t");
+  for(int j = 0; j<MPIF_HEADER_LENGTH; j++)
+  {
+#pragma HLS unroll
+    cache_tmp |= ((ap_uint<256>) bytes[j]) << (31-j)*8;
+    printf("%02x", (int) bytes[j]);
+  }
+  printf("\n");
+  add_cache_line(header_cache, header_cache_valid, cache_tmp);
 }
 
 
@@ -366,7 +252,6 @@ void pDeqRecv(
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
-  bool word_tlast_occured = false;
 
   switch(recvDeqFsm)
   {
@@ -381,8 +266,6 @@ void pDeqRecv(
       break;
 
     case DEQ_WRITE:
-
-      //word_tlast_occured = false;
       if( !sFifoDataRX.empty() && !soMPI_data.full()
         )
       {
@@ -410,20 +293,6 @@ void pDeqRecv(
         //cnt++;
         //}
   }
-  //read_timeout_cnt++;
-  //if(read_timeout_cnt >= MPE_READ_TIMEOUT)
-  //{
-  //    //fsmReceiveState = READ_ERROR; //to clear streams?
-  //    fsmReceiveState = READ_STANDBY;
-  //   //status[MPE_STATUS_READ_ERROR_CNT]++;
-  //   //status[MPE_STATUS_LAST_READ_ERROR] = RX_TIMEOUT;
-
-  //}
-
-  //  if(word_tlast_occured)
-  //  {
-  //    recvDeqFsm = DEQ_DONE;
-  //  }
   break;
 
   case DEQ_DONE:
@@ -459,8 +328,6 @@ void pDeqSend(
   static uint32_t current_packet_line_cnt = 0x0;
   static NodeId current_send_dst_id = 0xFFF;
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
-  //bool word_tlast_occured = false;
-
 
   switch(sendDeqFsm)
   {
@@ -475,103 +342,47 @@ void pDeqSend(
       break;
 
     case DEQ_WRITE:
-      //printf("enqueueCnt: %d\n", enqueueCnt);
-      //word_tlast_occured = false;
-      if( !soTcp_data.full() && !sFifoDataTX.empty() //&& (enqueueCnt >= 2 || tlast_occured_TX))
-        && !soTcp_meta.full() )
+      if( !soTcp_data.full() && !sFifoDataTX.empty()
+          && !soTcp_meta.full() )
+      {
+        NetworkWord word = NetworkWord();
+        word.tdata = 0x0;
+        word.tlast = 0x0;
+        word.tkeep = 0x0;
+
+        Axis<64> tmpl1 = Axis<64>();
+        tmpl1 = sFifoDataTX.read();
+        word.tdata = tmpl1.tdata;
+        word.tkeep = 0xFFF;
+        word.tlast = tmpl1.tlast;
+
+        //check before we split in parts
+        if(word.tlast == 1)
         {
-          NetworkWord word = NetworkWord();
-          //convertAxisToNtsWidth(sFifoDataTX, word);
-          word.tdata = 0x0;
-          word.tlast = 0x0;
-          word.tkeep = 0x0;
-
-          Axis<64> tmpl1 = Axis<64>();
-          //        Axis<32> tmpl2 = Axis<32>();
-          //        bool only_one_word_read = false;
-          //        if(!sFifo_underflow_TX.empty())
-          //        {
-          //          //first word
-          //          tmpl1 = sFifo_underflow_TX.read();
-          //          //second word
-          //          if(!sFifoDataTX.read_nb(tmpl2))
-          //          {
-          //            if(tlast_occured_TX)
-          //            {
-          //              only_one_word_read = true;
-          //            } else {
-          //              sFifo_underflow_TX.write(tmpl1);
-          //              break;
-          //            }
-          //          }
-          //        } else {
-          //          //first word
-          //          if(!sFifoDataTX.read_nb(tmpl1))
-          //          {
-          //            break;
-          //          }
-          //          //second word
-          //          if(!sFifoDataTX.read_nb(tmpl2))
-          //          {
-          //            if(tlast_occured_TX)
-          //            {
-          //              only_one_word_read = true;
-          //            } else {
-          //              sFifo_underflow_TX.write(tmpl1);
-          //              break;
-          //            }
-          //          }
-          //        }
-          //        //combine to NetworkWord
-          tmpl1 = sFifoDataTX.read();
-          word.tdata = tmpl1.tdata;
-          word.tkeep = 0xFFF;
-          word.tlast = tmpl1.tlast;
-          //        if(!only_one_word_read)
-          //        {
-          //          word.tdata |= ((ap_uint<64>) tmpl2.tdata) << 32;
-          //          word.tkeep |= ((ap_uint<8>) 0x0F) << 4;
-          //          if(word.tlast == 0)
-          //          {
-          //            word.tlast = tmpl2.tlast;
-          //          }
-          //        } else {
-          //          //just to be sure..
-          //          word.tlast = 1;
-          //        }
-          //check before we split in parts
-          if(word.tlast == 1)
-          {
-            printf("[pDeqSend] SEND_DATA finished writing.\n");
-            //word_tlast_occured = true;
-            sendDeqFsm = DEQ_DONE;
-          }
-
-          //if(current_packet_line_cnt >= ZRLMPI_MAX_MESSAGE_SIZE_LINES)
-          if(current_packet_line_cnt == 0)
-          {//last write was last one or first one
-            NetworkMeta metaDst = NetworkMeta(current_send_dst_id, ZRLMPI_DEFAULT_PORT, *own_rank, ZRLMPI_DEFAULT_PORT, 0);
-            soTcp_meta.write(NetworkMetaStream(metaDst));
-            printf("[pDeqSend] started new DATA part packet\n");
-          }
-
-          if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
-          {//last one in this packet
-            word.tlast = 1;
-            current_packet_line_cnt = 0;
-          } else {
-            current_packet_line_cnt++;
-          }
-
-          printf("[pDeqSend] tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-          soTcp_data.write(word);
-          //enqueueCnt -= 2;
+          printf("[pDeqSend] SEND_DATA finished writing.\n");
+          //word_tlast_occured = true;
+          sendDeqFsm = DEQ_DONE;
         }
-      //
-      //      if(word_tlast_occured)
-      //      {
-      //        sendDeqFsm = DEQ_DONE;
-      //      }
+
+        //if(current_packet_line_cnt >= ZRLMPI_MAX_MESSAGE_SIZE_LINES)
+        if(current_packet_line_cnt == 0)
+        {//last write was last one or first one
+          NetworkMeta metaDst = NetworkMeta(current_send_dst_id, ZRLMPI_DEFAULT_PORT, *own_rank, ZRLMPI_DEFAULT_PORT, 0);
+          soTcp_meta.write(NetworkMetaStream(metaDst));
+          printf("[pDeqSend] started new DATA part packet\n");
+        }
+
+        if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
+        {//last one in this packet
+          word.tlast = 1;
+          current_packet_line_cnt = 0;
+        } else {
+          current_packet_line_cnt++;
+        }
+
+        printf("[pDeqSend] tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+        soTcp_data.write(word);
+      }
       break;
 
     case DEQ_DONE:
@@ -604,14 +415,13 @@ void pMpeGlobal(
 {
   //-- DIRECTIVES FOR THIS PROCESS ------------------------------------------
 #pragma HLS INLINE off
-//#pragma HLS pipeline II=1 //TODO
+  //#pragma HLS pipeline II=1 //TODO
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static mpeState fsmMpeState = IDLE;
 
 #pragma HLS reset variable=fsmMpeState
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   //static stream<ap_uint<128> > sFifoHeaderCache("sFifoHeaderCache");
-  static bool checked_cache = false;
   static uint32_t expected_src_rank = 0;
   //static uint16_t current_cache_data_cnt = 0;
 
@@ -650,31 +460,23 @@ void pMpeGlobal(
   // #pragma HLS STREAM variable=sFifoHeaderCache depth=64
   //#pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
 #pragma HLS array_partition variable=bytes complete dim=0
-//#pragma HLS array_partition variable=header_cache cyclic factor=32 dim=0
-//#pragma HLS array_partition variable=header_cache_valid cyclic factor=32 dim=0
+  //#pragma HLS array_partition variable=header_cache cyclic factor=32 dim=0
+  //#pragma HLS array_partition variable=header_cache_valid cyclic factor=32 dim=0
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
   uint8_t ret;
-  //bool found_cache = false;
-  //ap_uint<MPIF_HEADER_LENGTH*8> cache_line = 0x0;
-
   Axis<64> current_read_word = Axis<64>();
-  //int8_t cnt = 0;
-
-  //ap_uint<256> next_cache_line = 0x0;
-  //uint16_t next_cache_line_number = INVALID_CACHE_LINE_NUMBER;
 
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
 
-  switch(fsmMpeState) 
+  switch(fsmMpeState)
   {
     case IDLE:
-      checked_cache = false;
       expected_src_rank = 0xFFF;
-      if ( !siMPIif.empty() ) //TODO: try to fix combinatorial loop
+      if ( !siMPIif.empty() )
       {
         currentInfo = siMPIif.read();
         header_i_cnt = 0;
@@ -723,16 +525,11 @@ void pMpeGlobal(
 
         headerToBytes(header, bytes);
 
-        //in order not to block the URIF/TRIF core
-        //metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
-        //soTcp_meta.write(NetworkMetaStream(metaDst));
+
         sDeqSendDestId.write((NodeId) header.dst_rank);
         header_i_cnt = 0;
 
         //write header
-        //for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
-        // {
-        //Axis<8> tmp = Axis<8>(bytes[i]);
         Axis<64> tmp = Axis<64>();
         tmp.tdata = 0x0;
         tmp.tkeep = 0xFFF;
@@ -745,28 +542,11 @@ void pMpeGlobal(
         //printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
         printf("tdata64: %#0llx\n",(uint64_t) tmp.tdata);
         tmp.tlast = 0;
-        //          if ( i == (MPIF_HEADER_LENGTH/4) - 1)
-        //          {
-        //            tmp.tlast = 1;
-        //          }
+
         sFifoDataTX.write(tmp);
         //printf("Writing Header byte: %#02x\n", (int) bytes[i]);
         header_i_cnt++;
-        //}
-        //handshakeLinesCnt = (MPIF_HEADER_LENGTH + 7) /8;
 
-        //        //dequeue
-        //        if( !soTcp_data.full() && !sFifoDataTX.empty() )
-        //        {
-        //          NetworkWord word = NetworkWord();
-        //          convertAxisToNtsWidth(sFifoDataTX, word);
-        //          printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        //          soTcp_data.write(word);
-        //          handshakeLinesCnt--;
-        //
-        //        }
-
-        //fsmMpeState = SEND_REQ;
         fsmMpeState = START_SEND_1;
       }
       break;
@@ -794,22 +574,6 @@ void pMpeGlobal(
       }
       break;
     case SEND_REQ:
-      //      //dequeue
-      //      if( !soTcp_data.full() && !sFifoDataTX.empty() )
-      //      {
-      //        NetworkWord word = NetworkWord();
-      //        convertAxisToNtsWidth(sFifoDataTX, word);
-      //        printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-      //        soTcp_data.write(word);
-      //        handshakeLinesCnt--;
-      //
-      //      }
-      //      //if( handshakeLinesCnt <= 0)
-      //      if( handshakeLinesCnt <= 0 || sFifoDataTX.empty())
-      //      {
-      //        checked_cache = false;
-      //        fsmMpeState = WAIT4CLEAR;
-      //      }
       if(!sDeqSendDone.empty())
       {
         if(sDeqSendDone.read())
@@ -823,22 +587,20 @@ void pMpeGlobal(
             expected_call = MPI_RECV_FLOAT;
           }
           expected_type = CLEAR_TO_SEND;
-          checked_cache = false;
-          //checked_entries = 0;
         }
       }
       break;
     case WAIT4CLEAR_CACHE:
-    	//check cache first
-    	fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
-    			                 bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
-								 SEND_DATA_START, WAIT4CLEAR, WAIT4CLEAR_CACHE);
+      //check cache first
+      fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
+          bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
+          SEND_DATA_START, WAIT4CLEAR, WAIT4CLEAR_CACHE);
       break;
     case WAIT4CLEAR:
       if( !siTcp_data.empty() && !siTcp_meta.empty()
         )
       {
-
+        //start read header
         metaSrc = siTcp_meta.read().tdata;
         header_i_cnt = 0;
         fsmMpeState = WAIT4CLEAR_1;
@@ -856,26 +618,11 @@ void pMpeGlobal(
       break;
 
     case WAIT4CLEAR_1:
-      if( //!found_cache &&
-          !siTcp_data.empty() //&& !siTcp_meta.empty()
+      if( !siTcp_data.empty() //&& !siTcp_meta.empty()
         )
       {
-        //read header
-        //for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
-        //{
+        //read header cont.
         NetworkWord tmp = siTcp_data.read();
-
-        /*
-           if(tmp.tkeep != 0xFF || tmp.tlast == 1)
-           {
-           printf("unexpected uncomplete read.\n");
-        //TODO
-        fsmMpeState = IDLE;
-        fsmReceiveState = READ_ERROR; //to clear streams?
-        //status[MPE_STATUS_READ_ERROR_CNT]++;
-        //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
-        break;
-        }*/
 
         printf("Data read: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
         for(int j = 0; j<8; j++)
@@ -885,7 +632,7 @@ void pMpeGlobal(
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt++;
-        // }
+
         if(header_i_cnt >= (MPIF_HEADER_LENGTH+7)/8)
         {
           ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
@@ -896,7 +643,7 @@ void pMpeGlobal(
           } else {
             //else, we continue to wait
             //and add it to the cache
-        	add_cache_bytes(header_cache, header_cache_valid, bytes);
+            add_cache_bytes(header_cache, header_cache_valid, bytes);
             fsmMpeState = WAIT4CLEAR;
           }
         }
@@ -924,9 +671,6 @@ void pMpeGlobal(
 
         header_i_cnt = 0;
         //write header
-        //for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
-        // {
-        //Axis<8> tmp = Axis<8>(bytes[i]);
         Axis<64> tmp = Axis<64>();
         tmp.tdata = 0x0;
         tmp.tkeep = 0xFFF;
@@ -937,12 +681,7 @@ void pMpeGlobal(
         }
         tmp.tlast = 0; //in this case, always
         sFifoDataTX.write(tmp);
-        //printf("Writing Header byte: %#02x\n", (int) bytes[header_i_cnt]);
-        // }
         header_i_cnt = 1;
-
-        //metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
-        //soTcp_meta.write(NetworkMetaStream(metaDst));
 
         sDeqSendDestId.write((NodeId) header.dst_rank);
 
@@ -950,8 +689,6 @@ void pMpeGlobal(
         printf("[MPI_send] expect %d words.\n",expected_send_count);
         send_total_cnt = 0;
 
-        //enqueueCnt = MPIF_HEADER_LENGTH/4;
-        //fsmMpeState = SEND_DATA_RD;
         fsmMpeState = SEND_DATA_START_1;
       }
       break;
@@ -978,78 +715,6 @@ void pMpeGlobal(
       }
       break;
     case SEND_DATA_RD:
-      //enqueue 
-      //cnt = 0;
-      ////while( !siMPI_data.empty() && !sFifoDataTX.full() && cnt<=8 && !tlast_occured_TX)
-      ////if( !siMPI_data.empty() && !sFifoDataTX.full() && !tlast_occured_TX)
-      ////while( cnt<=8 && !tlast_occured_TX)
-      //while( cnt<=2 && !tlast_occured_TX)
-      //{
-      //  //current_read_byte = siMPI_data.read();
-      //  if(!siMPI_data.read_nb(current_read_word))
-      //  {
-      //    break;
-      //  }
-      //  if(send_total_cnt >= (expected_send_count - 1))
-      //  {// to be sure...
-      //    current_read_word.tlast = 1;
-      //  }
-      //  //use "blocking" version
-      //  sFifoDataTX.write(current_read_word);
-      //  cnt++;
-      //  send_total_cnt++;
-      //  if(current_read_word.tlast == 1)
-      //  {
-      //    tlast_occured_TX = true;
-      //    fsmMpeState = SEND_DATA_WRD;
-      //    printf("tlast Occured.\n");
-      //    printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
-      //  }
-      //  //enqueueCnt++;
-      //}
-      ////printf("cnt: %d\n", cnt);
-      //      cnt = 0;
-      //      while( cnt<=2 && !tlast_occured_TX)
-      //      {
-      //        if(!sFifoDataTX.full())
-      //        {
-      //          if(!tx_overflow_fifo.empty())
-      //          {
-      //            current_read_word = tx_overflow_fifo.read();
-      //            cnt--;
-      //          } else {
-      //            if(!siMPI_data.empty())
-      //            {
-      //              if(!siMPI_data.read_nb(current_read_word))
-      //              {
-      //                break;
-      //              }
-      //            } else {
-      //              break;
-      //            }
-      //          }
-      //          if(send_total_cnt >= (expected_send_count - 1))
-      //          {// to be sure...
-      //            current_read_word.tlast = 1;
-      //          }
-      //          if(!sFifoDataTX.write_nb(current_read_word))
-      //          {
-      //            tx_overflow_fifo.write(current_read_word);
-      //            break;
-      //          }
-      //          cnt++;
-      //          send_total_cnt++;
-      //          if(current_read_word.tlast == 1)
-      //          {
-      //            tlast_occured_TX = true;
-      //            fsmMpeState = SEND_DATA_WRD;
-      //            printf("tlast Occured.\n");
-      //          }
-      //          printf("MPI read data: %#08x, tkeep: %d, tlast %d\n", (int) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
-      //        } else {
-      //          break;
-      //        }
-      //      }
       if(!sFifoDataTX.full() && !siMPI_data.empty())
       {
         current_read_word = siMPI_data.read();
@@ -1075,7 +740,6 @@ void pMpeGlobal(
       {
         if(sDeqSendDone.read())
         {
-          checked_cache = false;
           fsmMpeState = WAIT4ACK_CACHE;
           header = MPI_Header();
           last_checked_cache_line = 0;
@@ -1090,29 +754,16 @@ void pMpeGlobal(
       break;
     case WAIT4ACK_CACHE:
       //check cache first
-    	fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
-    	      			         bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
-    	      					 IDLE, WAIT4ACK, WAIT4ACK_CACHE);
+      fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
+          bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
+          IDLE, WAIT4ACK, WAIT4ACK_CACHE);
       break;
     case WAIT4ACK:
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
       {
         //read header
-        //for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
-        // {
         NetworkWord tmp = siTcp_data.read();
         header_i_cnt = 0;
-
-        /* TODO
-           if(tmp.tkeep != 0xFF || tmp.tlast == 1)
-           {
-           printf("unexpected uncomplete read.\n");
-        //TODO
-        fsmMpeState = IDLE;
-        //status[MPE_STATUS_READ_ERROR_CNT]++;
-        //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
-        break;
-        }*/
 
         for(int j = 0; j<8; j++)
         {
@@ -1120,7 +771,6 @@ void pMpeGlobal(
           bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
-        // }
         header_i_cnt = 1;
 
         metaSrc = siTcp_meta.read().tdata;
@@ -1150,8 +800,8 @@ void pMpeGlobal(
             fsmMpeState = IDLE;
           } else {
             //else, we continue to wait
-              //and add it to the cache
-          	add_cache_bytes(header_cache, header_cache_valid, bytes);
+            //and add it to the cache
+            add_cache_bytes(header_cache, header_cache_valid, bytes);
             fsmMpeState = WAIT4ACK;
           }
         }
@@ -1170,39 +820,17 @@ void pMpeGlobal(
       break;
     case WAIT4REQ_CACHE:
       //check cache first
-    	fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
-    	      			         bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
-    	      					 ASSEMBLE_CLEAR, WAIT4REQ, WAIT4REQ_CACHE);
+      fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
+          bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
+          ASSEMBLE_CLEAR, WAIT4REQ, WAIT4REQ_CACHE);
 
       break;
     case WAIT4REQ:
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
       {
         //read header
-        //for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
-        //{
         NetworkWord tmp = siTcp_data.read();
         header_i_cnt = 0;
-        /*
-           if(tmp.tkeep != 0xFF || tmp.tlast == 1)
-           {
-           printf("unexpected uncomplete read.\n");
-        //TODO
-        fsmMpeState = IDLE;
-        fsmReceiveState = READ_ERROR; //to clear streams?
-        //status[MPE_STATUS_READ_ERROR_CNT]++;
-        //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
-        break;
-        }*/
-
-        //TODO 
-        //header should have always full lines
-        //if(tmp.tkeep != 0xff)
-        //{
-        //  i--;
-        //  continue;
-        //}
-
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
@@ -1210,7 +838,6 @@ void pMpeGlobal(
           //bytes[i*8 + 7 -j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt = 1;
-        // }
 
         metaSrc = siTcp_meta.read().tdata;
         fsmMpeState = WAIT4REQ_1;
@@ -1238,9 +865,9 @@ void pMpeGlobal(
             fsmMpeState = ASSEMBLE_CLEAR;
           } else {
             //else, we wait...
-              //and add it to the cache
-              ap_uint<256> cache_tmp = 0x0;
-          	add_cache_bytes(header_cache, header_cache_valid, bytes);
+            //and add it to the cache
+            ap_uint<256> cache_tmp = 0x0;
+            add_cache_bytes(header_cache, header_cache_valid, bytes);
             fsmMpeState = WAIT4REQ;
           }
         }
@@ -1263,17 +890,11 @@ void pMpeGlobal(
 
         headerToBytes(header, bytes);
 
-        //in order not to block the URIF/TRIF core
-        //metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
-        //soTcp_meta.write(NetworkMetaStream(metaDst));
         sDeqSendDestId.write((NodeId) header.dst_rank);
 
         header_i_cnt = 0;
 
         //write header
-        //for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
-        //{
-        //Axis<8> tmp = Axis<8>(bytes[i]);
         Axis<64> tmp = Axis<64>();
         tmp.tdata = 0x0;
         tmp.tkeep = 0xFFF;
@@ -1283,27 +904,8 @@ void pMpeGlobal(
           tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0;
-        //          if ( i == (MPIF_HEADER_LENGTH/4) - 1)
-        //          {
-        //            tmp.tlast = 1;
-        //          }
         sFifoDataTX.write(tmp);
         header_i_cnt = 1;
-
-        //printf("Writing Header byte: %#02x\n", (int) bytes[i]);
-        //}
-        //handshakeLinesCnt = (MPIF_HEADER_LENGTH + 7) /8;
-
-        //dequeue
-        //        if( !soTcp_data.full() && !sFifoDataTX.empty() )
-        //        {
-        //          NetworkWord word = NetworkWord();
-        //          convertAxisToNtsWidth(sFifoDataTX, word);
-        //          printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        //          soTcp_data.write(word);
-        //          handshakeLinesCnt--;
-        //
-        //        }
 
         fsmMpeState = ASSEMBLE_CLEAR_1;
       }
@@ -1342,28 +944,6 @@ void pMpeGlobal(
       }
       break;
     case SEND_CLEAR:
-      //      //dequeue
-      //      if( !soTcp_data.full() && !sFifoDataTX.empty() )
-      //      {
-      //        NetworkWord word = NetworkWord();
-      //        convertAxisToNtsWidth(sFifoDataTX, word);
-      //        printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-      //        soTcp_data.write(word);
-      //        handshakeLinesCnt--;
-      //
-      //      }
-      //      //if( handshakeLinesCnt <= 0)
-      //      if( handshakeLinesCnt <= 0 || sFifoDataTX.empty())
-      //      {
-      //        fsmMpeState = RECV_DATA_START;
-      //        expect_more_data = false;
-      //        current_data_src_node_id = 0xFFF;
-      //        current_data_src_port = 0x0;
-      //        current_data_dst_port = 0x0;
-      //        //start subFSM
-      //        //fsmReceiveState = READ_IDLE;
-      //        //read_timeout_cnt  = 0;
-      //      }
       if(!sDeqSendDone.empty())
       {
         if(sDeqSendDone.read())
@@ -1405,19 +985,8 @@ void pMpeGlobal(
 
           header_i_cnt = 0;
           //read header
-          //for(int i = 0; i< (MPIF_HEADER_LENGTH+7)/8; i++)
-          //{
 
           NetworkWord tmp = siTcp_data.read();
-          /*
-             if(tmp.tkeep != 0xFF || tmp.tlast == 1)
-             {
-             printf("unexpected uncomplete read.\n");
-             fsmReceiveState = READ_ERROR;
-          //status[MPE_STATUS_READ_ERROR_CNT]++;
-          //status[MPE_STATUS_LAST_READ_ERROR] = RX_INCOMPLETE_HEADER;
-          break;
-          }*/
 
           for(int j = 0; j<8; j++)
           {
@@ -1425,7 +994,6 @@ void pMpeGlobal(
             bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
             //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           }
-          //}
           header_i_cnt = 1;
           fsmMpeState = RECV_DATA_START_1;
         }
@@ -1471,8 +1039,8 @@ void pMpeGlobal(
             //read_timeout_cnt = 0;
           } else {
             //we received another header and add it to the cache
-              ap_uint<256> cache_tmp = 0x0;
-          	add_cache_bytes(header_cache, header_cache_valid, bytes);
+            ap_uint<256> cache_tmp = 0x0;
+            add_cache_bytes(header_cache, header_cache_valid, bytes);
             fsmMpeState = RECV_DATA_START;
           }
         }
@@ -1480,49 +1048,15 @@ void pMpeGlobal(
       break;
 
     case RECV_DATA_RD:
-      //      if(recvDeqFsm == DEQ_DONE)
-      //      {
-      //        fsmMpeState = RECV_DATA_DONE;
-      //        recvDeqFsm = DEQ_IDLE;
-      //        break;
-      //      }
-      //      if( !rx_overflow_fifo.empty() )
-      //      {
-      //        while(!rx_overflow_fifo.empty())
-      //        {
-      //          uint32_t current_word = rx_overflow_fifo.read();
-      //          if(!sFifoDataRX.write_nb(current_word))
-      //          {
-      //            rx_overflow_fifo.write(current_word);
-      //            break;
-      //          }
-      //        }
-      //      }
       if( !siTcp_data.empty() && !sFifoDataRX.full() 
-          // && rx_overflow_fifo.empty()
         )
       {
         NetworkWord word = siTcp_data.read();
         printf("\t[pMpeGlobal] READ: tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        //convertAxisToMpiWidth(word, sFifoDataRX);
-        //        for(int i = 0; i < 2; i++)
-        //        {
-        //          //#pragma HLS unroll factor=2
-        //          if((word.tkeep >> i*4) == 0)
-        //          {
-        //            continue;
-        //          }
-        //          //with swap
-        //          //bufferIn[bufferInPtrWrite] = (ap_uint<8>) (big.tdata >> (7-i)*8);
-        //          //default
-        //          ap_uint<32> current_word = (ap_uint<32>) (word.tdata >> i*32);
+
         sFifoDataRX.write(word.tdata);
         //enqueue_recv_total_cnt++;
         enqueue_recv_total_cnt += 2; //two WORDS per line
-        //          if(!sFifoDataRX.write_nb(current_word))
-        //          {
-        //            rx_overflow_fifo.write(current_word);
-        //          }
         //check if we have to receive a new packet meta
         if(word.tlast == 1)
         {
@@ -1536,7 +1070,6 @@ void pMpeGlobal(
           }
         }
       }
-      //}
       break;
     case RECV_DATA_WRD:
       //wait for dequeue FSM
@@ -1566,17 +1099,10 @@ void pMpeGlobal(
 
         headerToBytes(header, bytes);
 
-        //in order not to block the URIF/TRIF core
-        //metaDst = NetworkMeta(header.dst_rank, ZRLMPI_DEFAULT_PORT, header.src_rank, ZRLMPI_DEFAULT_PORT, 0); //we set tlast
-        //soTcp_meta.write(NetworkMetaStream(metaDst));
         sDeqSendDestId.write(header.dst_rank);
 
         header_i_cnt = 0;
 
-        //write header
-        // for(int i = 0; i < MPIF_HEADER_LENGTH/4; i++)
-        //  {
-        //Axis<8> tmp = Axis<8>(bytes[i]);
         Axis<64> tmp = Axis<64>();
         tmp.tdata = 0x0;
         tmp.tkeep = 0xFFF;
@@ -1586,27 +1112,9 @@ void pMpeGlobal(
           tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0;
-        //          if ( i == (MPIF_HEADER_LENGTH/4) - 1)
-        //          {
-        //            tmp.tlast = 1;
-        //          }
         sFifoDataTX.write(tmp);
         header_i_cnt = 1;
 
-        //printf("Writing Header byte: %#02x\n", (int) bytes[i]);
-        //}
-        //handshakeLinesCnt = (MPIF_HEADER_LENGTH + 7) /8;
-
-        //        //dequeue
-        //        if( !soTcp_data.full() && !sFifoDataTX.empty() )
-        //        {
-        //          NetworkWord word = NetworkWord();
-        //          convertAxisToNtsWidth(sFifoDataTX, word);
-        //          printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-        //          soTcp_data.write(word);
-        //          handshakeLinesCnt--;
-        //
-        //        }
 
         fsmMpeState = SEND_ACK_0;
       }
@@ -1634,20 +1142,6 @@ void pMpeGlobal(
       }
       break;
     case SEND_ACK:
-      //dequeue
-      //          if( !soTcp_data.full() && !sFifoDataTX.empty() )
-      //          {
-      //            NetworkWord word = NetworkWord();
-      //            convertAxisToNtsWidth(sFifoDataTX, word);
-      //            printf("tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
-      //            soTcp_data.write(word);
-      //            handshakeLinesCnt--;
-      //
-      //          }
-      //          if( handshakeLinesCnt <= 0 || sFifoDataTX.empty())
-      //          {
-      //            fsmMpeState = IDLE;
-      //          }
       if(!sDeqSendDone.empty())
       {
         if(sDeqSendDone.read())
@@ -1656,46 +1150,30 @@ void pMpeGlobal(
         }
       }
       break;
-      //    case RECV_DATA_ERROR:
-      //      //empty streams
-      //      printf("Read error occured.\n");
-      //      if( !siTcp_meta.empty())
-      //      {
-      //        siTcp_meta.read();
-      //      }
-      //
-      //      if( !siTcp_data.empty())
-      //      {
-      //        siTcp_data.read();
-      //      } else {
-      //        fsmMpeState = IDLE;
-      //      }
-      //      break;
-
   }
   printf("fsmMpeState after FSM: %d\n", fsmMpeState);
 
-  }
+}
 
 
-  void mpe_main(
-      // ----- NAL Interface -----
-      stream<NetworkWord>            &siTcp_data,
-      stream<NetworkMetaStream>      &siTcp_meta,
-      stream<NetworkWord>            &soTcp_data,
-      stream<NetworkMetaStream>      &soTcp_meta,
-      ap_uint<32>                   *po_rx_ports,
+void mpe_main(
+    // ----- NAL Interface -----
+    stream<NetworkWord>            &siTcp_data,
+    stream<NetworkMetaStream>      &siTcp_meta,
+    stream<NetworkWord>            &soTcp_data,
+    stream<NetworkMetaStream>      &soTcp_meta,
+    ap_uint<32>                   *po_rx_ports,
 
-      ap_uint<32> *own_rank,
-      // ----- for debugging  ------
-      //ap_uint<32> *MMIO_out,
+    ap_uint<32> *own_rank,
+    // ----- for debugging  ------
+    //ap_uint<32> *MMIO_out,
 
-      // ----- MPI_Interface -----
-      stream<MPI_Interface> &siMPIif,
-      stream<Axis<64> > &siMPI_data,
-      stream<Axis<64> > &soMPI_data
-      )
-  {
+    // ----- MPI_Interface -----
+    stream<MPI_Interface> &siMPIif,
+    stream<Axis<64> > &siMPI_data,
+    stream<Axis<64> > &soMPI_data
+    )
+{
 #pragma HLS INTERFACE axis register both port=siTcp_data
 #pragma HLS INTERFACE axis register both port=siTcp_meta
 #pragma HLS INTERFACE axis register both port=soTcp_data
@@ -1704,7 +1182,7 @@ void pMpeGlobal(
 
 #pragma HLS INTERFACE ap_vld register port=own_rank name=piFMC_rank
 
-    //#pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
+  //#pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 
 #pragma HLS INTERFACE ap_fifo port=siMPIif
 #pragma HLS DATA_PACK     variable=siMPIif
@@ -1713,22 +1191,22 @@ void pMpeGlobal(
 #pragma HLS INTERFACE ap_fifo port=soMPI_data
 #pragma HLS DATA_PACK     variable=soMPI_data
 
-    //===========================================================
-    // Core-wide pragmas
+  //===========================================================
+  // Core-wide pragmas
 
 #pragma HLS DATAFLOW
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
 
-    //===========================================================
-    // static variables
+  //===========================================================
+  // static variables
 
-    static stream<Axis<64> > sFifoDataTX("sFifoDataTX");
-    static stream<uint64_t> sFifoDataRX("sFifoDataRX");
-    static stream<NodeId>        sDeqSendDestId("sDeqSendDestId");
-    static stream<bool>          sDeqSendDone("sDeqSendDone");
-    static stream<uint16_t>    sExpectedLength("sExpectedLength"); //in LINES!
-    static stream<bool>        sDeqRecvDone("sDeqRecvDone");
+  static stream<Axis<64> > sFifoDataTX("sFifoDataTX");
+  static stream<uint64_t> sFifoDataRX("sFifoDataRX");
+  static stream<NodeId>        sDeqSendDestId("sDeqSendDestId");
+  static stream<bool>          sDeqSendDone("sDeqSendDone");
+  static stream<uint16_t>    sExpectedLength("sExpectedLength"); //in LINES!
+  static stream<bool>        sDeqRecvDone("sDeqRecvDone");
 
 #pragma HLS STREAM variable=sFifoDataTX     depth=128
 #pragma HLS STREAM variable=sFifoDataRX     depth=128
@@ -1738,38 +1216,38 @@ void pMpeGlobal(
 #pragma HLS STREAM variable=sDeqRecvDone    depth=2
 
 
-    //===========================================================
-    // Assign Debug Port
-    //
-    //    uint32_t debug_out = 0;
-    //    //debug_out = fsmReceiveState;
-    //    //debug_out |= ((uint32_t) fsmSendState) << 8;
-    //    debug_out |= ((uint32_t) fsmMpeState) << 16;
-    //    debug_out |= 0xAC000000;
-    //
-    //    *MMIO_out = (ap_uint<32>) debug_out;
+  //===========================================================
+  // Assign Debug Port
+  //
+  //    uint32_t debug_out = 0;
+  //    //debug_out = fsmReceiveState;
+  //    //debug_out |= ((uint32_t) fsmSendState) << 8;
+  //    debug_out |= ((uint32_t) fsmMpeState) << 16;
+  //    debug_out |= 0xAC000000;
+  //
+  //    *MMIO_out = (ap_uint<32>) debug_out;
 
 
-    //===========================================================
-    // MPE GLOBAL STATE
+  //===========================================================
+  // MPE GLOBAL STATE
 
-    pMpeGlobal(po_rx_ports, siMPIif, own_rank, sFifoDataTX,
-        sDeqSendDestId, sDeqSendDone, siTcp_data, siTcp_meta,
-        siMPI_data, sFifoDataRX,
-        sExpectedLength, sDeqRecvDone);
+  pMpeGlobal(po_rx_ports, siMPIif, own_rank, sFifoDataTX,
+      sDeqSendDestId, sDeqSendDone, siTcp_data, siTcp_meta,
+      siMPI_data, sFifoDataRX,
+      sExpectedLength, sDeqRecvDone);
 
-    //===========================================================
-    // DEQUEUE FSM SEND
+  //===========================================================
+  // DEQUEUE FSM SEND
 
-    pDeqSend(sFifoDataTX, soTcp_data, soTcp_meta, own_rank, sDeqSendDestId,
-        sDeqSendDone);
+  pDeqSend(sFifoDataTX, soTcp_data, soTcp_meta, own_rank, sDeqSendDestId,
+      sDeqSendDone);
 
-    //===========================================================
-    // DEQUEUE FSM RECV
+  //===========================================================
+  // DEQUEUE FSM RECV
 
-    pDeqRecv(sFifoDataRX, soMPI_data, sExpectedLength, sDeqRecvDone);
+  pDeqRecv(sFifoDataRX, soMPI_data, sExpectedLength, sDeqRecvDone);
 
-  }
+}
 
 
 
