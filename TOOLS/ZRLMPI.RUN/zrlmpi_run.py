@@ -21,6 +21,7 @@ import datetime
 
 __openstack_pw__ = "XX"
 __openstack_user__ = "YY"
+__openstack_project__ = "default"
 
 
 __credentials_file_name__ = "user.json"
@@ -29,6 +30,7 @@ __openstack_user_template__ = {}
 __openstack_user_template__['credentials'] = {}
 __openstack_user_template__['credentials']['user'] = "your user name"
 __openstack_user_template__['credentials']['pw'] = "your user password"
+__openstack_user_template__['project'] = "default"
 
 __cf_manager_url__ = "10.12.0.132:8080"
 __NON_FPGA_IDENTIFIER__ = "NON_FPGA"
@@ -42,7 +44,7 @@ def print_usage(argv0):
     exit(1)
 
 
-def errorReqExit(msg,code):
+def errorReqExit(msg, code):
     print("Request "+msg+" failed with HTTP code "+str(code)+".\n")
     exit(1)
 
@@ -63,8 +65,11 @@ def create_new_cluster(number_of_FPGA_nodes, role_image_id, host_address, sw_ran
         }
         cluster_req.append(fpgaNode)
 
-    r1 = requests.post("http://"+__cf_manager_url__+"/clusters?username={0}&password={1}&prepare_mpi=1&mpi_size={2}".format(__openstack_user__,__openstack_pw__,size),
-                       json=cluster_req)
+    # r1 = requests.post("http://"+__cf_manager_url__+"/clusters?username={0}&password={1}&prepare_mpi=1&mpi_size={2}".format(__openstack_user__,__openstack_pw__,size),
+    #                   json=cluster_req)
+    r1 = requests.post("http://"+__cf_manager_url__+"/clusters?username={0}&password={1}&project_name={2}&dont_verify_memory=1".format(
+                        __openstack_user__, __openstack_pw__, __openstack_project__),
+                        json=cluster_req)
 
     if r1.status_code != 200:
         # something went horrible wrong
@@ -141,12 +146,15 @@ def load_user_credentials(filedir):
     json_file = filedir + "/" + __credentials_file_name__
     global __openstack_user__
     global __openstack_pw__
+    global __openstack_project__
 
     try:
         with open(json_file, 'r') as infile:
             data = json.load(infile)
         __openstack_user__ = data['credentials']['user']
         __openstack_pw__ = data['credentials']['pw']
+        if 'project' in data:
+            __openstack_project__ = data['project']
         return 0
     except Exception as e:
         print(e)
