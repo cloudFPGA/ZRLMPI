@@ -25,7 +25,7 @@
 
 //to disable debug printfs
 #define DEBUG
-#define DEBUG2
+//#define DEBUG2
 
 //UDP Header + MPIF Header = 74
 //main constraint is ZYC2 VXLAN setup
