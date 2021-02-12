@@ -13,8 +13,8 @@
 
 
 
-HW_TARGET_C=$5/hls/mpi_wrapperv1/src/app_hw.cpp
-HW_TARGET_H=$5/hls/mpi_wrapperv1/src/app_hw.hpp
+HW_TARGET_C=$5/hls/mpi_wrapperv2/src/app_hw.cpp
+HW_TARGET_H=$5/hls/mpi_wrapperv2/src/app_hw.hpp
 
 SW_TARGET_C=$1/SW/app_sw.cpp
 SW_TARGET_H=$1/SW/app_sw.hpp
