@@ -413,7 +413,7 @@ if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
 # MPI-Wrapper: MPI Wrapper and MPI App
 #------------------------------------------------------------------------------
 #set ipModName "Jacobi2Dv0"
-set ipModName "mpi_wrapperv1"
+set ipModName "mpi_wrapperv2"
 set ipName    "mpi_wrapper"
 set ipVendor  "IBM"
 set ipLibrary "hls"
@@ -438,6 +438,41 @@ set ipCfgList  [ list ]
 set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName} ${ipVersion} ${ipCfgList} ]
 
 if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
+
+
+#------------------------------------------------------------------------------  
+# VIVADO-IP : FIFO Generator
+#------------------------------------------------------------------------------
+set ipModName "FifoMpiData"
+set ipName    "fifo_generator"
+set ipVendor  "xilinx.com"
+set ipLibrary "ip"
+set ipVersion "13.2"
+set ipCfgList [ list CONFIG.Performance_Options {First_Word_Fall_Through} CONFIG.Input_Data_Width {73} CONFIG.Output_Data_Width {73} \
+                CONFIG.Input_Depth {512} CONFIG.Output_Depth {512} \
+              ]
+
+set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName} ${ipVersion} ${ipCfgList} ]
+
+if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
+
+
+#------------------------------------------------------------------------------  
+# VIVADO-IP : FIFO Generator
+#------------------------------------------------------------------------------
+set ipModName "FifoMpiInfo"
+set ipName    "fifo_generator"
+set ipVendor  "xilinx.com"
+set ipLibrary "ip"
+set ipVersion "13.2"
+set ipCfgList [ list CONFIG.Performance_Options {First_Word_Fall_Through} CONFIG.Input_Data_Width {72} CONFIG.Output_Data_Width {72} \
+                CONFIG.Input_Depth {512} CONFIG.Output_Depth {512} \
+              ]
+
+set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName} ${ipVersion} ${ipCfgList} ]
+
+if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
+
 
 #------------------------------------------------------------------------------
 

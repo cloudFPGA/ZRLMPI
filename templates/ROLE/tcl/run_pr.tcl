@@ -22,7 +22,8 @@ package require cmdline
 
 # Set the Global Settings used by the SHELL Project
 #-------------------------------------------------------------------------------
-source xpr_settings.tcl
+#source xpr_settings.tcl
+source xpr_settings_role.tcl
 
 # Set the Local Settings used by this Script
 #-------------------------------------------------------------------------------
