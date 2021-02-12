@@ -10,8 +10,8 @@
 int app_main(
     // ----- MPI_Interface -----
     stream<MPI_Interface> *soMPIif,
-    stream<Axis<32> > *soMPI_data,
-    stream<Axis<32> > *siMPI_data
+    stream<Axis<64> > *soMPI_data,
+    stream<Axis<64> > *siMPI_data
     )
 {
   int rank;
@@ -30,8 +30,9 @@ int app_main(
   int local_dim = 8;
   int local_grid[10][16];
   int local_new[10][16];
-  printf("Waiting for iterations...\n");
-  MPI_Recv(soMPIif, siMPI_data, &iterations[0], 1, 0, 0, 0, 0, &status);
+  //printf("Waiting for iterations...\n");
+  //MPI_Recv(soMPIif, siMPI_data, &iterations[0], 1, 0, 0, 0, 0, &status);
+  iterations[0] = 1;
   printf("...we are doing %d iterations.\n", iterations[0]);
   start_line = 1;
   end_line = 8;

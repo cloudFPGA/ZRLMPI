@@ -1,7 +1,7 @@
 # Name of the HLS core to build
 #ipName = jacobi2dv0
 appName =mpi_wrapper
-ipName =${appName}v1
+ipName =${appName}v2
 
 #DEPS := $(shell find ./src/ -type f)
 DEPS := $(shell find ./src/ )

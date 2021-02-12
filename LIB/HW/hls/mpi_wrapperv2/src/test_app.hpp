@@ -58,8 +58,8 @@
 int app_main(
     // ----- MPI_Interface -----
     stream<MPI_Interface> *soMPIif,
-    stream<Axis<32> > *soMPI_data,
-    stream<Axis<32> > *siMPI_data
+    stream<Axis<64> > *soMPI_data,
+    stream<Axis<64> > *siMPI_data
     );
 
 #endif
