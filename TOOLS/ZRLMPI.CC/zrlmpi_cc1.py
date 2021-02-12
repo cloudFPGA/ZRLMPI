@@ -50,7 +50,7 @@ __replace_sw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
 
 # Main
 __match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv\\s*\\)')
-__replace_hw__.append('int app_main(\n    // ----- MPI_Interface -----\n    stream<MPI_Interface> *soMPIif,\n    stream<Axis<32> > *soMPI_data,\n    stream<Axis<32> > *siMPI_data\n    )')
+__replace_hw__.append('int app_main(\n    // ----- MPI_Interface -----\n    stream<MPI_Interface> *soMPIif,\n    stream<Axis<64> > *soMPI_data,\n    stream<Axis<64> > *siMPI_data\n    )')
 __replace_sw__.append('int app_main()')
 
 #MPI Init
