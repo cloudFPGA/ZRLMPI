@@ -19,6 +19,8 @@ CLEAN_TYPES = *.log *.jou *.str *.time
 
 .PHONY: all clean hls_cores assert_env help
 
+## ZRLMPI: app is always changing, so to be sure to rebuild it 
+.PHONY: ip
 
 all: assert_env Role_$(cFpSRAtype)_OOC.dcp ## builds the Out-Of-Contect (OOC) Design-Checkpoint (dcp) for this Role
 

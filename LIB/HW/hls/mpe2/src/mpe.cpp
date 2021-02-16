@@ -417,9 +417,11 @@ void pMpeGlobal(
 #pragma HLS INLINE off
   //#pragma HLS pipeline II=1 //TODO
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
-  static mpeState fsmMpeState = IDLE;
+  static mpeState fsmMpeState = MPE_RESET;
+  static bool cache_invalidated = false;
 
 #pragma HLS reset variable=fsmMpeState
+#pragma HLS reset variable=cache_invalidated
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   //static stream<ap_uint<128> > sFifoHeaderCache("sFifoHeaderCache");
   static uint32_t expected_src_rank = 0;
@@ -474,6 +476,20 @@ void pMpeGlobal(
 
   switch(fsmMpeState)
   {
+    default:
+    case MPE_RESET:
+      if(!cache_invalidated)
+      {
+        for(int i = 0; i < HEADER_CACHE_LENGTH; i++)
+        {
+          header_cache_valid[i] = false;
+        }
+        cache_invalidated = true;
+        fsmMpeState = IDLE;
+      } else {
+        fsmMpeState = IDLE;
+      }
+      break;
     case IDLE:
       expected_src_rank = 0xFFF;
       if ( !siMPIif.empty() )
