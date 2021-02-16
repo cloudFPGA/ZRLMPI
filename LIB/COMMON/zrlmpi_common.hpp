@@ -23,6 +23,9 @@
 
 #define ZRLMPI_DEFAULT_PORT 2718
 
+#define ZRLMPI_PROTOCOL_TIMEOUT_MS 10
+#define ZRLMPI_PROTOCOL_TIMEOUT_CYCLES 1562500  //with cycle=6.4ns, 20bit
+
 //to disable debug printfs
 #define DEBUG
 //#define DEBUG2

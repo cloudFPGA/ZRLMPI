@@ -245,6 +245,7 @@ void pDeqRecv(
 #pragma HLS pipeline II=1
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static deqState recvDeqFsm = DEQ_IDLE;
+  //TODO: add state to drain FIFO after reset?
 #pragma HLS reset variable=recvDeqFsm
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   static uint16_t expected_recv_count = 0;
@@ -323,6 +324,7 @@ void pDeqSend(
 #pragma HLS pipeline II=1
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static deqState sendDeqFsm = DEQ_IDLE;
+  //TODO: add state to drain FIFO after reset?
 #pragma HLS reset variable=sendDeqFsm
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   static uint32_t current_packet_line_cnt = 0x0;
@@ -415,13 +417,15 @@ void pMpeGlobal(
 {
   //-- DIRECTIVES FOR THIS PROCESS ------------------------------------------
 #pragma HLS INLINE off
-  //#pragma HLS pipeline II=1 //TODO
+  //#pragma HLS pipeline II=1
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static mpeState fsmMpeState = MPE_RESET;
   static bool cache_invalidated = false;
+  static uint32_t protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
 
 #pragma HLS reset variable=fsmMpeState
 #pragma HLS reset variable=cache_invalidated
+#pragma HLS reset variable=protocol_timeout_cnt
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   //static stream<ap_uint<128> > sFifoHeaderCache("sFifoHeaderCache");
   static uint32_t expected_src_rank = 0;
@@ -518,13 +522,13 @@ void pMpeGlobal(
             //fsmMpeState = WAIT4REQ;
             expected_src_rank = currentInfo.rank;
             break;
-          case MPI_BARRIER: 
+          case MPI_BARRIER:
             //TODO not yet implemented 
             break;
         }
       }
       break;
-    case START_SEND: 
+    case START_SEND:
       if ( //!soTcp_meta.full() &&
           !sFifoDataTX.full()
           && !sDeqSendDestId.full()
@@ -611,6 +615,7 @@ void pMpeGlobal(
       fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
           bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
           SEND_DATA_START, WAIT4CLEAR, WAIT4CLEAR_CACHE);
+      protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
       break;
     case WAIT4CLEAR:
       if( !siTcp_data.empty() && !siTcp_meta.empty()
@@ -630,6 +635,12 @@ void pMpeGlobal(
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt = 1;
+      } else {
+        protocol_timeout_cnt--;
+        if(protocol_timeout_cnt == 0)
+        {
+          fsmMpeState = START_SEND;
+        }
       }
       break;
 
@@ -661,6 +672,7 @@ void pMpeGlobal(
             //and add it to the cache
             add_cache_bytes(header_cache, header_cache_valid, bytes);
             fsmMpeState = WAIT4CLEAR;
+            //no timeout reset
           }
         }
       }
@@ -773,6 +785,8 @@ void pMpeGlobal(
       fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
           bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
           IDLE, WAIT4ACK, WAIT4ACK_CACHE);
+      protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+
       break;
     case WAIT4ACK:
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
@@ -791,6 +805,12 @@ void pMpeGlobal(
 
         metaSrc = siTcp_meta.read().tdata;
         fsmMpeState = WAIT4ACK_1;
+      } else {
+        protocol_timeout_cnt--;
+        if(protocol_timeout_cnt == 0)
+        {
+          //TODO write negative notif to wrapper
+        }
       }
       break;
     case WAIT4ACK_1:
@@ -839,7 +859,7 @@ void pMpeGlobal(
       fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
           bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
           ASSEMBLE_CLEAR, WAIT4REQ, WAIT4REQ_CACHE);
-
+      //no timeout handling
       break;
     case WAIT4REQ:
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
@@ -965,6 +985,7 @@ void pMpeGlobal(
         if(sDeqSendDone.read())
         {
           fsmMpeState = RECV_DATA_START;
+          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
           expect_more_data = false;
           current_data_src_node_id = 0xFFF;
           current_data_src_port = 0x0;
@@ -1012,6 +1033,12 @@ void pMpeGlobal(
           }
           header_i_cnt = 1;
           fsmMpeState = RECV_DATA_START_1;
+        }
+      } else {
+        protocol_timeout_cnt--;
+        if(protocol_timeout_cnt == 0)
+        {
+          fsmMpeState = ASSEMBLE_CLEAR;
         }
       }
       break;

@@ -56,9 +56,11 @@ timestamp_t t0 = 0;
 struct timespec kvm_net;
 #endif
 
+#define RECVH_TIMEOUT_RETURN (-3)
 
 //returns the size IN BYTES!
-uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer)
+//on timeout RECVH_TIMEOUT_RETURN is returned
+int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer, bool with_timeout)
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
   struct sockaddr_in src_addr;
@@ -90,6 +92,20 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
   }
 
   uint32_t orig_header_size = 0x0;
+
+  struct timeval tv;
+  if(with_timeout == true)
+  {
+    tv.tv_sec = 0;
+    tv.tv_usec = ZRLMPI_PROTOCOL_TIMEOUT_MS * 1000;
+  } else {
+    tv.tv_sec = 0;
+    tv.tv_usec = 0; //0 to remove timeout
+  }
+  if(setsockopt(udp_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
+  {
+    perror("setsockopt SO_RCVTIMEO:");
+  }
 
   while(true)
   {
@@ -130,15 +146,7 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
         printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
 #endif
         uint8_t *start_address = buffer + received_length;
-        //if(multiple_packet_mode)
-        //{
-        //    uint32_t received_until_now = 0;
-        //    uint32_t received_cnt = 0;
-        //    while
-        //	res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
-	//} else {
-        	res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
-        //}
+        res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
         ret = bytesToHeader(start_address, header);
 #ifdef DEBUG3
         //for debugging
@@ -158,8 +166,19 @@ uint32_t receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCal
         ret = bytesToHeader(bytes, header);
       }
 
+      if(res == -1)
+      {
+        if(errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+#ifdef DEBUG
+          printf("[recvfrom] timeout occured!\n");
+#endif
+          return RECVH_TIMEOUT_RETURN;
+        }
+      }
+
 #ifdef KVM_CORRECTION
-nanosleep(&kvm_net, &kvm_net);
+      nanosleep(&kvm_net, &kvm_net);
 #endif
       
 #ifdef DEBUG
@@ -389,73 +408,91 @@ nanosleep(&kvm_net, &kvm_net);
 #endif
   int ret = 0;
 
-
-  ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, corresponding_call_type, destination, 0, 0);
+  while(true)
+  {
+    ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, corresponding_call_type, destination, 0, 0, true);
+    if(ret == RECVH_TIMEOUT_RETURN)
+    {
+      continue;
+    } else {
+      break;
+    }
+  }
 #ifdef DEBUG
   printf("Got CLEAR to SEND\n");
 #endif
 
-  //Send data
-  header = MPI_Header(); 
-  header.dst_rank = destination;
-  //header.src_rank = MPI_OWN_RANK;
-  header.src_rank = own_rank;
-  header.size = count*typewidth;
-  header.call = call_type;
-  header.type = DATA;
-
-  uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH];
-
-  headerToBytes(header, buffer);
-  //TODO generic
-  memcpy(&buffer[MPIF_HEADER_LENGTH], data, count*4);
-  uint32_t byte_length = count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH;
-  int total_send = 0;
-  int total_packets = 0;
-  struct timespec sleep;
-  sleep.tv_sec = 0;
-  //sleep.tv_nsec = 200; //0.2us, based on experiments...
-#ifdef ZC2_NETWORK
-  sleep.tv_nsec = 250000; //300us, based on experiments for ZC2!
-#else
-  sleep.tv_nsec = 2000; //2us, based on experiments with 10G links on schwand.
-#endif
-  
-  //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
-  for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)
+  while(true)
   {
-    int count_of_this_message = byte_length - i; //important for last message
-    if(count_of_this_message > max_udp_payload_bytes)
+
+    //Send data
+    header = MPI_Header(); 
+    header.dst_rank = destination;
+    //header.src_rank = MPI_OWN_RANK;
+    header.src_rank = own_rank;
+    header.size = count*typewidth;
+    header.call = call_type;
+    header.type = DATA;
+
+    uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH];
+
+    headerToBytes(header, buffer);
+    //TODO generic
+    memcpy(&buffer[MPIF_HEADER_LENGTH], data, count*4);
+    uint32_t byte_length = count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH;
+    int total_send = 0;
+    int total_packets = 0;
+    struct timespec sleep;
+    sleep.tv_sec = 0;
+    //sleep.tv_nsec = 200; //0.2us, based on experiments...
+#ifdef ZC2_NETWORK
+    sleep.tv_nsec = 250000; //300us, based on experiments for ZC2!
+#else
+    sleep.tv_nsec = 2000; //2us, based on experiments with 10G links on schwand.
+#endif
+
+    //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
+    for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)
     {
-      count_of_this_message = max_udp_payload_bytes;
-    }
+      int count_of_this_message = byte_length - i; //important for last message
+      if(count_of_this_message > max_udp_payload_bytes)
+      {
+        count_of_this_message = max_udp_payload_bytes;
+      }
 #ifdef DEBUG
-    printf("sending %d bytes from address %d as data junk...\n",count_of_this_message, i);
+      printf("sending %d bytes from address %d as data junk...\n",count_of_this_message, i);
 #endif
-    ret = sendto(udp_sock, &buffer[i], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+      ret = sendto(udp_sock, &buffer[i], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
 #ifdef KVM_CORRECTION
-nanosleep(&kvm_net, &kvm_net);
+      nanosleep(&kvm_net, &kvm_net);
 #endif
-    if(ret == -1)
-    {
-      printf("error with sendto\n");
-      perror("sendto");
-      exit(EXIT_FAILURE);
-    } else {
-      total_send += ret;
-      total_packets++;
+      if(ret == -1)
+      {
+        printf("error with sendto\n");
+        perror("sendto");
+        exit(EXIT_FAILURE);
+      } else {
+        total_send += ret;
+        total_packets++;
+      }
+      //make sure they stay in order
+      nanosleep(&sleep, &sleep);
     }
-    //make sure they stay in order
-    nanosleep(&sleep, &sleep);
-  }
-  //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
-  //std::cout << res << " bytes sent for DATA" <<std::endl;
+    //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+    //std::cout << res << " bytes sent for DATA" <<std::endl;
 
 #ifdef DEBUG
-  std::cout << total_send << " bytes sent for DATA (in " << total_packets << " packets) " <<std::endl;
+    std::cout << total_send << " bytes sent for DATA (in " << total_packets << " packets) " <<std::endl;
 #endif
-  
-  ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, corresponding_call_type, destination, 0, 0);
+
+    ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, corresponding_call_type, destination, 0, 0, true);
+    if(ret == RECVH_TIMEOUT_RETURN)
+    {
+      continue;
+    } else {
+      break;
+    }
+  }
 #ifdef DEBUG
   printf("Got ACK\n");
 #endif
@@ -485,7 +522,7 @@ void MPI_Send(
   //  }
   //  send_internal(&data[i], count_of_this_message, datatype, destination, tag, communicator);
   //}
-  
+
   send_internal(data, count, datatype, destination, tag, communicator);
 
 
@@ -506,44 +543,57 @@ void recv_internal(
   int corresponding_call_type = MPI_SEND_INT;
   int call_type = MPI_RECV_INT;
   
-  int ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), SEND_REQUEST, corresponding_call_type, source, 0, 0);
+  int ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), SEND_REQUEST, corresponding_call_type, source, 0, 0, false);
+  //no timeout handling
 
 #ifdef DEBUG
   printf("Got SEND_REQUEST\n");
 #endif
 
+  uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
+  int res;
   MPI_Header header = MPI_Header(); 
-  header.dst_rank = source;
-  //header.src_rank = MPI_OWN_RANK;
-  header.src_rank = own_rank;
-  header.size = 0;
-  header.call = call_type;
-  header.type = CLEAR_TO_SEND;
 
-  headerToBytes(header, bytes);
-  
-  int res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[source], sizeof(rank_socks[source]));
-#ifdef KVM_CORRECTION
-nanosleep(&kvm_net, &kvm_net);
-#endif
-  if(res == -1)
+  while(true)
   {
-    perror("sendto");
-    exit(-1);
-  }
+
+    header.dst_rank = source;
+    //header.src_rank = MPI_OWN_RANK;
+    header.src_rank = own_rank;
+    header.size = 0;
+    header.call = call_type;
+    header.type = CLEAR_TO_SEND;
+
+    headerToBytes(header, bytes);
+
+    res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[source], sizeof(rank_socks[source]));
+#ifdef KVM_CORRECTION
+    nanosleep(&kvm_net, &kvm_net);
+#endif
+    if(res == -1)
+    {
+      perror("sendto");
+      exit(-1);
+    }
 
 #ifdef DEBUG2
-  std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
+    std::cout << res << " bytes sent for CLEAR_TO_SEND" << std::endl;
 #endif
-  
-  //recv data
-  uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
+
+    //recv data
 
 #ifdef DEBUG
-  printf("Receiving DATA ...\n");
+    printf("Receiving DATA ...\n");
 #endif
-  
-  ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth*sizeof(uint32_t), buffer);
+
+    ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth*sizeof(uint32_t), buffer, true);
+    if(ret == RECVH_TIMEOUT_RETURN)
+    {
+      continue;
+    } else {
+      break;
+    }
+  }
 
   //copy only the number of bytes the sender send us but at most count*4
   if(ret > count*typewidth*sizeof(uint32_t))
@@ -554,7 +604,7 @@ nanosleep(&kvm_net, &kvm_net);
   }
 
   //send ACK
-  header = MPI_Header(); 
+  header = MPI_Header();
   header.dst_rank = source;
   //header.src_rank = MPI_OWN_RANK;
   header.src_rank = own_rank;
@@ -563,10 +613,10 @@ nanosleep(&kvm_net, &kvm_net);
   header.type = ACK;
 
   headerToBytes(header, bytes);
-  
+
   res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[source], sizeof(rank_socks[source]));
 #ifdef KVM_CORRECTION
-nanosleep(&kvm_net, &kvm_net);
+  nanosleep(&kvm_net, &kvm_net);
 #endif
   if(res == -1)
   {
