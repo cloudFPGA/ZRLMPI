@@ -32,7 +32,7 @@ using namespace hls;
 //#define MPE_STATUS_ACK_HANKSHAKE_CNT 11
 //#define MPE_STATUS_GLOBAL_STATE 12
 //#define MPE_STATUS_READOUT 13
-////and 14 and 15 
+////and 14 and 15
 //
 ////Error types
 //#define MPE_TX_INVALID_DST_RANK 0xd

@@ -30,14 +30,14 @@ ${ipName}_prj/solution1/impl/ip: $(DEPS)
 	rm -f $(IP_GUARD_FORCE)
 
 csim:
-	@/bin/echo -e "---------------\n\tThis simulation works only with *one* iteration with DIM 16!\n\tSo the test_app.cpp/hpp will be used\n\t(to use the actual app_hw.cpp use 'make csim_orig`)\n---------------\n"
+	@/bin/echo -e "---------------\n\tThis simulation works only with *one* iteration with DIM 16!\n\tSo the test_app.cpp/hpp will be used\n\t(to use the actual app_hw.cpp use 'make csim_orig')\n---------------\n"
 	cp src/app_hw.cpp ./backup_app_hw.cpp
 	cp src/app_hw.hpp ./backup_app_hw.hpp
 	cp src/test_app.cpp src/app_hw.cpp
 	cp src/test_app.hpp src/app_hw.hpp
 	export hlsSim=1; export hlsCoSim=0; vivado_hls -f run_hls.tcl
-	cp src/backup_app_hw.cpp src/app_hw.cpp
-	cp src/backup_app_hw.hpp src/app_hw.hpp
+	mv ./backup_app_hw.cpp src/app_hw.cpp
+	mv ./backup_app_hw.hpp src/app_hw.hpp
 
 csim_orig:
 	@/bin/echo -e "---------------\n\tThis simulation works only with *one* iteration with DIM 16!\n\t(so it expects one recv and one send from the app)\n---------------\n"

@@ -10,6 +10,7 @@
 int app_main(
     // ----- MPI_Interface -----
     stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
     stream<Axis<64> > *soMPI_data,
     stream<Axis<64> > *siMPI_data
     )
@@ -45,7 +46,7 @@ int app_main(
   ;
   for (int l = 0; l < iterations[0]; l++)
   {
-    MPI_Recv(soMPIif, siMPI_data, &local_grid[start_line][0], local_dim * 16, 0, 0, 0, 0, 0);
+    MPI_Recv(soMPIif, siMPIFeB, siMPI_data, &local_grid[start_line][0], local_dim * 16, 0, 0, 0, 0, 0);
     //MPI_Recv(soMPIif, siMPI_data, &local_grid[border_startline][0], 16, 0, 0, 0, 0, &status);
     //MPI_Recv(soMPIif, siMPI_data, &local_grid[border_endline][0], 16, 0, 0, 0, 0, &status);
     for (int i = 1; i < 9; i++)
@@ -65,7 +66,7 @@ int app_main(
 
     }
 
-    MPI_Send(soMPIif, soMPI_data, &local_new[result_start_line][0], local_dim * 16, 0, 0, 0, 0);
+    MPI_Send(soMPIif, siMPIFeB, soMPI_data, &local_new[result_start_line][0], local_dim * 16, 0, 0, 0, 0);
   }
 
   ;

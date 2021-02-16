@@ -20,7 +20,7 @@ ap_uint<1> hw_app_init = 0;
 ap_uint<4> sendCnt = 0;
 ap_uint<4> recvCnt = 0;
 
-  
+
 //uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE];
 uint32_t words[(ZRLMPI_MAX_DETECTED_BUFFER_SIZE+3)/4]; //TODO!
 //#pragma HLS RESOURCE variable=words core=RAM_2P_BRAM
@@ -72,8 +72,9 @@ void MPI_Comm_size(MPI_Comm communicator, int* size)
 }
 
 int send_internal(
-  stream<MPI_Interface> *soMPIif,
-  stream<Axis<64> > *soMPI_data,
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *soMPI_data,
     uint32_t* data,
     int count,
     //uint8_t tkeep_last_word,
@@ -117,10 +118,12 @@ int send_internal(
   uint32_t send_i = 0;
   Axis<64>  tmp64 = Axis<64>();
   //uint32_t send_i_per_packet = 0;
+  MPI_Feedback fedb;
+  
   while(sendState != SEND_DONE)
   {
-//#pragma HLS loop_flatten off
-//#pragma HLS unroll factor=1
+    //#pragma HLS loop_flatten off
+    //#pragma HLS unroll factor=1
 
     switch(sendState) {
       case SEND_WRITE_INFO:
@@ -132,52 +135,45 @@ int send_internal(
         break;
 
       case SEND_WRITE_DATA:
-        //  if(!soMPI_data->full())
-        //  {
-        //tmp32.tdata = data[send_i];
-        //tmp32.tkeep = 0xFF;
-    	  tmp64.tdata = 0x0;
-    	tmp64.tdata = (ap_uint<64>) data[send_i];
-    	tmp64.tkeep = 0xFF;
-    	if(send_i < (word_count -1))
-    	{
-    		tmp64.tdata |= ((ap_uint<64>) data[send_i+1]) << 32;
-    	}
-    	//else, it stays 0
-    	send_i += 2;
-        //if(send_i_per_packet >= ZRLMPI_MAX_MESSAGE_SIZE_words || //--> better by UOE/MPE? TODO
-        //if(send_i >= info.count - 1)
+        tmp64.tdata = 0x0;
+        tmp64.tdata = (ap_uint<64>) data[send_i];
+        tmp64.tkeep = 0xFF;
+        if(send_i < (word_count -1))
+        {
+          tmp64.tdata |= ((ap_uint<64>) data[send_i+1]) << 32;
+        }
+        //else, it stays 0
+        send_i += 2;
         if(send_i >= word_count)
         {
           tmp64.tlast = 1;
-          //tmp32.tkeep = tkeep_last_word;
           //keep is alway a full line
           sendState = SEND_FINISH;
         } else {
           tmp64.tlast = 0;
         }
-        //just to be sure
-        //tmp8.tkeep = 1;
-        //printf("write MPI data: %#02x\n", (int) tmp8.tdata);
         printf("write MPI data: %#016llx\n", (uint64_t) tmp64.tdata);
         //blocking!
         soMPI_data->write(tmp64);
-        //send_i++;
-        //send_i_per_packet++;
-        //if(send_i >= info.count - 1)
-        //{
-        //  sendState = SEND_FINISH;
-        //}
-        //  }
         break;
 
       case SEND_FINISH:
-        sendState = SEND_DONE;
-        sendCnt++;
-        printf("MPI_send completed.\n");
+        fedb = siMPIFeB->read();
+        if(fedb == ZRLMPI_FEEDBACK_OK)
+        {
+          sendState = SEND_DONE;
+          sendCnt++;
+          printf("MPI_send completed.\n");
+        } else {
+          //timeout occured
+          //go directly to write data is ok, since we've written TLAST before
+          sendState = SEND_WRITE_DATA;
+          send_i = 0;
+        }
+
         //setMMIO_out(MMIO_out);
         break;
-      
+
       default:
       case SEND_DONE:
         //NOP
@@ -192,10 +188,11 @@ int send_internal(
 
 
 void MPI_Send(
-  // ----- MPI_Interface -----
-  stream<MPI_Interface> *soMPIif,
-  stream<Axis<64> > *soMPI_data,
-  // ----- MPI Signature -----
+    // ----- MPI_Interface -----
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *soMPI_data,
+    // ----- MPI Signature -----
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -204,7 +201,7 @@ void MPI_Send(
     MPI_Comm communicator)
 {
 #pragma HLS inline
-  
+
   //for(int i=0; i< count*4; i+=4)
   //{
   //  words[i + 0] = (data[i/4] >> 24) & 0xFF;
@@ -212,29 +209,30 @@ void MPI_Send(
   //  words[i + 2] = (data[i/4] >> 8) & 0xFF;
   //  words[i + 3] = data[i/4] & 0xFF;
   //}
-    printf("[MPI_Send] input data:\n");
+  printf("[MPI_Send] input data:\n");
   for(int i=0; i< count; i++)
   {
-//#pragma HLS unroll
+    //#pragma HLS unroll
     words[i] = data[i];
     printf("\t[%02d] %04d\n", i, data[i]);
   }
   printf("\n");
 
-  send_internal(soMPIif, soMPI_data, words, count, datatype, destination, tag, communicator);
+  send_internal(soMPIif, siMPIFeB, soMPI_data, words, count, datatype, destination, tag, communicator);
 }
 
 
 int recv_internal(
-  stream<MPI_Interface> *soMPIif,
-  stream<Axis<64> > *siMPI_data,
-  uint32_t* data,
-  int count,
-  MPI_Datatype datatype,
-  int source,
-  int tag,
-  MPI_Comm communicator,
-  MPI_Status* status)
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *siMPI_data,
+    uint32_t* data,
+    int count,
+    MPI_Datatype datatype,
+    int source,
+    int tag,
+    MPI_Comm communicator,
+    MPI_Status* status)
 {
 #pragma HLS inline
 
@@ -270,62 +268,48 @@ int recv_internal(
   int recv_i = 0;
   bool recv_tlastOccured = false;
   Axis<64>  tmp64 = Axis<64>();
+  MPI_Feedback fedb;
 
   while(recvState != RECV_DONE)
   {
-//#pragma HLS loop_flatten off
-//#pragma HLS unroll factor=1
+    //#pragma HLS loop_flatten off
+    //#pragma HLS unroll factor=1
 
     switch(recvState) {
 
       case RECV_WRITE_INFO:
         //if(!soMPIif->full())
         //{
-          soMPIif->write(info);
-          recvState = RECV_READ_DATA;
+        soMPIif->write(info);
+        recvState = RECV_READ_DATA;
         //}
         break;
       case RECV_READ_DATA:
 
-        //if(!siMPI_data->empty())
-        //{
-        //blocking!
-          tmp64 = siMPI_data->read();
-          printf("read MPI data: %#016llx\n", (uint64_t) tmp64.tdata);
+        tmp64 = siMPI_data->read();
+        printf("read MPI data: %#016llx\n", (uint64_t) tmp64.tdata);
 
-          data[recv_i] = (uint32_t) tmp64.tdata;
-          //we assume tkeep = 0xFF, becuase we sent it...
-          if(recv_i < (word_count-1))
-          {
-        	  data[recv_i+1] = (uint32_t) (tmp64.tdata >> 32);
-          }
-          recv_i +=2 ;
+        data[recv_i] = (uint32_t) tmp64.tdata;
+        //we assume tkeep = 0xFF, becuase we sent it...
+        if(recv_i < (word_count-1))
+        {
+          data[recv_i+1] = (uint32_t) (tmp64.tdata >> 32);
+        }
+        recv_i +=2 ;
 
-          if( tmp64.tlast == 1)
-          {
-            printf("received TLAST at count %d!\n", recv_i);
-            recv_tlastOccured = true;
-            recvState = RECV_FINISH;
-            //break;
-          }
-          //TODO: not necessary, we can trust the tlast from MPE
-          //if(recv_i == info.count)
-          //{
-          //  recvState = RECV_FINISH;
-          //}
-        //}
+        if( tmp64.tlast == 1)
+        {
+          printf("received TLAST at count %d!\n", recv_i);
+          recv_tlastOccured = true;
+          recvState = RECV_FINISH;
+        }
+        //check length not necessary, we can trust the tlast from MPE
         break;
       case RECV_FINISH:
 
-//        if(!recv_tlastOccured && !siMPI_data->empty() )
-//        {
-//          printf("received stream longer than count!\n");
-//          Axis<32>  tmp64 = siMPI_data->read();
-//          if(status != MPI_STATUS_IGNORE)
-//          {
-//            *status = 2;
-//          }
-//        } else {
+        fedb = siMPIFeB->read();
+        if(fedb == ZRLMPI_FEEDBACK_OK)
+        {
           if(status != MPI_STATUS_IGNORE)
           {
             *status = 1;
@@ -334,9 +318,14 @@ int recv_internal(
           recvCnt++;
           recvState = RECV_DONE;
           printf("MPI_recv completed.\n");
-          //setMMIO_out(MMIO_out);
+        } else {
+          //TIMEOUT occured...
+          recvState = RECV_READ_DATA;
+          recv_tlastOccured = false;
+          recv_i = 0;
+        }
 
-        //}
+        //setMMIO_out(MMIO_out);
         break;
 
       default:
@@ -346,7 +335,7 @@ int recv_internal(
         break;
     }
   }
-  
+
   return 1;
 }
 
@@ -354,6 +343,7 @@ int recv_internal(
 void MPI_Recv(
     // ----- MPI_Interface -----
     stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
     stream<Axis<64> > *siMPI_data,
     // ----- MPI Signature -----
     int* data,
@@ -366,7 +356,7 @@ void MPI_Recv(
 {
 #pragma HLS inline
 
-  recv_internal(soMPIif, siMPI_data, words, count, datatype, source, tag, communicator, status);
+  recv_internal(soMPIif, siMPIFeB, siMPI_data, words, count, datatype, source, tag, communicator, status);
 
   //for(int i=0; i<count; i++)
   //{
@@ -380,7 +370,7 @@ void MPI_Recv(
   printf("[MPI_Recv] output data:\n");
   for(int i=0; i<count; i++)
   {
-//#pragma HLS unroll
+    //#pragma HLS unroll
     data[i]  = (int) words[i];
     printf("\t[%02d] %04d\n", i, data[i]);
     //TODO: if count-1 (last word), handle non complete words (here not necessary)
@@ -409,8 +399,8 @@ void mpi_wrapper(
     // ----- TO SMC ------
     ap_uint<16> *MMIO_out,
     // ----- MPI_Interface -----
-    //stream<MPI_Interface> *siMPIif,
     stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
     stream<Axis<64> > *soMPI_data,
     stream<Axis<64> > *siMPI_data
     )
@@ -420,11 +410,13 @@ void mpi_wrapper(
 #pragma HLS INTERFACE ap_vld register port=role_rank_arg name=piSMC_to_ROLE_rank
 #pragma HLS INTERFACE ap_vld register port=cluster_size_arg name=piSMC_to_ROLE_size
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
-#pragma HLS INTERFACE ap_fifo port=soMPIif    //depth=16
+#pragma HLS INTERFACE ap_fifo port=soMPIif
 #pragma HLS DATA_PACK     variable=soMPIif
-#pragma HLS INTERFACE ap_fifo port=soMPI_data //depth=2048
+#pragma HLS INTERFACE ap_fifo port=siMPIFeB
+//#pragma HLS DATA_PACK     variable=siMPIFeB
+#pragma HLS INTERFACE ap_fifo port=soMPI_data
 #pragma HLS DATA_PACK     variable=soMPI_data
-#pragma HLS INTERFACE ap_fifo port=siMPI_data //depth=2048
+#pragma HLS INTERFACE ap_fifo port=siMPI_data
 #pragma HLS DATA_PACK     variable=siMPI_data
 
 #pragma HLS reset variable=my_app_done
@@ -469,7 +461,7 @@ void mpi_wrapper(
   if(my_app_done == 0)
   {
     //app_main(MMIO_out, soMPIif, soMPI_data, siMPI_data);
-    app_main(soMPIif, soMPI_data, siMPI_data);
+    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data);
   }
 
   // at the end

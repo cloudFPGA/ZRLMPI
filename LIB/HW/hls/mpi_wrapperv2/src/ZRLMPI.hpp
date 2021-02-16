@@ -83,10 +83,11 @@ void MPI_Comm_size( MPI_Comm communicator, int* size);
 
 
 void MPI_Send(
-  // ----- MPI_Interface -----
-  stream<MPI_Interface> *soMPIif,
-  stream<Axis<64> > *soMPI_data,
-  // ----- MPI Signature -----
+    // ----- MPI_Interface -----
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *soMPI_data,
+    // ----- MPI Signature -----
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -96,10 +97,11 @@ void MPI_Send(
 
 
 void MPI_Recv(
-  // ----- MPI_Interface -----
-  stream<MPI_Interface> *soMPIif,
-  stream<Axis<64> > *siMPI_data,
-  // ----- MPI Signature -----
+    // ----- MPI_Interface -----
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *siMPI_data,
+    // ----- MPI Signature -----
     int* data,
     int count,
     MPI_Datatype datatype,
@@ -119,13 +121,13 @@ void mpi_wrapper(
     // ----- FROM SMC -----
     ap_uint<32> role_rank_arg,
     ap_uint<32> cluster_size_arg,
-  // ----- TO SMC ------
-  ap_uint<16> *MMIO_out,
-  // ----- MPI_Interface -----
-  //stream<MPI_Interface> *soMPIif,
-  stream<MPI_Interface> *soMPIif,
-  stream<Axis<64> > *soMPI_data,
-  stream<Axis<64> > *siMPI_data
+    // ----- TO SMC ------
+    ap_uint<16> *MMIO_out,
+    // ----- MPI_Interface -----
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *soMPI_data,
+    stream<Axis<64> > *siMPI_data
     );
 
 

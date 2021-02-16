@@ -37,28 +37,37 @@
 #define ZRLMPI_MAX_MESSAGE_SIZE_WORDS 354   //int or float inclusive header!
 #define ZRLMPI_MAX_MESSAGE_SIZE_LINES 177   //line of 8 byte (inclusive header)
 
+
 /*
- * MPI-F Interface
+ * ZRLMPI Interface
  */
- struct MPI_Interface {
-   UINT8     mpi_call;
-   UINT32    count;
-   UINT32    rank;
-   MPI_Interface() {}
- };
+struct MPI_Interface {
+  UINT8     mpi_call;
+  UINT32    count;
+  UINT32    rank;
+  MPI_Interface() {}
+};
+
+/*
+ * ZRLMPI Feedback link (for HW only)
+ */
+typedef uint8_t MPI_Feedback;
+
+#define ZRLMPI_FEEDBACK_OK 1
+#define ZRLMPI_FEEDBACK_FAIL 2
 
 
 /*
- * MPI-F Header 
+ * ZRLMPI Header
  */
- struct MPI_Header {
+struct MPI_Header {
   UINT32 dst_rank;
   UINT32 src_rank;
-  UINT32 size; 
+  UINT32 size;
   mpiCall call;
   packetType type;
   MPI_Header() {}
- };
+};
 #define MPIF_HEADER_LENGTH 32 //Bytes
 
 
