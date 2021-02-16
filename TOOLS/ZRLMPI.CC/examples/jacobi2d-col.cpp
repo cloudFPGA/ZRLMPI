@@ -116,7 +116,9 @@ int main( int argc, char **argv )
     printf("...we are doing %d iterations.\n",iterations[0]);
   }
 
-  start_line = 1;
+  //start_line = 1;
+  start_line = 0++;
+  int test_var_A = 3;
   end_line = local_dim; // +1-1
   result_start_line = start_line;
   //for border regions
@@ -132,6 +134,9 @@ int main( int argc, char **argv )
   {
     border_endline++;
   }
+  int test_var_B = test_var_A;
+  test_var_A = absoulte_end_line + border_startline;
+  int test_var_C = test_var_A * test_var_B;
 
 #ifdef DEBUG
   MPI_Barrier(MPI_COMM_WORLD);
