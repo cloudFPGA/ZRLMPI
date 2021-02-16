@@ -76,9 +76,9 @@ mkdir -p $usedRoleDir/hls/
 rel_LIBhls=$(realpath --relative-to=$usedRoleDir/hls/ $cFpRootDir/$1/LIB/HW/hls/)
 old_wd=$(pwd)
 #ln -s $cFpRootDir/$1/LIB/HW/hls/mpe/ $usedRoleDir/hls/mpe 
-cd $usedRoleDir/hls; ln -s $rel_LIBhls/mpe  ./mpe 
+cd $usedRoleDir/hls; ln -s $rel_LIBhls/mpe2  ./mpe2
 #ln -s $cFpRootDir/$1/LIB/HW/hls/mpi_wrapperv1/ $usedRoleDir/hls/mpi_wrapperv1 
-cd $usedRoleDir/hls; ln -s $rel_LIBhls/mpi_wrapperv1  ./mpi_wrapperv1
+cd $usedRoleDir/hls; ln -s $rel_LIBhls/mpi_wrapperv2  ./mpi_wrapperv2
 cd $old_wd
 
 #copy example application

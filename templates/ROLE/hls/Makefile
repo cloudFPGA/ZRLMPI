@@ -10,9 +10,9 @@
 # *
 # ******************************************************************************
 
-.PHONY: all clean mem_test_flash triangle_app mpe mpi_wrapperv1
+.PHONY: all clean triangle_app mpe2 mpi_wrapperv2
 
-all: mpe mpi_wrapperv1 triangle_app
+all: mpe2 mpi_wrapperv2 triangle_app
 
 
 *:

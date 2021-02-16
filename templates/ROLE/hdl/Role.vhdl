@@ -57,15 +57,15 @@ entity Role_Themisto is
     -- Open Port vector
     poROL_Nrc_Udp_Rx_ports     : out    std_ulogic_vector( 31 downto 0);
     -- ROLE <-> NRC Meta Interface
-    soROLE_Nrc_Udp_Meta_TDATA   : out   std_ulogic_vector( 79 downto 0);
+    soROLE_Nrc_Udp_Meta_TDATA   : out   std_ulogic_vector( 63 downto 0);
     soROLE_Nrc_Udp_Meta_TVALID  : out   std_ulogic;
     soROLE_Nrc_Udp_Meta_TREADY  : in    std_ulogic;
-    soROLE_Nrc_Udp_Meta_TKEEP   : out   std_ulogic_vector(  9 downto 0);
+    soROLE_Nrc_Udp_Meta_TKEEP   : out   std_ulogic_vector(  7 downto 0);
     soROLE_Nrc_Udp_Meta_TLAST   : out   std_ulogic;
-    siNRC_Role_Udp_Meta_TDATA   : in    std_ulogic_vector( 79 downto 0);
+    siNRC_Role_Udp_Meta_TDATA   : in    std_ulogic_vector( 63 downto 0);
     siNRC_Role_Udp_Meta_TVALID  : in    std_ulogic;
     siNRC_Role_Udp_Meta_TREADY  : out   std_ulogic;
-    siNRC_Role_Udp_Meta_TKEEP   : in    std_ulogic_vector(  9 downto 0);
+    siNRC_Role_Udp_Meta_TKEEP   : in    std_ulogic_vector(  7 downto 0);
     siNRC_Role_Udp_Meta_TLAST   : in    std_ulogic;
       
     ------------------------------------------------------
@@ -86,15 +86,15 @@ entity Role_Themisto is
     -- Open Port vector
     poROL_Nrc_Tcp_Rx_ports     : out    std_ulogic_vector( 31 downto 0);
     -- ROLE <-> NRC Meta Interface
-    soROLE_Nrc_Tcp_Meta_TDATA   : out   std_ulogic_vector( 79 downto 0);
+    soROLE_Nrc_Tcp_Meta_TDATA   : out   std_ulogic_vector( 63 downto 0);
     soROLE_Nrc_Tcp_Meta_TVALID  : out   std_ulogic;
     soROLE_Nrc_Tcp_Meta_TREADY  : in    std_ulogic;
-    soROLE_Nrc_Tcp_Meta_TKEEP   : out   std_ulogic_vector(  9 downto 0);
+    soROLE_Nrc_Tcp_Meta_TKEEP   : out   std_ulogic_vector(  7 downto 0);
     soROLE_Nrc_Tcp_Meta_TLAST   : out   std_ulogic;
-    siNRC_Role_Tcp_Meta_TDATA   : in    std_ulogic_vector( 79 downto 0);
+    siNRC_Role_Tcp_Meta_TDATA   : in    std_ulogic_vector( 63 downto 0);
     siNRC_Role_Tcp_Meta_TVALID  : in    std_ulogic;
     siNRC_Role_Tcp_Meta_TREADY  : out   std_ulogic;
-    siNRC_Role_Tcp_Meta_TKEEP   : in    std_ulogic_vector(  9 downto 0);
+    siNRC_Role_Tcp_Meta_TKEEP   : in    std_ulogic_vector(  7 downto 0);
     siNRC_Role_Tcp_Meta_TLAST   : in    std_ulogic;
     
     
@@ -103,85 +103,70 @@ entity Role_Themisto is
     --------------------------------------------------------
     ---- Memory Port #0 / S2MM-AXIS ----------------   
     ------ Stream Read Command ---------
-    soSHL_Mem_Mp0_RdCmd_tdata           : out   std_ulogic_vector( 79 downto 0);
-    soSHL_Mem_Mp0_RdCmd_tvalid          : out   std_ulogic;
-    soSHL_Mem_Mp0_RdCmd_tready          : in    std_ulogic;
+    soMEM_Mp0_RdCmd_tdata           : out   std_ulogic_vector( 79 downto 0);
+    soMEM_Mp0_RdCmd_tvalid          : out   std_ulogic;
+    soMEM_Mp0_RdCmd_tready          : in    std_ulogic;
     ------ Stream Read Status ----------
-    siSHL_Mem_Mp0_RdSts_tdata           : in    std_ulogic_vector(  7 downto 0);
-    siSHL_Mem_Mp0_RdSts_tvalid          : in    std_ulogic;
-    siSHL_Mem_Mp0_RdSts_tready          : out   std_ulogic;
+    siMEM_Mp0_RdSts_tdata           : in    std_ulogic_vector(  7 downto 0);
+    siMEM_Mp0_RdSts_tvalid          : in    std_ulogic;
+    siMEM_Mp0_RdSts_tready          : out   std_ulogic;
     ------ Stream Data Input Channel ---
-    siSHL_Mem_Mp0_Read_tdata            : in    std_ulogic_vector(511 downto 0);
-    siSHL_Mem_Mp0_Read_tkeep            : in    std_ulogic_vector( 63 downto 0);
-    siSHL_Mem_Mp0_Read_tlast            : in    std_ulogic;
-    siSHL_Mem_Mp0_Read_tvalid           : in    std_ulogic;
-    siSHL_Mem_Mp0_Read_tready           : out   std_ulogic;
+    siMEM_Mp0_Read_tdata            : in    std_ulogic_vector(511 downto 0);
+    siMEM_Mp0_Read_tkeep            : in    std_ulogic_vector( 63 downto 0);
+    siMEM_Mp0_Read_tlast            : in    std_ulogic;
+    siMEM_Mp0_Read_tvalid           : in    std_ulogic;
+    siMEM_Mp0_Read_tready           : out   std_ulogic;
     ------ Stream Write Command --------
-    soSHL_Mem_Mp0_WrCmd_tdata           : out   std_ulogic_vector( 79 downto 0);
-    soSHL_Mem_Mp0_WrCmd_tvalid          : out   std_ulogic;
-    soSHL_Mem_Mp0_WrCmd_tready          : in    std_ulogic;
+    soMEM_Mp0_WrCmd_tdata           : out   std_ulogic_vector( 79 downto 0);
+    soMEM_Mp0_WrCmd_tvalid          : out   std_ulogic;
+    soMEM_Mp0_WrCmd_tready          : in    std_ulogic;
     ------ Stream Write Status ---------
-    siSHL_Mem_Mp0_WrSts_tdata           : in    std_ulogic_vector(  7 downto 0);
-    siSHL_Mem_Mp0_WrSts_tvalid          : in    std_ulogic;
-    siSHL_Mem_Mp0_WrSts_tready          : out   std_ulogic;
+    siMEM_Mp0_WrSts_tdata           : in    std_ulogic_vector(  7 downto 0);
+    siMEM_Mp0_WrSts_tvalid          : in    std_ulogic;
+    siMEM_Mp0_WrSts_tready          : out   std_ulogic;
     ------ Stream Data Output Channel --
-    soSHL_Mem_Mp0_Write_tdata           : out   std_ulogic_vector(511 downto 0);
-    soSHL_Mem_Mp0_Write_tkeep           : out   std_ulogic_vector( 63 downto 0);
-    soSHL_Mem_Mp0_Write_tlast           : out   std_ulogic;
-    soSHL_Mem_Mp0_Write_tvalid          : out   std_ulogic;
-    soSHL_Mem_Mp0_Write_tready          : in    std_ulogic; 
+    soMEM_Mp0_Write_tdata           : out   std_ulogic_vector(511 downto 0);
+    soMEM_Mp0_Write_tkeep           : out   std_ulogic_vector( 63 downto 0);
+    soMEM_Mp0_Write_tlast           : out   std_ulogic;
+    soMEM_Mp0_Write_tvalid          : out   std_ulogic;
+    soMEM_Mp0_Write_tready          : in    std_ulogic; 
     
     --------------------------------------------------------
     -- SHELL / Mem / Mp1 Interface
     --------------------------------------------------------
-    ---- Memory Port #1 / S2MM-AXIS ------------------   
-    ------ Stream Read Command ---------
-    soSHL_Mem_Mp1_RdCmd_tdata           : out   std_ulogic_vector( 79 downto 0);
-    soSHL_Mem_Mp1_RdCmd_tvalid          : out   std_ulogic;
-    soSHL_Mem_Mp1_RdCmd_tready          : in    std_ulogic;
-    ------ Stream Read Status ----------
-    siSHL_Mem_Mp1_RdSts_tdata           : in    std_ulogic_vector(  7 downto 0);
-    siSHL_Mem_Mp1_RdSts_tvalid          : in    std_ulogic;
-    siSHL_Mem_Mp1_RdSts_tready          : out   std_ulogic;
-    ------ Stream Data Input Channel ---
-    siSHL_Mem_Mp1_Read_tdata            : in    std_ulogic_vector(511 downto 0);
-    siSHL_Mem_Mp1_Read_tkeep            : in    std_ulogic_vector( 63 downto 0);
-    siSHL_Mem_Mp1_Read_tlast            : in    std_ulogic;
-    siSHL_Mem_Mp1_Read_tvalid           : in    std_ulogic;
-    siSHL_Mem_Mp1_Read_tready           : out   std_ulogic;
-    ------ Stream Write Command --------
-    soSHL_Mem_Mp1_WrCmd_tdata           : out   std_ulogic_vector( 79 downto 0);
-    soSHL_Mem_Mp1_WrCmd_tvalid          : out   std_ulogic;
-    soSHL_Mem_Mp1_WrCmd_tready          : in    std_ulogic;
-    ------ Stream Write Status ---------
-    siSHL_Mem_Mp1_WrSts_tvalid          : in    std_ulogic;
-    siSHL_Mem_Mp1_WrSts_tdata           : in    std_ulogic_vector(  7 downto 0);
-    siSHL_Mem_Mp1_WrSts_tready          : out   std_ulogic;
-    ------ Stream Data Output Channel --
-    soSHL_Mem_Mp1_Write_tdata           : out   std_ulogic_vector(511 downto 0);
-    soSHL_Mem_Mp1_Write_tkeep           : out   std_ulogic_vector( 63 downto 0);
-    soSHL_Mem_Mp1_Write_tlast           : out   std_ulogic;
-    soSHL_Mem_Mp1_Write_tvalid          : out   std_ulogic;
-    soSHL_Mem_Mp1_Write_tready          : in    std_ulogic; 
-    
-    --------------------------------------------------------
-    -- SHELL / Mmio / AppFlash Interface
-    --------------------------------------------------------
-    ---- [DIAG_CTRL_1] -----------------
-    piSHL_Mmio_Mc1_MemTestCtrl          : in    std_ulogic_vector(1 downto 0);
-    ---- [DIAG_STAT_1] -----------------
-    poSHL_Mmio_Mc1_MemTestStat          : out   std_ulogic_vector(1 downto 0);
-    ---- [DIAG_CTRL_2] -----------------
-    piSHL_Mmio_UdpEchoCtrl              : in    std_ulogic_vector(  1 downto 0);
-    piSHL_Mmio_UdpPostDgmEn             : in    std_ulogic;
-    piSHL_Mmio_UdpCaptDgmEn             : in    std_ulogic;
-    piSHL_Mmio_TcpEchoCtrl              : in    std_ulogic_vector(  1 downto 0);
-    piSHL_Mmio_TcpPostSegEn             : in    std_ulogic;
-    piSHL_Mmio_TcpCaptSegEn             : in    std_ulogic;
+    moMEM_Mp1_AWID                  : out   std_ulogic_vector(3 downto 0);
+    moMEM_Mp1_AWADDR                : out   std_ulogic_vector(32 downto 0);
+    moMEM_Mp1_AWLEN                 : out   std_ulogic_vector(7 downto 0);
+    moMEM_Mp1_AWSIZE                : out   std_ulogic_vector(2 downto 0);
+    moMEM_Mp1_AWBURST               : out   std_ulogic_vector(1 downto 0);
+    moMEM_Mp1_AWVALID               : out   std_ulogic;
+    moMEM_Mp1_AWREADY               : in    std_ulogic;
+    moMEM_Mp1_WDATA                 : out   std_ulogic_vector(511 downto 0);
+    moMEM_Mp1_WSTRB                 : out   std_ulogic_vector(63 downto 0);
+    moMEM_Mp1_WLAST                 : out   std_ulogic;
+    moMEM_Mp1_WVALID                : out   std_ulogic;
+    moMEM_Mp1_WREADY                : in    std_ulogic;
+    moMEM_Mp1_BID                   : in    std_ulogic_vector(3 downto 0);
+    moMEM_Mp1_BRESP                 : in    std_ulogic_vector(1 downto 0);
+    moMEM_Mp1_BVALID                : in    std_ulogic;
+    moMEM_Mp1_BREADY                : out   std_ulogic;
+    moMEM_Mp1_ARID                  : out   std_ulogic_vector(3 downto 0);
+    moMEM_Mp1_ARADDR                : out   std_ulogic_vector(32 downto 0);
+    moMEM_Mp1_ARLEN                 : out   std_ulogic_vector(7 downto 0);
+    moMEM_Mp1_ARSIZE                : out   std_ulogic_vector(2 downto 0);
+    moMEM_Mp1_ARBURST               : out   std_ulogic_vector(1 downto 0);
+    moMEM_Mp1_ARVALID               : out   std_ulogic;
+    moMEM_Mp1_ARREADY               : in    std_ulogic;
+    moMEM_Mp1_RID                   : in    std_ulogic_vector(3 downto 0);
+    moMEM_Mp1_RDATA                 : in    std_ulogic_vector(511 downto 0);
+    moMEM_Mp1_RRESP                 : in    std_ulogic_vector(1 downto 0);
+    moMEM_Mp1_RLAST                 : in    std_ulogic;
+    moMEM_Mp1_RVALID                : in    std_ulogic;
+    moMEM_Mp1_RREADY                : out   std_ulogic;
+
     ---- [APP_RDROL] -------------------
-    poSHL_Mmio_RdReg                    : out  std_logic_vector( 15 downto 0);
-    --- [APP_WRROL] --------------------
-    piSHL_Mmio_WrReg                    : in   std_logic_vector( 15 downto 0);
+    -- to be use as ROLE VERSION IDENTIFICATION --
+    poSHL_Mmio_RdReg                    : out   std_ulogic_vector( 15 downto 0);
 
     --------------------------------------------------------
     -- TOP : Secondary Clock (Asynchronous)
@@ -207,83 +192,61 @@ end Role_Themisto;
 
 architecture Flash of Role_Themisto is
 
-  constant cUSE_DEPRECATED_DIRECTIVES       : boolean := true;
+  constant cUSE_DEPRECATED_DIRECTIVES       : boolean := false;
 
   --============================================================================
   --  SIGNAL DECLARATIONS
   --============================================================================  
 
-
-  ----============================================================================
-  ---- TEMPORARY PROC: ROLE / Nts0 / Tcp Interface to AVOID UNDEFINED CONTENT
-  ----============================================================================
-  -------- Input AXI-Write Stream Interface --------
-  --signal sROL_Shl_Nts0_Tcp_Axis_tready      : std_ulogic;
-  --signal sSHL_Rol_Nts0_Tcp_Axis_tdata       : std_ulogic_vector( 63 downto 0);
-  --signal sSHL_Rol_Nts0_Tcp_Axis_tkeep       : std_ulogic_vector(  7 downto 0);
-  --signal sSHL_Rol_Nts0_Tcp_Axis_tlast       : std_ulogic;
-  --signal sSHL_Rol_Nts0_Tcp_Axis_tvalid      : std_ulogic;
-  -------- Output AXI-Write Stream Interface -------
-  --signal sROL_Shl_Nts0_Tcp_Axis_tdata       : std_ulogic_vector( 63 downto 0);
-  --signal sROL_Shl_Nts0_Tcp_Axis_tkeep       : std_ulogic_vector(  7 downto 0);
-  --signal sROL_Shl_Nts0_Tcp_Axis_tlast       : std_ulogic;
-  --signal sROL_Shl_Nts0_Tcp_Axis_tvalid      : std_ulogic;
-  --signal sSHL_Rol_Nts0_Tcp_Axis_tready      : std_ulogic;
-
-  --============================================================================
-  -- TEMPORARY PROC: ROLE / Mem / Mp0 Interface to AVOID UNDEFINED CONTENT
-  --============================================================================
-  ------  Stream Read Command --------------
-  signal sROL_Shl_Mem_Mp0_Axis_RdCmd_tdata  : std_ulogic_vector( 71 downto 0);
-  signal sROL_Shl_Mem_Mp0_Axis_RdCmd_tvalid : std_ulogic;
-  signal sSHL_Rol_Mem_Mp0_Axis_RdCmd_tready : std_ulogic;
-  ------ Stream Read Status ----------------
-  signal sROL_Shl_Mem_Mp0_Axis_RdSts_tready : std_ulogic;
-  signal sSHL_Rol_Mem_Mp0_Axis_RdSts_tdata  : std_ulogic_vector(  7 downto 0);
-  signal sSHL_Rol_Mem_Mp0_Axis_RdSts_tvalid : std_ulogic;
-  ------ Stream Data Input Channel ---------
-  signal sROL_Shl_Mem_Mp0_Axis_Read_tready  : std_ulogic;
-  signal sSHL_Rol_Mem_Mp0_Axis_Read_tdata   : std_ulogic_vector(511 downto 0);
-  signal sSHL_Rol_Mem_Mp0_Axis_Read_tkeep   : std_ulogic_vector( 63 downto 0);
-  signal sSHL_Rol_Mem_Mp0_Axis_Read_tlast   : std_ulogic;
-  signal sSHL_Rol_Mem_Mp0_Axis_Read_tvalid  : std_ulogic;
-  ------ Stream Write Command --------------
-  signal sROL_Shl_Mem_Mp0_Axis_WrCmd_tdata  : std_ulogic_vector( 71 downto 0);
-  signal sROL_Shl_Mem_Mp0_Axis_WrCmd_tvalid : std_ulogic;
-  signal sSHL_Rol_Mem_Mp0_Axis_WrCmd_tready : std_ulogic;
-  ------ Stream Write Status ---------------
-  signal sROL_Shl_Mem_Mp0_Axis_WrSts_tready : std_ulogic;
-  signal sSHL_Rol_Mem_Mp0_Axis_WrSts_tdata  : std_ulogic_vector(  7 downto 0);
-  signal sSHL_Rol_Mem_Mp0_Axis_WrSts_tvalid : std_ulogic;
-  ------ Stream Data Output Channel --------
-  signal sROL_Shl_Mem_Mp0_Axis_Write_tdata  : std_ulogic_vector(511 downto 0);
-  signal sROL_Shl_Mem_Mp0_Axis_Write_tkeep  : std_ulogic_vector( 63 downto 0);
-  signal sROL_Shl_Mem_Mp0_Axis_Write_tlast  : std_ulogic;
-  signal sROL_Shl_Mem_Mp0_Axis_Write_tvalid : std_ulogic;
-  signal sSHL_Rol_Mem_Mp0_Axis_Write_tready : std_ulogic;
     
   ------------------------------------------------------
   -- MPI Interface
   ------------------------------------------------------
-  signal sAPP_MPE_MPIif_mpi_call_TDATA        : std_ulogic_vector(7 downto 0);
-  signal sAPP_MPE_MPIif_mpi_call_TVALID       : std_ulogic;
-  signal sAPP_MPE_MPIif_mpi_call_TREADY       : std_ulogic;
-  signal sAPP_MPE_MPIif_count_TDATA           : std_ulogic_vector(31 downto 0);
-  signal sAPP_MPE_MPIif_count_TVALID          : std_ulogic;
-  signal sAPP_MPE_MPIif_count_TREADY          : std_ulogic;
-  signal sAPP_MPE_MPIif_rank_TDATA            : std_ulogic_vector(31 downto 0);
-  signal sAPP_MPE_MPIif_rank_TVALID           : std_ulogic;
-  signal sAPP_MPE_MPIif_rank_TREADY           : std_ulogic;
-  signal sMPE_APP_MPI_data_TDATA              : std_ulogic_vector(7 downto 0);
-  signal sMPE_APP_MPI_data_TVALID             : std_ulogic;
-  signal sMPE_APP_MPI_data_TREADY             : std_ulogic;
-  signal sMPE_APP_MPI_data_TKEEP              : std_logic_vector(0 downto 0);
-  signal sMPE_APP_MPI_data_TLAST              : std_logic_vector(0 downto 0);
-  signal sAPP_MPE_MPI_data_TDATA              : std_ulogic_vector(7 downto 0);
-  signal sAPP_MPE_MPI_data_TVALID             : std_ulogic;
-  signal sAPP_MPE_MPI_data_TREADY             : std_ulogic;
-  signal sAPP_MPE_MPI_data_TKEEP              : std_logic_vector(0 downto 0);
-  signal sAPP_MPE_MPI_data_TLAST              : std_logic_vector(0 downto 0);
+  --signal sAPP_MPE_MPIif_mpi_call_TDATA        : std_ulogic_vector(7 downto 0);
+  --signal sAPP_MPE_MPIif_mpi_call_TVALID       : std_ulogic;
+  --signal sAPP_MPE_MPIif_mpi_call_TREADY       : std_ulogic;
+  --signal sAPP_MPE_MPIif_count_TDATA           : std_ulogic_vector(31 downto 0);
+  --signal sAPP_MPE_MPIif_count_TVALID          : std_ulogic;
+  --signal sAPP_MPE_MPIif_count_TREADY          : std_ulogic;
+  --signal sAPP_MPE_MPIif_rank_TDATA            : std_ulogic_vector(31 downto 0);
+  --signal sAPP_MPE_MPIif_rank_TVALID           : std_ulogic;
+  --signal sAPP_MPE_MPIif_rank_TREADY           : std_ulogic;
+  --signal sMPE_APP_MPI_data_TDATA              : std_ulogic_vector(7 downto 0);
+  --signal sMPE_APP_MPI_data_TVALID             : std_ulogic;
+  --signal sMPE_APP_MPI_data_TREADY             : std_ulogic;
+  --signal sMPE_APP_MPI_data_TKEEP              : std_logic_vector(0 downto 0);
+  --signal sMPE_APP_MPI_data_TLAST              : std_logic_vector(0 downto 0);
+  --signal sAPP_MPE_MPI_data_TDATA              : std_ulogic_vector(7 downto 0);
+  --signal sAPP_MPE_MPI_data_TVALID             : std_ulogic;
+  --signal sAPP_MPE_MPI_data_TREADY             : std_ulogic;
+  --signal sAPP_MPE_MPI_data_TKEEP              : std_logic_vector(0 downto 0);
+  --signal sAPP_MPE_MPI_data_TLAST              : std_logic_vector(0 downto 0);
+  
+  signal sAPP_Fifo_MPIif_din        : std_ulogic_vector(71 downto 0);
+  signal sAPP_Fifo_MPIif_full_n     : std_ulogic;
+  signal sAPP_Fifo_MPIif_full       : std_ulogic;
+  signal sAPP_Fifo_MPIif_write      : std_ulogic;
+  signal sAPP_Fifo_MPIdata_din      : std_ulogic_vector(72 downto 0);
+  signal sAPP_Fifo_MPIdata_full_n   : std_ulogic;
+  signal sAPP_Fifo_MPIdata_full     : std_ulogic;
+  signal sAPP_Fifo_MPIdata_write    : std_ulogic;
+  signal sFifo_APP_MPIdata_dout     : std_ulogic_vector(72 downto 0);
+  signal sFifo_APP_MPIdata_empty_n  : std_ulogic;
+  signal sFifo_APP_MPIdata_empty    : std_ulogic;
+  signal sFifo_APP_MPIdata_read     : std_ulogic;
+  
+  signal sFifo_MPE_MPIif_dout       : std_ulogic_vector(71 downto 0);
+  signal sFifo_MPE_MPIif_empty_n    : std_ulogic;
+  signal sFifo_MPE_MPIif_empty      : std_ulogic;
+  signal sFifo_MPE_MPIif_read       : std_ulogic;
+  signal sFifo_MPE_MPIdata_dout     : std_ulogic_vector(72 downto 0);
+  signal sFifo_MPE_MPIdata_empty_n  : std_ulogic;
+  signal sFifo_MPE_MPIdata_empty    : std_ulogic;
+  signal sFifo_MPE_MPIdata_read     : std_ulogic;
+  signal sMPE_Fifo_MPIdata_din      : std_ulogic_vector(72 downto 0);
+  signal sMPE_Fifo_MPIdata_full_n   : std_ulogic;
+  signal sMPE_Fifo_MPIdata_full     : std_ulogic;
+  signal sMPE_Fifo_MPIdata_write    : std_ulogic;
 
 
   signal active_low_reset  : std_logic;
@@ -321,134 +284,136 @@ architecture Flash of Role_Themisto is
       ------------------------------------------------------
            ap_clk                      : in  std_logic;
            ap_rst_n                    : in  std_logic;
-           ap_start                    : in  std_logic;
 
       -- rank and size
            piFMC_ROL_rank_V        : in std_logic_vector (31 downto 0);
-      --piSMC_ROL_rank_V_ap_vld : in std_logic;
+           piFMC_ROL_rank_V_ap_vld : in std_logic;
            piFMC_ROL_size_V        : in std_logic_vector (31 downto 0);
-      --piSMC_ROL_size_V_ap_vld : in std_logic;
+           piFMC_ROL_size_V_ap_vld : in std_logic;
       --------------------------------------------------------
       -- From SHELL / Udp Data Interfaces
       --------------------------------------------------------
-           siSHL_This_Data_tdata     : in  std_logic_vector( 63 downto 0);
-           siSHL_This_Data_tkeep     : in  std_logic_vector(  7 downto 0);
-           siSHL_This_Data_tlast     : in  std_logic;
-           siSHL_This_Data_tvalid    : in  std_logic;
-           siSHL_This_Data_tready    : out std_logic;
+           siNrc_data_TDATA     : in  std_logic_vector( 63 downto 0);
+           siNrc_data_TKEEP     : in  std_logic_vector(  7 downto 0);
+           siNrc_data_TLAST     : in  std_logic;
+           siNrc_data_TVALID    : in  std_logic;
+           siNrc_data_TREADY    : out std_logic;
       --------------------------------------------------------
       -- To SHELL / Udp Data Interfaces
       --------------------------------------------------------
-           soTHIS_Shl_Data_tdata     : out std_logic_vector( 63 downto 0);
-           soTHIS_Shl_Data_tkeep     : out std_logic_vector(  7 downto 0);
-           soTHIS_Shl_Data_tlast     : out std_logic;
-           soTHIS_Shl_Data_tvalid    : out std_logic;
-           soTHIS_Shl_Data_tready    : in  std_logic;
+           soNrc_data_TDATA     : out std_logic_vector( 63 downto 0);
+           soNrc_data_TKEEP     : out std_logic_vector(  7 downto 0);
+           soNrc_data_TLAST     : out std_logic;
+           soNrc_data_TVALID    : out std_logic;
+           soNrc_data_TREADY    : in  std_logic;
       -- NRC Meta and Ports
-           siNrc_meta_TDATA          : in std_logic_vector (79 downto 0);
-           siNrc_meta_TVALID         : in std_logic;
-           siNrc_meta_TREADY         : out std_logic;
-           siNrc_meta_TKEEP          : in std_logic_vector (9 downto 0);
-           siNrc_meta_TLAST          : in std_logic_vector (0 downto 0);
+           siNrc_meta_TDATA     : in std_logic_vector ( 63 downto 0);
+           siNrc_meta_TVALID    : in std_logic;
+           siNrc_meta_TREADY    : out std_logic;
+           siNrc_meta_TKEEP     : in std_logic_vector ( 7 downto 0);
+           siNrc_meta_TLAST     : in std_logic_vector (0 downto 0);
 
-           soNrc_meta_TDATA          : out std_logic_vector (79 downto 0);
-           soNrc_meta_TVALID         : out std_logic;
-           soNrc_meta_TREADY         : in std_logic;
-           soNrc_meta_TKEEP          : out std_logic_vector (9 downto 0);
-           soNrc_meta_TLAST          : out std_logic_vector (0 downto 0);
+           soNrc_meta_TDATA     : out std_logic_vector ( 63 downto 0);
+           soNrc_meta_TVALID    : out std_logic;
+           soNrc_meta_TREADY    : in std_logic;
+           soNrc_meta_TKEEP     : out std_logic_vector ( 7 downto 0);
+           soNrc_meta_TLAST     : out std_logic_vector (0 downto 0);
 
            poROL_NRC_Rx_ports_V        : out std_logic_vector (31 downto 0);
            poROL_NRC_Rx_ports_V_ap_vld : out std_logic
          );
   end component TriangleApplication;
   
-  component mpi_wrapperv1 is
+  component mpi_wrapperv2 is
     port (
-    ap_clk : IN STD_LOGIC;
-    ap_rst_n : IN STD_LOGIC;
-    ap_start : IN STD_LOGIC;
-    ap_done : OUT STD_LOGIC;
-    ap_idle : OUT STD_LOGIC;
-    ap_ready : OUT STD_LOGIC;
-    piSMC_to_ROLE_rank_V : IN STD_LOGIC_VECTOR (31 downto 0);
-    piSMC_to_ROLE_rank_V_ap_vld : IN STD_LOGIC;
-    piSMC_to_ROLE_size_V : IN STD_LOGIC_VECTOR (31 downto 0);
-    piSMC_to_ROLE_size_V_ap_vld : IN STD_LOGIC;
-    poMMIO_V : OUT STD_LOGIC_VECTOR (15 downto 0);
-    poMMIO_V_ap_vld : OUT STD_LOGIC;
-    soMPIif_V_mpi_call_V_TDATA : OUT STD_LOGIC_VECTOR (7 downto 0);
-    soMPIif_V_mpi_call_V_TVALID : OUT STD_LOGIC;
-    soMPIif_V_mpi_call_V_TREADY : IN STD_LOGIC;
-    soMPIif_V_count_V_TDATA : OUT STD_LOGIC_VECTOR (31 downto 0);
-    soMPIif_V_count_V_TVALID : OUT STD_LOGIC;
-    soMPIif_V_count_V_TREADY : IN STD_LOGIC;
-    soMPIif_V_rank_V_TDATA : OUT STD_LOGIC_VECTOR (31 downto 0);
-    soMPIif_V_rank_V_TVALID : OUT STD_LOGIC;
-    soMPIif_V_rank_V_TREADY : IN STD_LOGIC;
-    soMPI_data_TDATA : OUT STD_LOGIC_VECTOR (7 downto 0);
-    soMPI_data_TVALID : OUT STD_LOGIC;
-    soMPI_data_TREADY : IN STD_LOGIC;
-    soMPI_data_TKEEP : OUT STD_LOGIC_VECTOR (0 downto 0);
-    soMPI_data_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
-    siMPI_data_TDATA : IN STD_LOGIC_VECTOR (7 downto 0);
-    siMPI_data_TVALID : IN STD_LOGIC;
-    siMPI_data_TREADY : OUT STD_LOGIC;
-    siMPI_data_TKEEP : IN STD_LOGIC_VECTOR (0 downto 0);
-    siMPI_data_TLAST : IN STD_LOGIC_VECTOR (0 downto 0) );
+           ap_clk : IN STD_LOGIC;
+           ap_rst : IN STD_LOGIC;
+           ap_start : IN STD_LOGIC;
+           ap_done : OUT STD_LOGIC;
+           ap_idle : OUT STD_LOGIC;
+           ap_ready : OUT STD_LOGIC;
+           piSMC_to_ROLE_rank_V : IN STD_LOGIC_VECTOR (31 downto 0);
+           piSMC_to_ROLE_rank_V_ap_vld : IN STD_LOGIC;
+           piSMC_to_ROLE_size_V : IN STD_LOGIC_VECTOR (31 downto 0);
+           piSMC_to_ROLE_size_V_ap_vld : IN STD_LOGIC;
+           poMMIO_V : OUT STD_LOGIC_VECTOR (15 downto 0);
+           poMMIO_V_ap_vld : OUT STD_LOGIC;
+           soMPIif_V_din : OUT STD_LOGIC_VECTOR (71 downto 0);
+           soMPIif_V_full_n : IN STD_LOGIC;
+           soMPIif_V_write : OUT STD_LOGIC;
+           soMPI_data_V_din : OUT STD_LOGIC_VECTOR (72 downto 0);
+           soMPI_data_V_full_n : IN STD_LOGIC;
+           soMPI_data_V_write : OUT STD_LOGIC;
+           siMPI_data_V_dout : IN STD_LOGIC_VECTOR (72 downto 0);
+           siMPI_data_V_empty_n : IN STD_LOGIC;
+           siMPI_data_V_read : OUT STD_LOGIC );
   end component;
 
   component MessagePassingEngine is
-  port (
-      siTcp_data_TDATA : IN STD_LOGIC_VECTOR (63 downto 0);
-      siTcp_data_TKEEP : IN STD_LOGIC_VECTOR (7 downto 0);
-      siTcp_data_TLAST : IN STD_LOGIC_VECTOR (0 downto 0);
-      siTcp_meta_TDATA : IN STD_LOGIC_VECTOR (79 downto 0);
-      siTcp_meta_TKEEP : IN STD_LOGIC_VECTOR (9 downto 0);
-      siTcp_meta_TLAST : IN STD_LOGIC_VECTOR (0 downto 0);
-      soTcp_data_TDATA : OUT STD_LOGIC_VECTOR (63 downto 0);
-      soTcp_data_TKEEP : OUT STD_LOGIC_VECTOR (7 downto 0);
-      soTcp_data_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
-      soTcp_meta_TDATA : OUT STD_LOGIC_VECTOR (79 downto 0);
-      soTcp_meta_TKEEP : OUT STD_LOGIC_VECTOR (9 downto 0);
-      soTcp_meta_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
-      poROL_NRC_Rx_ports_V : OUT STD_LOGIC_VECTOR (31 downto 0);
-      piFMC_rank_V : IN STD_LOGIC_VECTOR (31 downto 0);
-      poMMIO_V : OUT STD_LOGIC_VECTOR (31 downto 0);
-      siMPIif_V_mpi_call_V_TDATA : IN STD_LOGIC_VECTOR (7 downto 0);
-      siMPIif_V_count_V_TDATA : IN STD_LOGIC_VECTOR (31 downto 0);
-      siMPIif_V_rank_V_TDATA : IN STD_LOGIC_VECTOR (31 downto 0);
-      siMPI_data_TDATA : IN STD_LOGIC_VECTOR (7 downto 0);
-      siMPI_data_TKEEP : IN STD_LOGIC_VECTOR (0 downto 0);
-      siMPI_data_TLAST : IN STD_LOGIC_VECTOR (0 downto 0);
-      soMPI_data_TDATA : OUT STD_LOGIC_VECTOR (7 downto 0);
-      soMPI_data_TKEEP : OUT STD_LOGIC_VECTOR (0 downto 0);
-      soMPI_data_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
-      ap_clk : IN STD_LOGIC;
-      ap_rst_n : IN STD_LOGIC;
-      poROL_NRC_Rx_ports_V_ap_vld : OUT STD_LOGIC;
-      siMPIif_V_mpi_call_V_TVALID : IN STD_LOGIC;
-      siMPIif_V_mpi_call_V_TREADY : OUT STD_LOGIC;
-      siMPIif_V_count_V_TVALID : IN STD_LOGIC;
-      siMPIif_V_count_V_TREADY : OUT STD_LOGIC;
-      siMPIif_V_rank_V_TVALID : IN STD_LOGIC;
-      siMPIif_V_rank_V_TREADY : OUT STD_LOGIC;
-      soTcp_meta_TVALID : OUT STD_LOGIC;
-      soTcp_meta_TREADY : IN STD_LOGIC;
-      soTcp_data_TVALID : OUT STD_LOGIC;
-      soTcp_data_TREADY : IN STD_LOGIC;
-      siTcp_data_TVALID : IN STD_LOGIC;
-      siTcp_data_TREADY : OUT STD_LOGIC;
-      siMPI_data_TVALID : IN STD_LOGIC;
-      siMPI_data_TREADY : OUT STD_LOGIC;
-      siTcp_meta_TVALID : IN STD_LOGIC;
-      siTcp_meta_TREADY : OUT STD_LOGIC;
-      piFMC_rank_V_ap_vld : IN STD_LOGIC;
-      soMPI_data_TVALID : OUT STD_LOGIC;
-      soMPI_data_TREADY : IN STD_LOGIC);
-      --ap_start : IN STD_LOGIC);
+    port (
+           siTcp_data_TDATA : IN STD_LOGIC_VECTOR (63 downto 0);
+           siTcp_data_TKEEP : IN STD_LOGIC_VECTOR (7 downto 0);
+           siTcp_data_TLAST : IN STD_LOGIC_VECTOR (0 downto 0);
+           siTcp_meta_TDATA : IN STD_LOGIC_VECTOR (63 downto 0);
+           siTcp_meta_TKEEP : IN STD_LOGIC_VECTOR (7 downto 0);
+           siTcp_meta_TLAST : IN STD_LOGIC_VECTOR (0 downto 0);
+           soTcp_data_TDATA : OUT STD_LOGIC_VECTOR (63 downto 0);
+           soTcp_data_TKEEP : OUT STD_LOGIC_VECTOR (7 downto 0);
+           soTcp_data_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
+           soTcp_meta_TDATA : OUT STD_LOGIC_VECTOR (63 downto 0);
+           soTcp_meta_TKEEP : OUT STD_LOGIC_VECTOR (7 downto 0);
+           soTcp_meta_TLAST : OUT STD_LOGIC_VECTOR (0 downto 0);
+           poROL_NRC_Rx_ports_V : OUT STD_LOGIC_VECTOR (31 downto 0);
+           piFMC_rank_V : IN STD_LOGIC_VECTOR (31 downto 0);
+           -- poMMIO_V : OUT STD_LOGIC_VECTOR (31 downto 0);
+           siMPIif_V_dout : IN STD_LOGIC_VECTOR (71 downto 0);
+           siMPIif_V_empty_n : IN STD_LOGIC;
+           siMPIif_V_read : OUT STD_LOGIC;
+           siMPI_data_V_dout : IN STD_LOGIC_VECTOR (72 downto 0);
+           siMPI_data_V_empty_n : IN STD_LOGIC;
+           siMPI_data_V_read : OUT STD_LOGIC;
+           soMPI_data_V_din : OUT STD_LOGIC_VECTOR (72 downto 0);
+           soMPI_data_V_full_n : IN STD_LOGIC;
+           soMPI_data_V_write : OUT STD_LOGIC;
+           ap_clk : IN STD_LOGIC;
+           ap_rst_n : IN STD_LOGIC;
+           poROL_NRC_Rx_ports_V_ap_vld : OUT STD_LOGIC;
+           -- poMMIO_V_ap_vld : OUT STD_LOGIC;
+           soTcp_meta_TVALID : OUT STD_LOGIC;
+           soTcp_meta_TREADY : IN STD_LOGIC;
+           soTcp_data_TVALID : OUT STD_LOGIC;
+           soTcp_data_TREADY : IN STD_LOGIC;
+           siTcp_data_TVALID : IN STD_LOGIC;
+           siTcp_data_TREADY : OUT STD_LOGIC;
+           siTcp_meta_TVALID : IN STD_LOGIC;
+           siTcp_meta_TREADY : OUT STD_LOGIC;
+           piFMC_rank_V_ap_vld : IN STD_LOGIC );
   end component;
 
 
+  component FifoMpiData is
+    port ( 
+    clk    : in std_logic;
+    srst   : in std_logic;
+    din    : in std_logic_vector(72 downto 0);
+    full   : out std_logic;
+    wr_en  : in std_logic;
+    dout   : out std_logic_vector(72 downto 0);
+    empty  : out std_logic;
+    rd_en  : in std_logic );
+  end component;
+  
+  component FifoMpiInfo is
+    port ( 
+    clk    : in std_logic;
+    srst   : in std_logic;
+    din    : in std_logic_vector(71 downto 0);
+    full   : out std_logic;
+    wr_en  : in std_logic;
+    dout   : out std_logic_vector(71 downto 0);
+    empty  : out std_logic;
+    rd_en  : in std_logic );
+  end component;
 
   --===========================================================================
   --== FUNCTION DECLARATIONS  [TODO-Move to a package]
@@ -483,19 +448,9 @@ architecture Flash of Role_Themisto is
 
 begin
 
-  --  -- write constant to EMIF Register to test read out 
-  --  --poROL_SHL_EMIF_2B_Reg <= x"EF" & EMIF_inv; 
-  --  poROL_SHL_EMIF_2B_Reg( 7 downto 0)  <= EMIF_inv; 
-  --  poSHL_Mmio_RdReg(11 downto 8) <= piFMC_ROLE_rank(3 downto 0) when (unsigned(piFMC_ROLE_rank) /= 0) else 
-  --  x"F"; 
-  --  poSHL_Mmio_RdReg(15 downto 12) <= piFMC_ROLE_size(3 downto 0) when (unsigned(piFMC_ROLE_size) /= 0) else 
-  --  x"E"; 
-
-  --  EMIF_inv <= (not piSHL_ROL_EMIF_2B_Reg(7 downto 0)) when piSHL_ROL_EMIF_2B_Reg(15) = '1' else 
-  --              x"BE" ;
-
-  -- poSHL_Mmio_RdReg <= sMemTestDebugOut when (unsigned(piSHL_Mmio_WrReg) /= 0) else 
-  --  x"EFBE"; 
+  -- to be use as ROLE VERSION IDENTIFICATION --
+  poSHL_Mmio_RdReg <= x"C001";
+  
 
   --################################################################################
   --#                                                                              #
@@ -517,38 +472,73 @@ begin
   sDataInTlastAsVector_Udp(0) <= siNRC_Udp_Data_tlast;
   soNRC_Udp_Data_tlast <= sDataOutTlastAsVector_Udp(0);
   
-  active_low_reset <= not (piMMIO_Ly7_Rst);
+  active_low_reset <= (not piMMIO_Ly7_Rst) and (piMMIO_Ly7_En);
   
-  MPI_APP: mpi_wrapperv1
+  sAPP_Fifo_MPIif_full_n <=  not sAPP_Fifo_MPIif_full;
+  sAPP_Fifo_MPIdata_full_n <= not sAPP_Fifo_MPIdata_full;
+  sFifo_APP_MPIdata_empty_n <= not sFifo_APP_MPIdata_empty;
+
+  MPI_APP: mpi_wrapperv2
     port map (
          ap_clk                       => piSHL_156_25Clk ,
-         ap_rst_n                     => active_low_reset,
+         --ap_rst_n                     => active_low_reset,
+         ap_rst                       => piMMIO_Ly7_Rst,
          ap_start                     => piMMIO_Ly7_En,
          piSMC_to_ROLE_rank_V         => piFMC_ROLE_rank,
          piSMC_to_ROLE_rank_V_ap_vld  => '1',
          piSMC_to_ROLE_size_V         => piFMC_ROLE_size,
          piSMC_to_ROLE_size_V_ap_vld  => '1',
          poMMIO_V                     => sAPP_Debug,
-         soMPIif_V_mpi_call_V_TDATA   =>  sAPP_MPE_MPIif_mpi_call_TDATA ,
-         soMPIif_V_mpi_call_V_TVALID  =>  sAPP_MPE_MPIif_mpi_call_TVALID,
-         soMPIif_V_mpi_call_V_TREADY  =>  sAPP_MPE_MPIif_mpi_call_TREADY,
-         soMPIif_V_count_V_TDATA      =>  sAPP_MPE_MPIif_count_TDATA    ,
-         soMPIif_V_count_V_TVALID     =>  sAPP_MPE_MPIif_count_TVALID   ,
-         soMPIif_V_count_V_TREADY     =>  sAPP_MPE_MPIif_count_TREADY   ,
-         soMPIif_V_rank_V_TDATA       =>  sAPP_MPE_MPIif_rank_TDATA     ,
-         soMPIif_V_rank_V_TVALID      =>  sAPP_MPE_MPIif_rank_TVALID    ,
-         soMPIif_V_rank_V_TREADY      =>  sAPP_MPE_MPIif_rank_TREADY    ,
-         soMPI_data_TDATA   =>  sAPP_MPE_MPI_data_TDATA  ,
-         soMPI_data_TVALID  =>  sAPP_MPE_MPI_data_TVALID ,
-         soMPI_data_TREADY  =>  sAPP_MPE_MPI_data_TREADY ,
-         soMPI_data_TKEEP   =>  sAPP_MPE_MPI_data_TKEEP  ,
-         soMPI_data_TLAST   =>  sAPP_MPE_MPI_data_TLAST  ,
-         siMPI_data_TDATA   =>  sMPE_APP_MPI_data_TDATA   ,
-         siMPI_data_TVALID  =>  sMPE_APP_MPI_data_TVALID  ,
-         siMPI_data_TREADY  =>  sMPE_APP_MPI_data_TREADY  ,
-         siMPI_data_TKEEP   =>  sMPE_APP_MPI_data_TKEEP   ,
-         siMPI_data_TLAST   =>  sMPE_APP_MPI_data_TLAST   
+         soMPIif_V_din                => sAPP_Fifo_MPIif_din       ,
+         soMPIif_V_full_n             => sAPP_Fifo_MPIif_full_n    ,
+         soMPIif_V_write              => sAPP_Fifo_MPIif_write     ,
+         soMPI_data_V_din             => sAPP_Fifo_MPIdata_din     ,
+         soMPI_data_V_full_n          => sAPP_Fifo_MPIdata_full_n  ,
+         soMPI_data_V_write           => sAPP_Fifo_MPIdata_write   ,
+         siMPI_data_V_dout            => sFifo_APP_MPIdata_dout    ,
+         siMPI_data_V_empty_n         => sFifo_APP_MPIdata_empty_n ,
+         siMPI_data_V_read            => sFifo_APP_MPIdata_read    
      );
+
+    FIFO_IF_APP_MPE: FifoMpiInfo
+    port map (
+        clk     => piSHL_156_25Clk,
+        srst    => piMMIO_Ly7_Rst,
+        din     => sAPP_Fifo_MPIif_din    ,
+        full    => sAPP_Fifo_MPIif_full   ,
+        wr_en   => sAPP_Fifo_MPIif_write  ,
+        dout    => sFifo_MPE_MPIif_dout   ,
+        empty   => sFifo_MPE_MPIif_empty  ,
+        rd_en   => sFifo_MPE_MPIif_read    
+    );
+
+    FIFO_DATA_APP_MPE: FifoMpiData
+    port map (
+        clk     => piSHL_156_25Clk,
+        srst    => piMMIO_Ly7_Rst,
+        din     => sAPP_Fifo_MPIdata_din    ,
+        full    => sAPP_Fifo_MPIdata_full   ,
+        wr_en   => sAPP_Fifo_MPIdata_write  ,
+        dout    => sFifo_MPE_MPIdata_dout   ,
+        empty   => sFifo_MPE_MPIdata_empty  ,
+        rd_en   => sFifo_MPE_MPIdata_read    
+    );
+    
+    FIFO_DATA_MPE_APP: FifoMpiData
+    port map (
+        clk     => piSHL_156_25Clk,
+        srst    => piMMIO_Ly7_Rst,
+        din     => sMPE_Fifo_MPIdata_din     ,
+        full    => sMPE_Fifo_MPIdata_full    ,
+        wr_en   => sMPE_Fifo_MPIdata_write   ,
+        dout    => sFifo_APP_MPIdata_dout    ,
+        empty   => sFifo_APP_MPIdata_empty   ,
+        rd_en   => sFifo_APP_MPIdata_read    
+    );
+
+  sFifo_MPE_MPIif_empty_n <=  not sFifo_MPE_MPIif_empty;
+  sFifo_MPE_MPIdata_empty_n <= not sFifo_MPE_MPIdata_empty;
+  sMPE_Fifo_MPIdata_full_n <= not sMPE_Fifo_MPIdata_full;
 
     MPE: MessagePassingEngine
     port map (
@@ -578,32 +568,22 @@ begin
         poROL_NRC_Rx_ports_V => poROL_Nrc_Udp_Rx_ports,
         piFMC_rank_V        =>  piFMC_ROLE_rank,
         piFMC_rank_V_ap_vld =>  '1',
-        poMMIO_V            =>  sMPE_Debug,
-        siMPIif_V_mpi_call_V_TDATA    => sAPP_MPE_MPIif_mpi_call_TDATA  ,
-        siMPIif_V_mpi_call_V_TVALID   => sAPP_MPE_MPIif_mpi_call_TVALID ,
-        siMPIif_V_mpi_call_V_TREADY   => sAPP_MPE_MPIif_mpi_call_TREADY ,
-        siMPIif_V_count_V_TDATA       => sAPP_MPE_MPIif_count_TDATA   ,
-        siMPIif_V_count_V_TVALID      => sAPP_MPE_MPIif_count_TVALID  ,
-        siMPIif_V_count_V_TREADY      => sAPP_MPE_MPIif_count_TREADY  ,
-        siMPIif_V_rank_V_TDATA        => sAPP_MPE_MPIif_rank_TDATA    ,
-        siMPIif_V_rank_V_TVALID       => sAPP_MPE_MPIif_rank_TVALID   ,
-        siMPIif_V_rank_V_TREADY       => sAPP_MPE_MPIif_rank_TREADY   ,
-        siMPI_data_TDATA              => sAPP_MPE_MPI_data_TDATA   ,
-        siMPI_data_TVALID             => sAPP_MPE_MPI_data_TVALID  ,
-        siMPI_data_TREADY             => sAPP_MPE_MPI_data_TREADY  ,
-        siMPI_data_TKEEP              => sAPP_MPE_MPI_data_TKEEP   ,
-        siMPI_data_TLAST              => sAPP_MPE_MPI_data_TLAST   ,
-        soMPI_data_TDATA              => sMPE_APP_MPI_data_TDATA   ,
-        soMPI_data_TVALID             => sMPE_APP_MPI_data_TVALID  ,
-        soMPI_data_TREADY             => sMPE_APP_MPI_data_TREADY  ,
-        soMPI_data_TKEEP              => sMPE_APP_MPI_data_TKEEP   ,
-        soMPI_data_TLAST              => sMPE_APP_MPI_data_TLAST   
+        -- poMMIO_V            =>  sMPE_Debug,
+        siMPIif_V_dout       => sFifo_MPE_MPIif_dout      ,
+        siMPIif_V_empty_n    => sFifo_MPE_MPIif_empty_n   ,
+        siMPIif_V_read       => sFifo_MPE_MPIif_read      ,
+        siMPI_data_V_dout    => sFifo_MPE_MPIdata_dout    ,
+        siMPI_data_V_empty_n => sFifo_MPE_MPIdata_empty_n ,
+        siMPI_data_V_read    => sFifo_MPE_MPIdata_read    ,
+        soMPI_data_V_din     => sMPE_Fifo_MPIdata_din     ,
+        soMPI_data_V_full_n  => sMPE_Fifo_MPIdata_full_n  ,
+        soMPI_data_V_write   => sMPE_Fifo_MPIdata_write   
      );
 
     --debug swith 
-    poSHL_Mmio_RdReg <= sAPP_Debug  when (unsigned(piSHL_Mmio_WrReg) = 0) else 
-                        sMPE_Debug(15 downto 0) when (unsigned(piSHL_Mmio_WrReg) = 1) else 
-                        sMPE_Debug(31 downto 16);
+    --poSHL_Mmio_RdReg <= sAPP_Debug  when (unsigned(piSHL_Mmio_WrReg) = 0) else 
+    --                    sMPE_Debug(15 downto 0) when (unsigned(piSHL_Mmio_WrReg) = 1) else 
+    --                    sMPE_Debug(31 downto 16);
   
   --################################################################################
   --#                                                                              #
@@ -630,30 +610,29 @@ begin
              -- From SHELL / Clock and Reset
              ------------------------------------------------------
              ap_clk                      => piSHL_156_25Clk,
-             ap_rst_n                    => (not piSHL_156_25Rst),
-             --ap_start                    => '1',
-             ap_start                    => piMMIO_Ly7_En,
+             --ap_rst_n                    => (not piMMIO_Ly7_Rst),
+             ap_rst_n            => active_low_reset,
           
              piFMC_ROL_rank_V         => piFMC_ROLE_rank,
-             --piFMC_ROL_rank_V_ap_vld  => '1',
+             piFMC_ROL_rank_V_ap_vld  => '1',
              piFMC_ROL_size_V         => piFMC_ROLE_size,
-             --piFMC_ROL_size_V_ap_vld  => '1',
+             piFMC_ROL_size_V_ap_vld  => '1',
              --------------------------------------------------------
              -- From SHELL / Udp Data Interfaces
              --------------------------------------------------------
-             siSHL_This_Data_tdata     => siNRC_Tcp_Data_tdata,
-             siSHL_This_Data_tkeep     => siNRC_Tcp_Data_tkeep,
-             siSHL_This_Data_tlast     => siNRC_Tcp_Data_tlast,
-             siSHL_This_Data_tvalid    => siNRC_Tcp_Data_tvalid,
-             siSHL_This_Data_tready    => siNRC_Tcp_Data_tready,
+             siNrc_data_TDATA     => siNRC_Tcp_Data_tdata,
+             siNrc_data_TKEEP     => siNRC_Tcp_Data_tkeep,
+             siNrc_data_TLAST     => siNRC_Tcp_Data_tlast,
+             siNrc_data_TVALID    => siNRC_Tcp_Data_tvalid,
+             siNrc_data_TREADY    => siNRC_Tcp_Data_tready,
              --------------------------------------------------------
              -- To SHELL / Udp Data Interfaces
              --------------------------------------------------------
-             soTHIS_Shl_Data_tdata     => soNRC_Tcp_Data_tdata,
-             soTHIS_Shl_Data_tkeep     => soNRC_Tcp_Data_tkeep,
-             soTHIS_Shl_Data_tlast     => soNRC_Tcp_Data_tlast,
-             soTHIS_Shl_Data_tvalid    => soNRC_Tcp_Data_tvalid,
-             soTHIS_Shl_Data_tready    => soNRC_Tcp_Data_tready, 
+             soNrc_data_TDATA     => soNRC_Tcp_Data_tdata,
+             soNrc_data_TKEEP     => soNRC_Tcp_Data_tkeep,
+             soNrc_data_TLAST     => soNRC_Tcp_Data_tlast,
+             soNrc_data_TVALID    => soNRC_Tcp_Data_tvalid,
+             soNrc_data_TREADY    => soNRC_Tcp_Data_tready, 
 
              siNrc_meta_TDATA          =>  siNRC_Role_Tcp_Meta_TDATA    ,
              siNrc_meta_TVALID         =>  siNRC_Role_Tcp_Meta_TVALID   ,
@@ -673,71 +652,30 @@ begin
 
 
   --################################################################################
-  --#                                                                              #
-  --#          MEMORY DUMMY CONNECTION                                             #
-  --#                                                                              #
+  --  1st Memory Port dummy connections
+  --################################################################################
+    soMEM_Mp0_RdCmd_tdata   <= (others => '0');
+    soMEM_Mp0_RdCmd_tvalid  <= '0';
+    siMEM_Mp0_RdSts_tready  <= '0';
+    siMEM_Mp0_Read_tready   <= '0';
+    soMEM_Mp0_WrCmd_tdata   <= (others => '0');
+    soMEM_Mp0_WrCmd_tvalid  <= '0';
+    siMEM_Mp0_WrSts_tready  <= '0';
+    soMEM_Mp0_Write_tdata   <= (others => '0');
+    soMEM_Mp0_Write_tkeep   <= (others => '0');
+    soMEM_Mp0_Write_tlast   <= '0';
+    soMEM_Mp0_Write_tvalid  <= '0';
+    
+
+  --################################################################################
+  --  2nd Memory Port dummy connections
   --################################################################################
 
-
-  pMp0RdCmd : process(piSHL_156_25Clk)
-  begin
-    if rising_edge(piSHL_156_25Clk) then
-      sSHL_Rol_Mem_Mp0_Axis_RdCmd_tready  <= soSHL_Mem_Mp0_RdCmd_tready;
-    end if;
-    soSHL_Mem_Mp0_RdCmd_tdata  <= (others => '1');
-    soSHL_Mem_Mp0_RdCmd_tvalid <= '0';
-  end process pMp0RdCmd;
-  
-  pMp0RdSts : process(piSHL_156_25Clk)
-  begin
-    if rising_edge(piSHL_156_25Clk) then
-      sSHL_Rol_Mem_Mp0_Axis_RdSts_tdata   <= siSHL_Mem_Mp0_RdSts_tdata;
-      sSHL_Rol_Mem_Mp0_Axis_RdSts_tvalid  <= siSHL_Mem_Mp0_RdSts_tvalid;
-    end if;
-    siSHL_Mem_Mp0_RdSts_tready <= '1';
-  end process pMp0RdSts;
-  
-  pMp0Read : process(piSHL_156_25Clk)
-  begin
-    if rising_edge(piSHL_156_25Clk) then
-      sSHL_Rol_Mem_Mp0_Axis_Read_tdata   <= siSHL_Mem_Mp0_Read_tdata;
-      sSHL_Rol_Mem_Mp0_Axis_Read_tkeep   <= siSHL_Mem_Mp0_Read_tkeep;
-      sSHL_Rol_Mem_Mp0_Axis_Read_tlast   <= siSHL_Mem_Mp0_Read_tlast;
-      sSHL_Rol_Mem_Mp0_Axis_Read_tvalid  <= siSHL_Mem_Mp0_Read_tvalid;
-    end if;
-    siSHL_Mem_Mp0_Read_tready <= '1';
-  end process pMp0Read;    
-  
-  pMp0WrCmd : process(piSHL_156_25Clk)
-  begin
-    if rising_edge(piSHL_156_25Clk) then
-      sSHL_Rol_Mem_Mp0_Axis_WrCmd_tready  <= soSHL_Mem_Mp0_WrCmd_tready;
-    end if;
-    soSHL_Mem_Mp0_WrCmd_tdata  <= (others => '0');
-    soSHL_Mem_Mp0_WrCmd_tvalid <= '0';  
-  end process pMp0WrCmd;
-  
-  pMp0WrSts : process(piSHL_156_25Clk)
-  begin
-    if rising_edge(piSHL_156_25Clk) then
-      sSHL_Rol_Mem_Mp0_Axis_WrSts_tdata   <= siSHL_Mem_Mp0_WrSts_tdata;
-      sSHL_Rol_Mem_Mp0_Axis_WrSts_tvalid  <= siSHL_Mem_Mp0_WrSts_tvalid;
-    end if;
-    siSHL_Mem_Mp0_WrSts_tready <= '1';
-  end process pMp0WrSts;
-  
-  pMp0Write : process(piSHL_156_25Clk)
-  begin
-    if rising_edge(piSHL_156_25Clk) then
-      sSHL_Rol_Mem_Mp0_Axis_Write_tready  <= soSHL_Mem_Mp0_Write_tready;
-    end if;
-    soSHL_Mem_Mp0_Write_tdata  <= (others => '0');
-    soSHL_Mem_Mp0_Write_tkeep  <= (others => '0');
-    soSHL_Mem_Mp0_Write_tlast  <= '0';
-    soSHL_Mem_Mp0_Write_tvalid <= '0';
-  end process pMp0Write;
-
-
+  moMEM_Mp1_AWVALID <= '0';
+  moMEM_Mp1_WVALID  <= '0';
+  moMEM_Mp1_BREADY  <= '0';
+  moMEM_Mp1_ARVALID <= '0';
+  moMEM_Mp1_RREADY  <= '0';
 
 end architecture Flash;
 
