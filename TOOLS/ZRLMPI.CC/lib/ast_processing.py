@@ -99,6 +99,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     scatter_calls_obj = find_name_visitor2.get_results_scatter()
     gather_calls_obj = find_name_visitor2.get_results_gather()
     bcast_calls_obj = find_name_visitor2.get_results_bcast()
+    reduce_calls_obj = find_name_visitor2.get_results_reduce()
     # 5. replace templates
     if len(rank_variable_names) > 1:
         print("WARNING: multiple rank variables detected, template generation may fail.")
@@ -140,9 +141,20 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         else:
             if not reuse_interim_buffers:
                 available_optimization_buffer_list = None
-            new_entry['new'] = template_generator.bcast_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
-            #pAST, available_optimization_buffer_list = template_generator.optimized_gather_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            pAST, available_optimization_buffer_list = template_generator.optimized_bcast_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            new_entry['new'] = pAST
+        collectives_new_obj.append(new_entry)
+    for e in reduce_calls_obj:
+        new_entry = {}
+        new_entry['old'] = e
+        if (not optimize_scatter_gather) or dont_optimize:
+            new_entry['new'] = template_generator.reduce_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+        else:
+            #if not reuse_interim_buffers:
+            #    available_optimization_buffer_list = None
+            #pAST, available_optimization_buffer_list = template_generator.optimized_bcast_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
             #new_entry['new'] = pAST
+            new_entry['new'] = template_generator.reduce_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
         collectives_new_obj.append(new_entry)
     # replace send and recv if necessary
     if replace_send_recv:
