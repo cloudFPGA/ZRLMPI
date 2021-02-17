@@ -161,8 +161,7 @@ class MpiConstantFoldingVisitor(object):
         return
 
     def visit_Assignment(self, n):
-        # TODO: check if variable on the left ist part of "variables that are used as consants"
-        # and only those should be part of constant cache and new list
+        # variables on the left are deleted from constant cache if not used as constants
         if type(n.lvalue) is not c_ast.ID:
             self.visit(n.lvalue)
         if type(n.rvalue) is not c_ast.ID:
