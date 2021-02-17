@@ -75,6 +75,7 @@ void mpe_main(
 
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,
+    stream<MPI_Feedback> &soMPIFeB,
     stream<Axis<64> > &siMPI_data,
     stream<Axis<64> > &soMPI_data
     );

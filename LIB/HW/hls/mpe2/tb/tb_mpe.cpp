@@ -16,6 +16,7 @@ stream<NetworkWord> siTcp_data, storeSEND_REQ, storeData;
 stream<NetworkMetaStream>  siTcp_meta;
 stream<NetworkWord> soTcp_data;
 stream<NetworkMetaStream> soTcp_meta;
+stream<MPI_Feedback> soMPIFeB;
 
 ap_uint<32> own_rank = 0;
 //ap_uint<32> po_MMIO= 0;
@@ -33,24 +34,24 @@ char last_phase[101];
 void stepDut() {
   current_phase[100] = '\0';
   last_phase[100] = '\0';
-   if(strncmp(current_phase, last_phase,101) != 0)
-   {
-     printf("\t\t +++++ [Test phase %s] +++++ \n",current_phase);
-     strncpy(last_phase,current_phase,101);
-   }
-    mpe_main(
+  if(strncmp(current_phase, last_phase,101) != 0)
+  {
+    printf("\t\t +++++ [Test phase %s] +++++ \n",current_phase);
+    strncpy(last_phase,current_phase,101);
+  }
+  mpe_main(
       //MRT,
       siTcp_data, siTcp_meta,
       soTcp_data, soTcp_meta,
       &poMPE_rx_ports, &own_rank,
-     // &po_MMIO,
-      MPIif_in,
+      // &po_MMIO,
+      MPIif_in, soMPIFeB,
       MPI_data_in, MPI_data_out
       );
-    simCnt++;
-    printf("[%4.4d] STEP DUT \n", simCnt);
-    fflush(stdout);
-    fflush(stderr);
+  simCnt++;
+  printf("[%4.4d] STEP DUT \n", simCnt);
+  fflush(stdout);
+  fflush(stderr);
 }
 
 
@@ -176,7 +177,7 @@ int main(){
       //tmp.tdata |= (ap_uint<32>) (bytes[i*4+j] << (3-j)*8 );
       tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
     }
-   // printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
+    // printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
     tmp.tlast = 0;
     if ( i == MPIF_HEADER_LENGTH - 1)
     {
@@ -186,17 +187,17 @@ int main(){
     siTcp_data.write(tmp);
     printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
   }
-//  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
-//  {
-//      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
-//      siTcp_data.write(tmp64);
-//      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
-//  }
+  //  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
+  //  {
+  //      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
+  //      siTcp_data.write(tmp64);
+  //      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
+  //  }
 
   //meta does not fit header, but it is enough to test the cache
   NetworkMeta meta_1 = NetworkMeta(1,2718,2,2718,0);
   siTcp_meta.write(NetworkMetaStream(meta_1));
-  
+
   for(int i = 0; i < 40; i++)
   {
     stepDut();
@@ -233,16 +234,16 @@ int main(){
     siTcp_data.write(tmp);
     printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
   }
-//  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
-//  {
-//      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
-//      siTcp_data.write(tmp64);
-//      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
-//  }
+  //  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
+  //  {
+  //      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
+  //      siTcp_data.write(tmp64);
+  //      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
+  //  }
 
   meta_1 = NetworkMeta(1,2718,2,2718,0);
   siTcp_meta.write(NetworkMetaStream(meta_1));
-  
+
   for(int i = 0; i < 40; i++)
   {
     stepDut();
@@ -276,39 +277,42 @@ int main(){
   headerToBytes(header, bytes);
   //write header
   for(int i = 0; i < MPIF_HEADER_LENGTH/8; i++)
+  {
+    //Axis<8> tmp = Axis<8>(bytes[i]);
+    NetworkWord tmp = NetworkWord();
+    tmp.tdata = 0x0;
+    tmp.tkeep = 0xFF;
+    for(int j = 0; j<8; j++)
     {
-      //Axis<8> tmp = Axis<8>(bytes[i]);
-      NetworkWord tmp = NetworkWord();
-      tmp.tdata = 0x0;
-      tmp.tkeep = 0xFF;
-      for(int j = 0; j<8; j++)
-      {
-        tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
-      }
-      tmp.tlast = 0;
-      if ( i == MPIF_HEADER_LENGTH - 1)
-      {
-        tmp.tlast = 1;
-      }
-      siTcp_data.write(tmp);
-      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
+      tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
     }
-//  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
-//  {
-//      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
-//      siTcp_data.write(tmp64);
-//      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
-//  }
+    tmp.tlast = 0;
+    if ( i == MPIF_HEADER_LENGTH - 1)
+    {
+      tmp.tlast = 1;
+    }
+    siTcp_data.write(tmp);
+    printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
+  }
+  //  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
+  //  {
+  //      convertAxisToNtsWidth(tmp64_2Stream, tmp64);
+  //      siTcp_data.write(tmp64);
+  //      printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp64.tdata);
+  //  }
 
 
   siTcp_meta.write(NetworkMetaStream(meta_1));
   //siTcp_meta.write(NetworkMetaStream(out_meta));
-  
+
   for(int i = 0; i < 20; i++)
   {
     stepDut();
   }
-  
+
+  MPI_Feedback fedb = soMPIFeB.read();
+  assert(fedb == ZRLMPI_FEEDBACK_OK);
+
   //MPI_recv()
   //printf("Start MPI_recv....\n");
   strcpy(current_phase, "rank 2 MPI_recv");
@@ -318,7 +322,7 @@ int main(){
   {
     stepDut();
   }
-  
+
   info = MPI_Interface();
   info.mpi_call = MPI_RECV_INT;
   info.count = 5;
@@ -379,18 +383,18 @@ int main(){
   {
     if(!storeData.empty())
     {
-        siTcp_data.write(storeData.read());
+      siTcp_data.write(storeData.read());
     }
   }
   strcpy(current_phase, "rank 2 receive data");
-  
+
   siTcp_meta.write(NetworkMetaStream(meta_2));
 
   for(int i = 0; i < 15; i++)
   {
     if(!storeData.empty())
     {
-        siTcp_data.write(storeData.read());
+      siTcp_data.write(storeData.read());
     }
     stepDut();
   }
@@ -402,7 +406,7 @@ int main(){
 
   for(int i = 0; i< (17+7)/8; i++)
   {
-	    stepDut();
+    stepDut();
 
     //tmp8 = MPI_data_out.read();
     if(!MPI_data_out.read_nb(tmp64_2))
@@ -428,7 +432,7 @@ int main(){
       assert(cur_byte == msg[i*8+k]);
     }
   }
-  
+
   //receive ACK 
   strcpy(current_phase, "rank 2 receive ACK");
   for(int i = 0; i < 7; i++)
@@ -459,16 +463,19 @@ int main(){
   assert(header.type == ACK);
 
   printf("received ACK...\n");
-  
+
+  fedb = soMPIFeB.read();
+  assert(fedb == ZRLMPI_FEEDBACK_OK);
+
   if(!MPI_data_in.empty())
   {
-	  printf("MPI_data_in not empty, this is not expected!\n");
-	  succeded = false;
+    printf("MPI_data_in not empty, this is not expected!\n");
+    succeded = false;
   }
   if(!MPI_data_out.empty())
   {
-	  printf("MPI_data_out not empty, this is not expected!!\n");
-	  succeded = false;
+    printf("MPI_data_out not empty, this is not expected!!\n");
+    succeded = false;
   }
 
   printf("DONE\n");

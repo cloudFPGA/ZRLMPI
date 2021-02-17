@@ -403,6 +403,7 @@ void pDeqSend(
 void pMpeGlobal(
     ap_uint<32>                   *po_rx_ports,
     stream<MPI_Interface> &siMPIif,
+    stream<MPI_Feedback> &soMPIFeB,
     ap_uint<32> *own_rank,
     stream<Axis<64> >     &sFifoDataTX,
     stream<NodeId>        &sDeqSendDestId,
@@ -462,6 +463,8 @@ void pMpeGlobal(
 
   static uint16_t exp_recv_count_enqueue = 0;
   static uint16_t enqueue_recv_total_cnt = 0;
+
+  static bool receive_right_data_started = false;
 
   // #pragma HLS STREAM variable=sFifoHeaderCache depth=64
   //#pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
@@ -806,15 +809,19 @@ void pMpeGlobal(
         metaSrc = siTcp_meta.read().tdata;
         fsmMpeState = WAIT4ACK_1;
       } else {
-        protocol_timeout_cnt--;
-        if(protocol_timeout_cnt == 0)
+        if( !soMPIFeB.full() )
         {
-          //TODO write negative notif to wrapper
+          protocol_timeout_cnt--;
+          if(protocol_timeout_cnt == 0)
+          {
+            soMPIFeB.write(ZRLMPI_FEEDBACK_FAIL);
+            fsmMpeState = SEND_DATA_START;
+          }
         }
       }
       break;
     case WAIT4ACK_1:
-      if( !siTcp_data.empty())
+      if( !siTcp_data.empty() && !soMPIFeB.full() )
       {
 
         NetworkWord tmp = siTcp_data.read();
@@ -833,12 +840,14 @@ void pMpeGlobal(
           if(ret == 0)
           {
             printf("ACK received.\n");
+            soMPIFeB.write(ZRLMPI_FEEDBACK_OK);
             fsmMpeState = IDLE;
           } else {
             //else, we continue to wait
             //and add it to the cache
             add_cache_bytes(header_cache, header_cache_valid, bytes);
             fsmMpeState = WAIT4ACK;
+            //no timeout reset
           }
         }
       }
@@ -986,6 +995,7 @@ void pMpeGlobal(
         {
           fsmMpeState = RECV_DATA_START;
           protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+          receive_right_data_started = false;
           expect_more_data = false;
           current_data_src_node_id = 0xFFF;
           current_data_src_port = 0x0;
@@ -1035,10 +1045,27 @@ void pMpeGlobal(
           fsmMpeState = RECV_DATA_START_1;
         }
       } else {
-        protocol_timeout_cnt--;
-        if(protocol_timeout_cnt == 0)
+        if(!soMPIFeB.full())
         {
-          fsmMpeState = ASSEMBLE_CLEAR;
+          protocol_timeout_cnt--;
+          if(protocol_timeout_cnt == 0)
+          {
+            if(receive_right_data_started)
+            {
+              //re-start receive completely
+              soMPIFeB.write(ZRLMPI_FEEDBACK_FAIL);
+              fsmMpeState = RECV_DATA_START;
+              receive_right_data_started = false;
+              expect_more_data = false;
+              current_data_src_node_id = 0xFFF;
+              current_data_src_port = 0x0;
+              current_data_dst_port = 0x0;
+              header = MPI_Header();
+              expected_call = MPI_SEND_INT;
+            } else {
+              fsmMpeState = ASSEMBLE_CLEAR;
+            }
+          }
         }
       }
       break;
@@ -1106,6 +1133,9 @@ void pMpeGlobal(
           if(enqueue_recv_total_cnt < exp_recv_count_enqueue) //not <=
           {//we expect more
             fsmMpeState = RECV_DATA_START;
+            protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+            receive_right_data_started = true;
+            //so timeout also for multiple packets
             expect_more_data = true;
             printf("\t[pMpeGlobal] we expect more: received: %d, expected %d;", enqueue_recv_total_cnt, exp_recv_count_enqueue);
           } else {
@@ -1185,10 +1215,11 @@ void pMpeGlobal(
       }
       break;
     case SEND_ACK:
-      if(!sDeqSendDone.empty())
+      if(!sDeqSendDone.empty() && !soMPIFeB.full() )
       {
         if(sDeqSendDone.read())
         {
+          soMPIFeB.write(ZRLMPI_FEEDBACK_OK);
           fsmMpeState = IDLE;
         }
       }
@@ -1213,6 +1244,7 @@ void mpe_main(
 
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,
+    stream<MPI_Feedback> &soMPIFeB,
     stream<Axis<64> > &siMPI_data,
     stream<Axis<64> > &soMPI_data
     )
@@ -1229,6 +1261,8 @@ void mpe_main(
 
 #pragma HLS INTERFACE ap_fifo port=siMPIif
 #pragma HLS DATA_PACK     variable=siMPIif
+#pragma HLS INTERFACE ap_fifo port=soMPIFeB
+//#pragma HLS DATA_PACK     variable=soMPIFeB
 #pragma HLS INTERFACE ap_fifo port=siMPI_data
 #pragma HLS DATA_PACK     variable=siMPI_data
 #pragma HLS INTERFACE ap_fifo port=soMPI_data
@@ -1274,7 +1308,7 @@ void mpe_main(
   //===========================================================
   // MPE GLOBAL STATE
 
-  pMpeGlobal(po_rx_ports, siMPIif, own_rank, sFifoDataTX,
+  pMpeGlobal(po_rx_ports, siMPIif, soMPIFeB, own_rank, sFifoDataTX,
       sDeqSendDestId, sDeqSendDone, siTcp_data, siTcp_meta,
       siMPI_data, sFifoDataRX,
       sExpectedLength, sDeqRecvDone);
