@@ -1061,7 +1061,6 @@ void pMpeGlobal(
               current_data_src_port = 0x0;
               current_data_dst_port = 0x0;
               header = MPI_Header();
-              expected_call = MPI_SEND_INT;
             } else {
               fsmMpeState = ASSEMBLE_CLEAR;
             }
