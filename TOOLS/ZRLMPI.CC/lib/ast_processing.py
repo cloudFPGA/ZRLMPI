@@ -84,7 +84,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     ast_m_1 = c_ast_orig
     replace_stmt_visitor1.visit(ast_m_1)
     # 3. constant folding
-    # TODO: another visitor that finds "variables that are used as constants"
+    # maybe another visitor that finds "variables that are used as constants"
     # only those variables should be part of constant folding at their time of assignment
     constant_folding_visitor1 = constant_visitor.MpiConstantFoldingVisitor()
     constant_folding_visitor1.visit(ast_m_1)
