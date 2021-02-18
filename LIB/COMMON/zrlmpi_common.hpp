@@ -70,6 +70,16 @@ struct MPI_Header {
 };
 #define MPIF_HEADER_LENGTH 32 //Bytes
 
+/*
+ * MPI_Op operations
+ */
+
+void MPI_SUM_INTEGER(int32_t *accum, int32_t source*, uint16_t length);
+void MPI_SUM_FLOAT(float *accum, float source*, uint16_t length);
+
+/*
+ * Utility functions
+ */
 
 //UINT32 littleEndianToInteger(UINT8 *buffer, int lsb);
 UINT32 bigEndianToInteger(UINT8 *buffer, int lsb);

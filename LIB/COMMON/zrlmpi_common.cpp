@@ -3,17 +3,40 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/*UINT32 littleEndianToInteger(UINT8 *buffer, int lsb)
+
+
+void MPI_SUM_INTEGER(int32_t *accum, int32_t source*, uint16_t length)
 {
+#pragma HLS INLINE
+  for(uint16_t i = 0; i < length; i++)
+  {
+    accum[i] += source[i];
+  }
+}
+
+
+void MPI_SUM_FLOAT(float *accum, float source*, uint16_t length)
+{
+#pragma HLS INLINE
+  for(uint16_t i = 0; i < length; i++)
+  {
+    accum[i] += source[i];
+  }
+}
+
+
+
+/*UINT32 littleEndianToInteger(UINT8 *buffer, int lsb)
+  {
   UINT32 tmp = 0;
   tmp  = ((UINT32) buffer[lsb + 3]); 
   tmp |= ((UINT32) buffer[lsb + 2]) << 8; 
   tmp |= ((UINT32) buffer[lsb + 1]) << 16; 
   tmp |= ((UINT32) buffer[lsb + 0]) << 24; 
 
-  //printf("LSB: %#1x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
+//printf("LSB: %#1x, return: %#04x\n",(UINT8) buffer[lsb + 3], (UINT32) tmp);
 
-  return tmp;
+return tmp;
 }*/
 UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
 {
@@ -44,12 +67,12 @@ UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
 }
 
 /*void integerToLittleEndian(UINT32 n, UINT8 *bytes)
-{
+  {
   bytes[0] = (n >> 24) & 0xFF;
   bytes[1] = (n >> 16) & 0xFF;
   bytes[2] = (n >> 8) & 0xFF;
   bytes[3] = n & 0xFF;
-}*/
+  }*/
 
 void integerToBigEndian(UINT32 n, UINT8 *bytes)
 {
@@ -79,7 +102,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
       break;
     }
   }
-  
+
   for(int i = 18; i<28; i++)
   {
     if(bytes[i] != 0x00)
@@ -92,7 +115,7 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
       break;
     }
   }
-  
+
   for(int i = 28; i<32; i++)
   {
     if(bytes[i] != 0x96)
@@ -171,7 +194,7 @@ void headerToBytes(MPI_Header header, UINT8 bytes[MPIF_HEADER_LENGTH])
   {
     bytes[i] = 0x00; 
   }
-  
+
   for(int i = 28; i<32; i++)
   {
     bytes[i] = 0x96; 
