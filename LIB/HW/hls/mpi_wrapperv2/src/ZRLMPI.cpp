@@ -20,10 +20,17 @@ ap_uint<1> hw_app_init = 0;
 ap_uint<4> sendCnt = 0;
 ap_uint<4> recvCnt = 0;
 
+ap_uint<1> memory_test_flag = 0;
+
 
 //uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE];
 uint32_t words[(ZRLMPI_MAX_DETECTED_BUFFER_SIZE+3)/4]; //TODO!
 //#pragma HLS RESOURCE variable=words core=RAM_2P_BRAM
+
+#define MEMORY_TEST_PATTERN 0x0A0B0C0D0E0FC001
+bool memory_pattern_write = false;
+bool memory_pattern_read = false;
+
 
 void setMMIO_out(ap_uint<16> *MMIO_out)
 {
@@ -35,6 +42,7 @@ void setMMIO_out(ap_uint<16> *MMIO_out)
   Display0 |= ((ap_uint<16>) recvCnt) << RECV_CNT_SHIFT;
   Display0 |= ((ap_uint<16>) my_app_done) << AP_DONE_SHIFT;
   Display0 |= ((ap_uint<16>) app_init) << AP_INIT_SHIFT;
+  Display0 |= ((ap_uint<16>) memory_test_flag) << MEM_ERR_SHIFT;
 
   *MMIO_out = Display0;
 }
@@ -57,6 +65,11 @@ void MPI_Init()
   printf("[MPI_Init] clusterSize: %d, rank: %d\n", (int) cluster_size, (int) role_rank);
   hw_app_init = 1;
 
+}
+
+void MPI_Init(void *a, void *b)
+{
+  MPI_Init();
 }
 
 void MPI_Comm_rank(MPI_Comm communicator, int* rank)
@@ -119,7 +132,7 @@ int send_internal(
   Axis<64>  tmp64 = Axis<64>();
   //uint32_t send_i_per_packet = 0;
   MPI_Feedback fedb;
-  
+
   while(sendState != SEND_DONE)
   {
     //#pragma HLS loop_flatten off
@@ -210,13 +223,19 @@ void MPI_Send(
   //  words[i + 3] = data[i/4] & 0xFF;
   //}
   printf("[MPI_Send] input data:\n");
-  for(int i=0; i< count; i++)
+  if(count > 1)
   {
-    //#pragma HLS unroll
-    words[i] = data[i];
-    printf("\t[%02d] %04d\n", i, data[i]);
+    for(int i=0; i< count; i++)
+    {
+      //#pragma HLS unroll
+      words[i] = data[i];
+      printf("\t[%02d] %04d\n", i, data[i]);
+    }
+    printf("\n");
+  } else {
+    words[0] = data[0];
+    printf("\t[00] %04d\n", data[0]);
   }
-  printf("\n");
 
   send_internal(soMPIif, siMPIFeB, soMPI_data, words, count, datatype, destination, tag, communicator);
 }
@@ -368,14 +387,19 @@ void MPI_Recv(
   //}
 
   printf("[MPI_Recv] output data:\n");
-  for(int i=0; i<count; i++)
-  {
-    //#pragma HLS unroll
-    data[i]  = (int) words[i];
-    printf("\t[%02d] %04d\n", i, data[i]);
-    //TODO: if count-1 (last word), handle non complete words (here not necessary)
+  if(count > 1) {
+    for(int i=0; i<count; i++)
+    {
+      //#pragma HLS unroll
+      data[i]  = (int) words[i];
+      printf("\t[%02d] %04d\n", i, data[i]);
+      //TODO: if count-1 (last word), handle non complete words (here not necessary)
+    }
+    printf("\n");
+  } else {
+    data[0] = words[0];
+    printf("\t[00] %04d\n", data[0]);
   }
-  printf("\n");
 
 }
 
@@ -402,7 +426,9 @@ void mpi_wrapper(
     stream<MPI_Interface> *soMPIif,
     stream<MPI_Feedback> *siMPIFeB,
     stream<Axis<64> > *soMPI_data,
-    stream<Axis<64> > *siMPI_data
+    stream<Axis<64> > *siMPI_data,
+    // ----- DRAM -----
+    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -413,11 +439,13 @@ void mpi_wrapper(
 #pragma HLS INTERFACE ap_fifo port=soMPIif
 #pragma HLS DATA_PACK     variable=soMPIif
 #pragma HLS INTERFACE ap_fifo port=siMPIFeB
-//#pragma HLS DATA_PACK     variable=siMPIFeB
+  //#pragma HLS DATA_PACK     variable=siMPIFeB
 #pragma HLS INTERFACE ap_fifo port=soMPI_data
 #pragma HLS DATA_PACK     variable=soMPI_data
 #pragma HLS INTERFACE ap_fifo port=siMPI_data
 #pragma HLS DATA_PACK     variable=siMPI_data
+
+#pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM
 
 #pragma HLS reset variable=my_app_done
 #pragma HLS reset variable=sendCnt
@@ -427,6 +455,9 @@ void mpi_wrapper(
 #pragma HLS reset variable=cluster_size
 #pragma HLS reset variable=role_rank
 
+#pragma HLS reset variable=memory_pattern_write
+#pragma HLS reset variable=memory_pattern_read
+#pragma HLS reset variable=memory_test_flag
 
   //#pragma HLS loop_flatten off 
 
@@ -434,8 +465,25 @@ void mpi_wrapper(
   // Wait for INIT
   // nees do be done here, due to shitty HLS
 
-  if(app_init == 0)
+  if(app_init == 0 || !memory_pattern_read || !memory_pattern_write)
   {
+    //use & test memory (also to avoid open connections if app is not using them)
+    if(!memory_pattern_write)
+    {
+      boFdram[1] = MEMORY_TEST_PATTERN;
+      memory_pattern_write = true;
+      memory_test_flag = 0;
+    } else if(!memory_pattern_read)
+    {
+      ap_uint<512> tmp = boFdram[1];
+      if(tmp == MEMORY_TEST_PATTERN)
+      {
+        memory_test_flag = 1;
+      }
+      //stay 0 as "error"
+      memory_pattern_read = true;
+    }
+
     if(cluster_size_arg == 0)
     {
       //not yet initialized
@@ -461,7 +509,7 @@ void mpi_wrapper(
   if(my_app_done == 0)
   {
     //app_main(MMIO_out, soMPIif, soMPI_data, siMPI_data);
-    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data);
+    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, boFdram);
   }
 
   // at the end

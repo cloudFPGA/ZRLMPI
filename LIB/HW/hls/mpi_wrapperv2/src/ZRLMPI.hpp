@@ -19,6 +19,7 @@ using namespace hls;
 #define SEND_CNT_SHIFT 4
 #define AP_DONE_SHIFT 12
 #define AP_INIT_SHIFT 14
+#define MEM_ERR_SHIFT 15
 
 #define RECV_WRITE_INFO 0
 #define RECV_READ_DATA 1
@@ -75,9 +76,8 @@ struct Axis {
 
 void my_memcpy(int * dst, int* src, int length);
 
-//void MPI_Init(int* argc, char*** argv);
 void MPI_Init();
-//void MPI_Init(ap_uint<16> *MMIO_out);
+void MPI_Init(void *a, void *b);
 void MPI_Comm_rank(MPI_Comm communicator, int* rank);
 void MPI_Comm_size( MPI_Comm communicator, int* size);
 
@@ -112,22 +112,24 @@ void MPI_Recv(
 
 
 void MPI_Finalize();
-//void MPI_Finalize(ap_uint<16> *MMIO_out);
 
-//void MPI_Barrier(MPI_Comm communicator);
+//#define ZRLMPI_DRAM_SIZE_LINES 16777216 //8GB
+#define ZRLMPI_DRAM_SIZE_LINES 12582912 //6GB
 
 
 void mpi_wrapper(
-    // ----- FROM SMC -----
+    // ----- FROM FMC -----
     ap_uint<32> role_rank_arg,
     ap_uint<32> cluster_size_arg,
-    // ----- TO SMC ------
+    // ----- TO FMC ------
     ap_uint<16> *MMIO_out,
     // ----- MPI_Interface -----
     stream<MPI_Interface> *soMPIif,
     stream<MPI_Feedback> *siMPIFeB,
     stream<Axis<64> > *soMPI_data,
-    stream<Axis<64> > *siMPI_data
+    stream<Axis<64> > *siMPI_data,
+    // ----- DRAM -----
+    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
     );
 
 

@@ -48,5 +48,5 @@ app_hw.*
 user.json
 py_zrlmpi/
 cc_delme/
-
+app_hw_directives.tcl
 

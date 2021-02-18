@@ -78,6 +78,8 @@ open_solution ${solutionName}
 set_part      ${xilPartName}
 create_clock -period 6.4 -name default
 
+source ${srcDir}/app_hw_directives.tcl
+
 # Run C Simulation and Synthesis
 #-------------------------------------------------
 

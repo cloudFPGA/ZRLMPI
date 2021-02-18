@@ -5,7 +5,7 @@
 
 
 
-void MPI_SUM_INTEGER(int32_t *accum, int32_t source*, uint16_t length)
+void MPI_SUM_INTEGER(int32_t *accum, int32_t *source, uint16_t length)
 {
 #pragma HLS INLINE
   for(uint16_t i = 0; i < length; i++)
@@ -15,7 +15,7 @@ void MPI_SUM_INTEGER(int32_t *accum, int32_t source*, uint16_t length)
 }
 
 
-void MPI_SUM_FLOAT(float *accum, float source*, uint16_t length)
+void MPI_SUM_FLOAT(float *accum, float *source, uint16_t length)
 {
 #pragma HLS INLINE
   for(uint16_t i = 0; i < length; i++)
@@ -42,10 +42,10 @@ UINT32 bigEndianToInteger(UINT8 *buffer, int lsb)
 {
 #pragma HLS INLINE
   UINT32 tmp = 0;
-  tmp  = ((UINT32) buffer[lsb + 0]); 
-  tmp |= ((UINT32) buffer[lsb + 1]) << 8; 
-  tmp |= ((UINT32) buffer[lsb + 2]) << 16; 
-  tmp |= ((UINT32) buffer[lsb + 3]) << 24; 
+  tmp  = ((UINT32) buffer[lsb + 0]);
+  tmp |= ((UINT32) buffer[lsb + 1]) << 8;
+  tmp |= ((UINT32) buffer[lsb + 2]) << 16;
+  tmp |= ((UINT32) buffer[lsb + 3]) << 24;
 
 #ifndef __SYNTHESIS__
 #ifdef DEBUG2
