@@ -26,9 +26,9 @@ echo "Installing $1 into $cFpRootDir ..."
 
 # a) we update the present Makefile (alternative: copy Makefile.template from install folder)
 # 1. add ZRLMPI Dir and update env
-sed -i "19iZRLMPI_DIR=\$(cFpRootDir)/$1/" $cFpRootDir/Makefile
-sed -i "20iCLUSTER_DESCRIPTION=\$(cFpRootDir)/cluster.json/" $cFpRootDir/Makefile
-sed -i "22iCFP_DESCRIPTION=\$(cFpRootDir)/cFp.json/" $cFpRootDir/Makefile
+sed -i "35iZRLMPI_DIR=\$(cFpRootDir)/$1/" $cFpRootDir/Makefile
+sed -i "36iCLUSTER_DESCRIPTION=\$(cFpRootDir)/cluster.json" $cFpRootDir/Makefile
+sed -i "37iCFP_DESCRIPTION=\$(cFpRootDir)/cFp.json" $cFpRootDir/Makefile
 
 /bin/echo -e "export zrlmpiDir=\"\$rootDir/$1/\"\n\n" >> $cFpRootDir/env/setenv.sh
 
@@ -40,19 +40,7 @@ sed -i "22iCFP_DESCRIPTION=\$(cFpRootDir)/cFp.json/" $cFpRootDir/Makefile
 
 # ip cores are now part of the ROLE...so only the SW targets necessary
 #sed -i '/#cFa addtional targets/aZrlmpi: assert_env\n\t$(MAKE) -C $(ZRLMPI_DIR) ip\n' $cFpRootDir/Makefile
-sed -i '/#cFa addtional targets/ampi_run: assert_env   ## Launches the CPU parts of ZRLMPI\n\t$(MAKE) -C SW/ run\n\n\
-mpi_verify: assert_env  ## Launches the MPI application in openMPI\n\t$(MAKE) -C APP/ run\n\n\
-assert_cluster: \n\t@test -f $(CLUSTER_DESCRIPTION) || ( /bin/echo -e "{\n\
-  \"nodes\": {\n\
-    \"cpu\" : [0],\n\
-    \"fpga\" : [1, 2]\n\
-  }\n\
-}" > $(CLUSTER_DESCRIPTION) ; ( [ -d .git/ ] && (git add $(CLUSTER_DESCRIPTION) ) ) ; echo "Please define the cluster setup in $(CLUSTER_DESCRIPTION)" ; exit 1)\
-\n\n\
-update_mpi_app: assert_env assert_cluster  ## launches the ZRLMPI cross-compiler\n\
-\t$(ZRLMPI_DIR)/TOOLS/ZRLMPI.CC/zrlmpi.cc  $(cFpRootDir) $(ZRLMPI_DIR) ./APP/*.cpp ./APP/*.hpp $(usedRoleDir) $(CLUSTER_DESCRIPTION) $(CFP_DESCRIPTION)\n\n\
-pr_mpi: assert_env update_mpi_app pr  ## cross-compiles the application and builds the PR bitstream\n\n\
-mono_mpi: assert_env update_mpi_app monolithic  ## cross-compiles the application and builds a monolithic bitstream\n\n' $cFpRootDir/Makefile
+sed -i '/#cFa addtional targets/ampi_run: assert_env   ## Launches the CPU parts of ZRLMPI\n\t$(MAKE) -C SW/ run\n\nmpi_verify: assert_env  ## Launches the MPI application in openMPI\n\t$(MAKE) -C APP/ run\n\nassert_cluster: \n\t@test -f $(CLUSTER_DESCRIPTION) || ( /bin/echo -e "{\n\"nodes\": {\n\"cpu\" : [0],\n\"fpga\" : [1, 2]\n}\n}" > $(CLUSTER_DESCRIPTION) ; ( [ -d .git/ ] && (git add $(CLUSTER_DESCRIPTION) ) ) ; echo "Please define the cluster setup in $(CLUSTER_DESCRIPTION)" ; exit 1)\n\nupdate_mpi_app: assert_env assert_cluster  ## launches the ZRLMPI cross-compiler\n\t$(ZRLMPI_DIR)/TOOLS/ZRLMPI.CC/zrlmpi.cc  $(cFpRootDir) $(ZRLMPI_DIR) ./APP/*.cpp ./APP/*.hpp $(usedRoleDir) $(CLUSTER_DESCRIPTION) $(CFP_DESCRIPTION)\n\npr_mpi: assert_env update_mpi_app pr  ## cross-compiles the application and builds the PR bitstream\n\nmono_mpi: assert_env update_mpi_app monolithic  ## cross-compiles the application and builds a monolithic bitstream\n\n' $cFpRootDir/Makefile
 
 
 # 3. modify Role target
@@ -82,7 +70,8 @@ cd $usedRoleDir/hls; ln -s $rel_LIBhls/mpi_wrapperv2  ./mpi_wrapperv2
 cd $old_wd
 
 #copy example application
-cp -R $cFpRootDir/cFDK/APP/hls/triangle_app/ $usedRoleDir/hls/
+# no!
+#cp -R $cFpRootDir/cFDK/APP/hls/triangle_app/ $usedRoleDir/hls/
 
 # d) update .gitignores
 
