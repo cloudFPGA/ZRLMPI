@@ -285,7 +285,6 @@ def reduce_replacement(reduce_call, cluster_size_constant, rank_obj):
     for_next = c_ast.UnaryOp('p++', c_ast.ID(loop_variable_name))
     loop_stmts = []
     buffer_variable = accum_buffer_variable_decl
-    loop_stmts.append(buffer_variable)
     root_stmts = []
     memcpy_args = []
     memcpy_args.append(accum_buffer_variable_id)
@@ -334,7 +333,11 @@ def reduce_replacement(reduce_call, cluster_size_constant, rank_obj):
     else_stmts.append(send_call)
     else_part = c_ast.Compound(else_stmts)
     condition = c_ast.BinaryOp("==", rank_obj, root_rank)
-    pAST = c_ast.If(condition, then_part, else_part)
+    if_else_tree = c_ast.If(condition, then_part, else_part)
+    past_stmts = []
+    past_stmts.append(buffer_variable)
+    past_stmts.append(if_else_tree)
+    pAST = c_ast.Compound(past_stmts)
     return pAST
 
 

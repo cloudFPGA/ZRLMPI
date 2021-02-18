@@ -17,10 +17,11 @@
 #define CMD_CHANNEL_TAG 2
 
 
-#define NR_VECTORS 50
-//#define NR_VECTORS 10000
+//#define NR_VECTORS 50
+#define NR_VECTORS 10000
 
 
+#define K_STATIC 512
 #define MAX_CENTROIDS 512
 #define SCALE_FACTOR (1)
 

@@ -200,7 +200,7 @@ int main(int argc, char** argv)
   }
 #endif
   int vectors_per_proc = NR_VECTORS/nprocs;
-  int k = 0;
+  int k = K_STATIC;
 
   // Data structures in all processes.
   // Vectors assigned for this process
@@ -261,10 +261,12 @@ int main(int argc, char** argv)
     }
     // read k
     fgets(line, 256, file_stream);
-    k = atoi(line);
-    if(k > MAX_CENTROIDS)
+    int file_k = atoi(line);
+    //if(k > MAX_CENTROIDS)
+    if(file_k != K_STATIC)
     {
-      fprintf(stderr, "This binary is compiled for a maximum number of centroids: %d. File contains %d.\n", MAX_CENTROIDS, k);
+      //fprintf(stderr, "This binary is compiled for a maximum number of centroids: %d. File contains %d.\n", MAX_CENTROIDS, k);
+      fprintf(stderr, "This binary is compiled for a number of centroids: %d. File contains %d.\n", MAX_CENTROIDS, k);
       exit(1);
     }
 
@@ -315,17 +317,17 @@ int main(int argc, char** argv)
 #endif
   }
 
-  //distribute k
-  if(rank == 0)
-  {
-    for(int i = 1; i<nprocs; i++)
-    {
-      MPI_Send(&k, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
-    }
-    printf("Distributed k: %d\n",k);
-  } else {
-    MPI_Recv(&k, 1, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status); 
-  }
+  ////distribute k
+  //if(rank == 0)
+  //{
+  //  for(int i = 1; i<nprocs; i++)
+  //  {
+  //    MPI_Send(&k, 1, MPI_INTEGER, i, 0, MPI_COMM_WORLD);
+  //  }
+  //  printf("Distributed k: %d\n",k);
+  //} else {
+  //  MPI_Recv(&k, 1, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &status); 
+  //}
 
   //printf("[%d] k: %d\n", rank, k);
 
