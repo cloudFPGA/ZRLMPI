@@ -150,11 +150,10 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         if (not optimize_scatter_gather) or dont_optimize:
             new_entry['new'] = template_generator.reduce_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
         else:
-            #if not reuse_interim_buffers:
-            #    available_optimization_buffer_list = None
-            #pAST, available_optimization_buffer_list = template_generator.optimized_bcast_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
-            #new_entry['new'] = pAST
-            new_entry['new'] = template_generator.reduce_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+            if not reuse_interim_buffers:
+                available_optimization_buffer_list = None
+            pAST, available_optimization_buffer_list = template_generator.optimized_reduce_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            new_entry['new'] = pAST
         collectives_new_obj.append(new_entry)
     # replace send and recv if necessary
     if replace_send_recv:
