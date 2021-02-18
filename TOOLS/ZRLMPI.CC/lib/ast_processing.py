@@ -98,6 +98,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     rank_variable_names, rank_variable_obj = find_name_visitor2.get_results_ranks()
     scatter_calls_obj = find_name_visitor2.get_results_scatter()
     gather_calls_obj = find_name_visitor2.get_results_gather()
+    bcast_calls_obj = find_name_visitor2.get_results_bcast()
+    reduce_calls_obj = find_name_visitor2.get_results_reduce()
     # 5. replace templates
     if len(rank_variable_names) > 1:
         print("WARNING: multiple rank variables detected, template generation may fail.")
@@ -129,6 +131,28 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
             if not reuse_interim_buffers:
                 available_optimization_buffer_list = None
             pAST, available_optimization_buffer_list = template_generator.optimized_gather_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            new_entry['new'] = pAST
+        collectives_new_obj.append(new_entry)
+    for e in bcast_calls_obj:
+        new_entry = {}
+        new_entry['old'] = e
+        if (not optimize_scatter_gather) or dont_optimize:
+            new_entry['new'] = template_generator.bcast_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+        else:
+            if not reuse_interim_buffers:
+                available_optimization_buffer_list = None
+            pAST, available_optimization_buffer_list = template_generator.optimized_bcast_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            new_entry['new'] = pAST
+        collectives_new_obj.append(new_entry)
+    for e in reduce_calls_obj:
+        new_entry = {}
+        new_entry['old'] = e
+        if (not optimize_scatter_gather) or dont_optimize:
+            new_entry['new'] = template_generator.reduce_replacement(e, cluster_size_constant, c_ast.ID(rank_variable_names[0]))
+        else:
+            if not reuse_interim_buffers:
+                available_optimization_buffer_list = None
+            pAST, available_optimization_buffer_list = template_generator.optimized_reduce_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
             new_entry['new'] = pAST
         collectives_new_obj.append(new_entry)
     # replace send and recv if necessary
@@ -266,7 +290,11 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     # print(found_buffer_dims)
     list_of_dims = []
     for e in found_buffer_dims.keys():
-        list_of_dims.append(int(found_buffer_dims[e]['calculated_value'])*int(__size_of_c_type__[found_buffer_dims[e]['found_type']]))
+        try:
+            new_dim = int(found_buffer_dims[e]['calculated_value'])*int(__size_of_c_type__[found_buffer_dims[e]['found_type']])
+        except:
+            new_dim = 0
+        list_of_dims.append(new_dim)
     max_dimension_bytes = 0
     if len(list_of_dims) == 0:
         print("[WARNING] Did not found a maximum buffer size, this could lead to a failing HLS synthesis")

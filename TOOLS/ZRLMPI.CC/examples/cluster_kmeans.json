@@ -1,0 +1,9 @@
+{
+  "nodes": {
+    "cpu" : [0],
+    "fpga" : [1, 2, 3, 4]
+  },
+  "config": {
+    "optimization": 1
+  }
+}

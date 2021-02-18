@@ -27,6 +27,8 @@ __mpi_api_signatures_rank__ = ['MPI_Comm_rank']
 __mpi_api_signatures_size__ = ['MPI_Comm_size']
 __mpi_api_signatures_scatter__ = ['MPI_Scatter']
 __mpi_api_signatures_gather__ = ['MPI_Gather']
+__mpi_api_signatures_bcast__ = ['MPI_Bcast']
+__mpi_api_signatres_reduce__ = ['MPI_Reduce']
 
 
 class MpiSignatureNameSearcher(object):
@@ -71,6 +73,8 @@ class MpiSignatureNameSearcher(object):
         self.found_size_names = []
         self.found_scatter_obj = []
         self.found_gather_obj = []
+        self.found_bcast_obj = []
+        self.found_reduce_obj = []
         self.found_send_obj = []
         self.found_recv_obj = []
 
@@ -88,6 +92,12 @@ class MpiSignatureNameSearcher(object):
 
     def get_results_gather(self):
         return self.found_gather_obj
+
+    def get_results_bcast(self):
+        return self.found_bcast_obj
+
+    def get_results_reduce(self):
+        return self.found_reduce_obj
 
     def get_results_send(self):
         return self.found_send_obj
@@ -212,6 +222,10 @@ class MpiSignatureNameSearcher(object):
                 self.found_scatter_obj.append(n)
         elif func_name in __mpi_api_signatures_gather__:
             self.found_gather_obj.append(n)
+        elif func_name in __mpi_api_signatures_bcast__:
+            self.found_bcast_obj.append(n)
+        elif func_name in __mpi_api_signatres_reduce__:
+            self.found_reduce_obj.append(n)
         return
 
     # def visit_UnaryOp(self, n):
