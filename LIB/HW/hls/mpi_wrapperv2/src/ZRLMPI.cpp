@@ -56,6 +56,20 @@ void my_memcpy(int * dst, int* src, int length)
   }
 }
 
+void my_exit(int status)
+{
+  printf("[ZRLMPI@FPGA] app_hw called 'exit' with status %d. This will be ignored.\n",status);
+}
+
+void my_free(void *ignore)
+{
+  printf("[ZRLMPI@FPGA] app_hw called 'free'. This will be ignored.\n");
+}
+
+void my_perror(const char *s)
+{
+  printf("[ZRLMPI@FPGA] app_hw called 'perror' with message: %s. This will be ignored.\n",s);
+}
 
 void MPI_Init()
 {
