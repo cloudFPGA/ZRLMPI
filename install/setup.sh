@@ -15,9 +15,9 @@
 # source ../env/setenv.sh is done by cFBuild
 
 if [ $# -ne 1 ]; then
-	echo "Illegal number of parameters"
-	echo "USAGE: $0 <name-of-addon>"
-	exit 1
+  echo "Illegal number of parameters"
+  echo "USAGE: $0 <name-of-addon>"
+  exit 1
 fi
 
 echo "Installing $1 into $cFpRootDir ..."

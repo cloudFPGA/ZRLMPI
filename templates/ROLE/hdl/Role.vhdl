@@ -248,6 +248,14 @@ architecture Flash of Role_Themisto is
   signal sMPE_Fifo_MPIdata_full     : std_ulogic;
   signal sMPE_Fifo_MPIdata_write    : std_ulogic;
 
+  signal sFifo_APP_MPIFeB_dout       : std_ulogic_vector(7 downto 0);
+  signal sFifo_APP_MPIFeB_empty_n    : std_ulogic;
+  signal sFifo_APP_MPIFeB_empty      : std_ulogic;
+  signal sFifo_APP_MPIFeB_read       : std_ulogic;
+  signal sMPE_Fifo_MPIFeB_din        : std_ulogic_vector(7 downto 0);
+  signal sMPE_Fifo_MPIFeB_full_n     : std_ulogic;
+  signal sMPE_Fifo_MPIFeB_full       : std_ulogic;
+  signal sMPE_Fifo_MPIFeB_write      : std_ulogic;
 
   signal active_low_reset  : std_logic;
 
@@ -341,6 +349,9 @@ architecture Flash of Role_Themisto is
            soMPIif_V_din : OUT STD_LOGIC_VECTOR (71 downto 0);
            soMPIif_V_full_n : IN STD_LOGIC;
            soMPIif_V_write : OUT STD_LOGIC;
+           siMPIFeB_V_dout : IN STD_LOGIC_VECTOR (7 downto 0);
+           siMPIFeB_V_empty_n : IN STD_LOGIC;
+           siMPIFeB_V_read : OUT STD_LOGIC;
            soMPI_data_V_din : OUT STD_LOGIC_VECTOR (72 downto 0);
            soMPI_data_V_full_n : IN STD_LOGIC;
            soMPI_data_V_write : OUT STD_LOGIC;
@@ -369,6 +380,9 @@ architecture Flash of Role_Themisto is
            siMPIif_V_dout : IN STD_LOGIC_VECTOR (71 downto 0);
            siMPIif_V_empty_n : IN STD_LOGIC;
            siMPIif_V_read : OUT STD_LOGIC;
+           soMPIFeB_V_din : OUT STD_LOGIC_VECTOR (7 downto 0);
+           soMPIFeB_V_full_n : IN STD_LOGIC;
+           soMPIFeB_V_write : OUT STD_LOGIC;
            siMPI_data_V_dout : IN STD_LOGIC_VECTOR (72 downto 0);
            siMPI_data_V_empty_n : IN STD_LOGIC;
            siMPI_data_V_read : OUT STD_LOGIC;
@@ -392,7 +406,7 @@ architecture Flash of Role_Themisto is
 
 
   component FifoMpiData is
-    port ( 
+    port (
     clk    : in std_logic;
     srst   : in std_logic;
     din    : in std_logic_vector(72 downto 0);
@@ -404,13 +418,25 @@ architecture Flash of Role_Themisto is
   end component;
   
   component FifoMpiInfo is
-    port ( 
+    port (
     clk    : in std_logic;
     srst   : in std_logic;
     din    : in std_logic_vector(71 downto 0);
     full   : out std_logic;
     wr_en  : in std_logic;
     dout   : out std_logic_vector(71 downto 0);
+    empty  : out std_logic;
+    rd_en  : in std_logic );
+  end component;
+  
+  component FifoMpiFeedback is
+    port (
+    clk    : in std_logic;
+    srst   : in std_logic;
+    din    : in std_logic_vector(7 downto 0);
+    full   : out std_logic;
+    wr_en  : in std_logic;
+    dout   : out std_logic_vector(7 downto 0);
     empty  : out std_logic;
     rd_en  : in std_logic );
   end component;
@@ -478,6 +504,9 @@ begin
   sAPP_Fifo_MPIdata_full_n <= not sAPP_Fifo_MPIdata_full;
   sFifo_APP_MPIdata_empty_n <= not sFifo_APP_MPIdata_empty;
 
+  sMPE_Fifo_MPIFeB_full_n <= not sMPE_Fifo_MPIFeB_full;
+  sFifo_APP_MPIFeB_empty_n <= not sFifo_APP_MPIFeB_empty;
+
   MPI_APP: mpi_wrapperv2
     port map (
          ap_clk                       => piSHL_156_25Clk ,
@@ -492,6 +521,9 @@ begin
          soMPIif_V_din                => sAPP_Fifo_MPIif_din       ,
          soMPIif_V_full_n             => sAPP_Fifo_MPIif_full_n    ,
          soMPIif_V_write              => sAPP_Fifo_MPIif_write     ,
+         siMPIFeB_V_dout              => sFifo_APP_MPIFeB_dout     ,
+         siMPIFeB_V_empty_n           => sFifo_APP_MPIFeB_empty_n  ,
+         siMPIFeB_V_read              => sFifo_APP_MPIFeB_read     ,
          soMPI_data_V_din             => sAPP_Fifo_MPIdata_din     ,
          soMPI_data_V_full_n          => sAPP_Fifo_MPIdata_full_n  ,
          soMPI_data_V_write           => sAPP_Fifo_MPIdata_write   ,
@@ -535,6 +567,18 @@ begin
         empty   => sFifo_APP_MPIdata_empty   ,
         rd_en   => sFifo_APP_MPIdata_read    
     );
+    
+    FIFO_FEB_MPE_APP: FifoMpiFeedback
+    port map (
+        clk     => piSHL_156_25Clk,
+        srst    => piMMIO_Ly7_Rst,
+        din     => sMPE_Fifo_MPIFeB_din     ,
+        full    => sMPE_Fifo_MPIFeB_full    ,
+        wr_en   => sMPE_Fifo_MPIFeB_write   ,
+        dout    => sFifo_APP_MPIFeB_dout    ,
+        empty   => sFifo_APP_MPIFeB_empty   ,
+        rd_en   => sFifo_APP_MPIFeB_read    
+    );
 
   sFifo_MPE_MPIif_empty_n <=  not sFifo_MPE_MPIif_empty;
   sFifo_MPE_MPIdata_empty_n <= not sFifo_MPE_MPIdata_empty;
@@ -572,6 +616,9 @@ begin
         siMPIif_V_dout       => sFifo_MPE_MPIif_dout      ,
         siMPIif_V_empty_n    => sFifo_MPE_MPIif_empty_n   ,
         siMPIif_V_read       => sFifo_MPE_MPIif_read      ,
+        soMPIFeB_V_din       => sMPE_Fifo_MPIFeB_din     ,
+        soMPIFeB_V_full_n    => sMPE_Fifo_MPIFeB_full_n  ,
+        soMPIFeB_V_write     => sMPE_Fifo_MPIFeB_write   ,
         siMPI_data_V_dout    => sFifo_MPE_MPIdata_dout    ,
         siMPI_data_V_empty_n => sFifo_MPE_MPIdata_empty_n ,
         siMPI_data_V_read    => sFifo_MPE_MPIdata_read    ,

@@ -473,6 +473,22 @@ set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName
 
 if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
 
+#------------------------------------------------------------------------------  
+# VIVADO-IP : FIFO Generator
+#------------------------------------------------------------------------------
+set ipModName "FifoMpiFeedback"
+set ipName    "fifo_generator"
+set ipVendor  "xilinx.com"
+set ipLibrary "ip"
+set ipVersion "13.2"
+set ipCfgList [ list CONFIG.Performance_Options {First_Word_Fall_Through} CONFIG.Input_Data_Width {8} CONFIG.Output_Data_Width {8} \
+                CONFIG.Input_Depth {512} CONFIG.Output_Depth {512} \
+              ]
+
+set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName} ${ipVersion} ${ipCfgList} ]
+
+if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
+
 
 #------------------------------------------------------------------------------
 
@@ -480,7 +496,7 @@ puts    ""
 my_puts "End at: [clock format [clock seconds] -format {%T %a %b %d %Y}] "
 my_puts "################################################################################"
 my_puts "##"
-my_puts "##  DONE WITH THE CREATION OF \[ ${nrGenIPs} \] IP CORE(S) FROM THE MANAGED IP REPOSITORY "
+my_puts "##  DONE WITH THE CREATION OF \[ ${nrGenIPs} \] IP CORE(S) FOR THE MPI ROLE"
 my_puts "##"
 if { ${nrErrors} != 0 } {
   my_puts "##"
