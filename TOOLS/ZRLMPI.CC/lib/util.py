@@ -13,6 +13,15 @@
 import os
 import subprocess
 
+__directives_file_template__ = "######################################################\n" \
+                               "# THIS FILE is GENERATED AUTOMATICALLY by ZRLMPICC   #\n" \
+                               "# It contains Vivado HLS tcl directives for app_hw   #\n" \
+                               "# It is read by 'run_hls.tcl' during synthesis       #\n" \
+                               "######################################################\n\n\n"
+
+delete_line_pattern ="ZRLMPI_THIS_LINE_MUST_BE_DELETED"
+clib_funcs_to_mark_for_delete = ['malloc']
+
 
 def get_line_number_of_occurence(pattern_escaped, filename):
     awk_command = "awk /'" + str(pattern_escaped) + "/{ print NR; exit }'  " + str(filename)
@@ -30,4 +39,21 @@ def get_line_number_of_occurence(pattern_escaped, filename):
         r += 1
     # print(line_number)
     return line_number
+
+
+def generate_tcl_directive(directives_to_add):
+    ret = __directives_file_template__
+    for d in directives_to_add:
+        ret += d + "\n"
+    ret += "\n"
+    return ret
+
+
+def delete_marked_lines(lines):
+    filtered = []
+    for l in lines.splitlines():
+        if not (delete_line_pattern in l):
+            filtered.append(l)
+    ret = "\n".join(filtered)
+    return ret
 

@@ -56,9 +56,13 @@ class MpiAffectedStatementSearcher(object):
         #
         self.conditions_to_search = conditions_to_search
         self.found_statements = []
+        # self.found_assignments = []
 
     def get_found_statements(self):
         return self.found_statements
+
+    # def get_found_assignments(self):
+    #    return self.found_assignments
 
     def visit(self, node):
         """ Visit a node.
@@ -182,11 +186,22 @@ class MpiAffectedStatementSearcher(object):
     #            self.found_compares.append(new_compare)
 
     # def visit_Assignment(self, n):
-    #     rval_str = self._parenthesize_if(
-    #         n.rvalue,
-    #         lambda n: isinstance(n, c_ast.Assignment))
-    #     return '%s %s %s' % (self.visit(n.lvalue), n.op, rval_str)
-    #
+    #     for e in self.conditions_to_search:
+    #         new_found = {}
+    #         new_found['right'] = None
+    #         new_found['left'] = None
+    #         new_found['self'] = None
+    #         found_smth = False
+    #         if n.lvalue == e['operator_object']:
+    #             new_found['left'] = n.lvalue
+    #             found_smth = True
+    #         elif n.rvalue == e['operator_object']:
+    #             new_found['right'] = n.rvalue
+    #             found_smth = True
+    #         if found_smth:
+    #             new_found['self'] = n
+    #             self.found_assignments.append(new_found)
+
     # def visit_IdentifierType(self, n):
     #     return ' '.join(n.names)
     #

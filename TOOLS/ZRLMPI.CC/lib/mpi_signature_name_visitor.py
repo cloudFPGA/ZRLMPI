@@ -30,6 +30,9 @@ __mpi_api_signatures_gather__ = ['MPI_Gather']
 __mpi_api_signatures_bcast__ = ['MPI_Bcast']
 __mpi_api_signatres_reduce__ = ['MPI_Reduce']
 
+__c_api_malloc_signatures__ = ['malloc']
+__c_api_clib_signatures__ = ['free', 'perror', 'exit', 'memcopy']
+
 
 class MpiSignatureNameSearcher(object):
     """
@@ -61,7 +64,7 @@ class MpiSignatureNameSearcher(object):
 
     _method_cache = None
 
-    def __init__(self):
+    def __init__(self, search_for_decls=None):
         # Statements start with indentation of self.indent_level spaces, using
         # the _make_indent method
         #
@@ -77,6 +80,10 @@ class MpiSignatureNameSearcher(object):
         self.found_reduce_obj = []
         self.found_send_obj = []
         self.found_recv_obj = []
+        self.found_malloc_obj = []
+        self.found_clib_obj = []
+        self.search_for_decls = search_for_decls
+        self.found_decl_obj = []
 
     def get_results_buffers(self):
         return self.found_buffers_names, self.found_buffers_obj
@@ -104,6 +111,19 @@ class MpiSignatureNameSearcher(object):
 
     def get_results_recv(self):
         return self.found_recv_obj
+
+    def get_results_malloc(self):
+        ret = []
+        for e in self.found_malloc_obj:
+            if type(e) != c_ast.Cast:
+                ret.append(e)
+        return ret
+
+    def get_results_clib(self):
+        return self.found_clib_obj
+
+    def get_results_dcls(self):
+        return self.found_decl_obj
 
     def visit(self, node):
         """ Visit a node.
@@ -226,6 +246,12 @@ class MpiSignatureNameSearcher(object):
             self.found_bcast_obj.append(n)
         elif func_name in __mpi_api_signatres_reduce__:
             self.found_reduce_obj.append(n)
+        elif func_name in __c_api_malloc_signatures__:
+            # TODO: add current func_name from context stack as done in constant folding visitor
+            # the placement is maybe not always 'app_main'
+            self.found_malloc_obj.append(n)
+        elif func_name in __c_api_clib_signatures__:
+            self.found_clib_obj.append(n)
         return
 
     # def visit_UnaryOp(self, n):
@@ -264,17 +290,12 @@ class MpiSignatureNameSearcher(object):
     #         return '(' + self.visit(n) + ')'
     #     else:
     #         return self.visit(n)
-    #
-    # def visit_Decl(self, n, no_type=False):
-    #     # no_type is used when a Decl is part of a DeclList, where the type is
-    #     # explicitly only for the first declaration in a list.
-    #     #
-    #     s = n.name if no_type else self._generate_decl(n)
-    #     if n.bitsize: s += ' : ' + self.visit(n.bitsize)
-    #     if n.init:
-    #         s += ' = ' + self._visit_expr(n.init)
-    #     return s
-    #
+
+    def visit_Decl(self, n, no_type=False):
+        if self.search_for_decls is not None:
+            if n.name in self.search_for_decls:
+                self.found_decl_obj.append(n)
+
     # def visit_DeclList(self, n):
     #     s = self.visit(n.decls[0])
     #     if len(n.decls) > 1:
