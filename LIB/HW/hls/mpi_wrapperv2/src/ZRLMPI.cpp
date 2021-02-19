@@ -447,8 +447,8 @@ void mpi_wrapper(
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
   //#pragma HLS INTERFACE ap_vld register port=MMIO_in name=piMMIO
-#pragma HLS INTERFACE ap_vld register port=role_rank_arg name=piSMC_to_ROLE_rank
-#pragma HLS INTERFACE ap_vld register port=cluster_size_arg name=piSMC_to_ROLE_size
+#pragma HLS INTERFACE ap_vld register port=role_rank_arg name=piFMC_to_ROLE_rank
+#pragma HLS INTERFACE ap_vld register port=cluster_size_arg name=piFMC_to_ROLE_size
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 #pragma HLS INTERFACE ap_fifo port=soMPIif
 #pragma HLS DATA_PACK     variable=soMPIif
