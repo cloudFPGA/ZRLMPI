@@ -267,8 +267,6 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       copyToCache = true;
     }
 
-    //check data type 
-    //TODO: generic
     if(!copyToCache && header.call != expCall)
     {
 #ifdef DEBUG
@@ -390,35 +388,38 @@ void send_internal(
   int typewidth = 1; //meassured in SIZEOF(UINT32_T)!
   int corresponding_call_type = MPI_RECV_INT;
   int call_type = MPI_SEND_INT;
-  
-  MPI_Header header = MPI_Header(); 
-  header.dst_rank = destination;
-  //header.src_rank = MPI_OWN_RANK;
-  header.src_rank = own_rank;
-  header.size = 0;
-  header.call = call_type;
-  header.type = SEND_REQUEST;
 
-  headerToBytes(header, bytes);
-
-  int res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
-#ifdef KVM_CORRECTION
-nanosleep(&kvm_net, &kvm_net);
-#endif
-
-  if(res == -1)
-  {
-    perror("sendto");
-    exit(-1);
-  }
-
-#ifdef DEBUG2
-  std::cout << res << " bytes sent for SEND_REQUEST" << std::endl;
-#endif
-  int ret = 0;
+  MPI_Header header = MPI_Header();
+  int res, ret;
 
   while(true)
   {
+    header = MPI_Header(); 
+    header.dst_rank = destination;
+    //header.src_rank = MPI_OWN_RANK;
+    header.src_rank = own_rank;
+    header.size = 0;
+    header.call = call_type;
+    header.type = SEND_REQUEST;
+
+    headerToBytes(header, bytes);
+
+    res = sendto(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+#ifdef KVM_CORRECTION
+    nanosleep(&kvm_net, &kvm_net);
+#endif
+
+    if(res == -1)
+    {
+      perror("sendto");
+      exit(-1);
+    }
+
+#ifdef DEBUG2
+    std::cout << res << " bytes sent for SEND_REQUEST" << std::endl;
+#endif
+    ret = 0;
+
     ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, corresponding_call_type, destination, 0, 0, true);
     if(ret == RECVH_TIMEOUT_RETURN)
     {
