@@ -39,14 +39,14 @@ __match_regex_BEFORE_CC__.append('\\#include\\ \\"mpi\\.h\\"')
 # __replace_hw_BEFORE_CC__.append('#include "MPI.hpp"')
 # __replace_sw_BEFORE_CC__.append('#include "MPI.hpp"')
 __replace_hw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
-__replace_sw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
+__replace_sw_BEFORE_CC__.append('#define _ZRLMPI_APP_INCLUDED_\n#include "ZRLMPI.hpp"')
 
 # include <mpi>
 __match_regex_BEFORE_CC__.append('\\#include\\ \\<mpi\\.h\\>')
 # __replace_hw_BEFORE_CC__.append('#include "MPI.hpp"')
 # __replace_sw_BEFORE_CC__.append('#include "MPI.hpp"')
 __replace_hw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
-__replace_sw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
+__replace_sw_BEFORE_CC__.append('#define _ZRLMPI_APP_INCLUDED_\n#include "ZRLMPI.hpp"')
 
 # Main
 __match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv\\s*\\)')
