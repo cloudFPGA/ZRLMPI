@@ -7,7 +7,9 @@
 #include <string.h>
 
 #include "zrlmpi_int.hpp"
+#ifdef _ZRLMPI_APP_INCLUDED_
 #include "zrlmpi_common.hpp"
+#endif
 
 #define MPI_Status uint8_t
 #define MPI_Comm   uint8_t
