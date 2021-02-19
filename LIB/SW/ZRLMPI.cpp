@@ -178,9 +178,12 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       }
 
 #ifdef KVM_CORRECTION
-      nanosleep(&kvm_net, &kvm_net);
+      if(recv_packets_cnt == 0)
+      {
+        nanosleep(&kvm_net, &kvm_net);
+      }
 #endif
-      
+
 #ifdef DEBUG
       printf("received packet from %s:%d with length %d\n",inet_ntoa(src_addr.sin_addr), ntohs(src_addr.sin_port), res);
 #endif
@@ -474,7 +477,10 @@ void send_internal(
 #endif
       ret = sendto(udp_sock, &buffer[i], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
 #ifdef KVM_CORRECTION
-      nanosleep(&kvm_net, &kvm_net);
+      if(total_packets == 0)
+      {
+        nanosleep(&kvm_net, &kvm_net);
+      }
 #endif
       if(ret == -1)
       {
