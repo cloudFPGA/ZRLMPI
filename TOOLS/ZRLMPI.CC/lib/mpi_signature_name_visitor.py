@@ -33,6 +33,8 @@ __mpi_api_signatres_reduce__ = ['MPI_Reduce']
 __c_api_malloc_signatures__ = ['malloc']
 __c_api_clib_signatures__ = ['free', 'perror', 'exit', 'memcopy']
 
+__null_constant__ = c_ast.Constant(type='int', value='0')
+
 
 class MpiSignatureNameSearcher(object):
     """
@@ -84,6 +86,7 @@ class MpiSignatureNameSearcher(object):
         self.found_clib_obj = []
         self.search_for_decls = search_for_decls
         self.found_decl_obj = []
+        self.found_if_obj = []
 
     def get_results_buffers(self):
         return self.found_buffers_names, self.found_buffers_obj
@@ -124,6 +127,9 @@ class MpiSignatureNameSearcher(object):
 
     def get_results_dcls(self):
         return self.found_decl_obj
+
+    def get_results_if_obj(self):
+        return self.found_if_obj
 
     def visit(self, node):
         """ Visit a node.
@@ -392,22 +398,34 @@ class MpiSignatureNameSearcher(object):
     # def visit_Continue(self, n):
     #     return 'continue;'
     #
-    # def visit_TernaryOp(self, n):
-    #     s  = '(' + self._visit_expr(n.cond) + ') ? '
-    #     s += '(' + self._visit_expr(n.iftrue) + ') : '
-    #     s += '(' + self._visit_expr(n.iffalse) + ')'
-    #     return s
-    #
-    # def visit_If(self, n):
-    #     s = 'if ('
-    #     if n.cond: s += self.visit(n.cond)
-    #     s += ')\n'
-    #     s += self._generate_stmt(n.iftrue, add_indent=True)
-    #     if n.iffalse:
-    #         s += self._make_indent() + 'else\n'
-    #         s += self._generate_stmt(n.iffalse, add_indent=True)
-    #     return s
-    #
+    def visit_TernaryOp(self, n):
+        if self.search_for_decls is not None:
+            self.visit_If(n)
+        else:
+            for c in n:
+                self.visit(c)
+
+    def visit_If(self, n):
+        # searching for (variable == NULL) in case of malloc
+        if self.search_for_decls is not None:
+            if type(n.cond) == c_ast.BinaryOp:
+                if type(n.cond.left) == c_ast.ID and \
+                        type(n.cond.right) == c_ast.Constant and n.cond.right.type == __null_constant__.type and \
+                        n.cond.right.value == __null_constant__.value:
+                    if n.cond.left.name in self.search_for_decls:
+                        self.found_if_obj.append(n)
+                elif type(n.cond.right) == c_ast.ID and \
+                        type(n.cond.left) == c_ast.Constant and n.cond.left.type == __null_constant__.type and \
+                        n.cond.left.value == __null_constant__.value:
+                    if n.cond.right.name in self.search_for_decls:
+                        self.found_if_obj.append(n)
+                else:
+                    for c in n:
+                        self.visit(c)
+        else:
+            for c in n:
+                self.visit(c)
+
     # def visit_For(self, n):
     #     s = 'for ('
     #     if n.init: s += self.visit(n.init)

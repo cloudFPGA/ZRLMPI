@@ -311,9 +311,13 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         if ds is not None:
             find_affected_decl.append(ds)
     if len(find_affected_decl) > 0:
+        # here we have to replace original malloc variable declarations
+        # and possible checks for NULL
         find_name_visitor5 = name_visitor.MpiSignatureNameSearcher(search_for_decls=find_affected_decl)
         find_name_visitor5.visit(new_ast)
         decls_to_replace = find_name_visitor5.get_results_dcls()
+        if_blocks_to_replace = find_name_visitor5.get_results_if_obj()
+        decls_to_replace.extend(if_blocks_to_replace)
         for e in decls_to_replace:
             new_entry = {}
             new_entry['old'] = e

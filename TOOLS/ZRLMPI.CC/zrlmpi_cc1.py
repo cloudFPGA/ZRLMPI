@@ -52,9 +52,12 @@ __replace_sw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
 __match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv\\s*\\)')
 __replace_hw__.append('void app_main(\n    // ----- MPI_Interface -----\n' +
                       '    stream<MPI_Interface> *soMPIif,\n' +
-                      '    stream<MPI_Feedback> *siMPIFeB,\n'
+                      '    stream<MPI_Feedback> *siMPIFeB,\n' +
                       '    stream<Axis<64> > *soMPI_data,\n' +
-                      '    stream<Axis<64> > *siMPI_data\n    )')
+                      '    stream<Axis<64> > *siMPI_data,\n' +
+                      '    // ----- DRAM -----\n' +
+                      '    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]\n' +
+                      '    )')
 __replace_sw__.append('void app_main()')
 
 # MPI Init

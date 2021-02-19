@@ -1179,10 +1179,6 @@ def replace_clib_libraries(clib_call):
     return new_call
 
 
-__int_1_const__ = c_ast.Constant(type='int', value='1')
-__int_0_const__ = c_ast.Constant(type='int', value='0')
-
-
 def _extract_int_size_of_malloc(malloc_args):
     if type(malloc_args) == c_ast.Constant:
         return int(malloc_args.value)
@@ -1197,6 +1193,14 @@ def _extract_int_size_of_malloc(malloc_args):
     else:
         print("[WARNING] unable to determine right malloc array size")
         return 1
+
+
+def get_nop_decl():
+    nop_name = "{}_{}_X".format(delete_line_pattern, get_random_name_extension())
+    nop_op = c_ast.Decl(name=nop_name, quals=[], storage=[],
+                        funcspec=[], type=c_ast.TypeDecl(declname=nop_name, quals=[], type=c_ast.IdentifierType(['char'])),
+                        init=None, bitsize=None)
+    return nop_op
 
 
 __array_map_directive_string__ = "set_directive_array_map -instance boFdram -mode horizontal {} {}"
@@ -1225,10 +1229,7 @@ def malloc_replacement(malloc_call, malloc_stmt):
     decl_to_search = array_name
     if type(malloc_stmt.lvalue) == c_ast.Decl:
         decl_to_search = None
-    nop_name = "{}_{}_X".format(delete_line_pattern, get_random_name_extension())
-    nop_op = c_ast.Decl(name=nop_name, quals=[], storage=[],
-                        funcspec=[], type=c_ast.TypeDecl(declname=nop_name, quals=[], type=c_ast.IdentifierType(['char'])),
-                        init=None, bitsize=None)
+    nop_op = get_nop_decl()
     return pAST, tcl_directives, decl_to_search, nop_op
 
 
