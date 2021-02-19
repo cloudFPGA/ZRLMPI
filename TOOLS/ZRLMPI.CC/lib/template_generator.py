@@ -284,7 +284,9 @@ def reduce_replacement(reduce_call, cluster_size_constant, rank_obj):
     memcpy_args = []
     memcpy_args.append(accum_buffer_variable_id)
     memcpy_args.append(source_buffer)
-    memcpy_args.append(chunk_size)
+    sizeof_args = []
+    sizeof_args.append(c_ast.Constant('string', datatype_string))
+    memcpy_args.append(c_ast.BinaryOp("*", chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
     memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
     root_stmts.append(memcpy)
     # else part
@@ -995,7 +997,9 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
     memcpy_args2 = []
     memcpy_args2.append(target_buffer)
     memcpy_args2.append(source_buffer)
-    memcpy_args2.append(orig_chunk_size)
+    sizeof_args = []
+    sizeof_args.append(c_ast.Constant('string', datatype_string))
+    memcpy_args2.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
     memcpy2 = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args2))
     root_stmts.append(memcpy2)
     for rn in rns:
