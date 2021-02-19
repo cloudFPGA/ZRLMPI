@@ -19,10 +19,11 @@ import lib.mpi_variable_value_visitor as value_visitor
 import lib.mpi_affected_statement_visitor as statement_visitor
 import lib.mpi_replace_visitor as replace_visitor
 import lib.mpi_constant_folding_visitor as constant_visitor
+import lib.mpi_memory_function_find_visitor as memory_function_visitor
 import lib.template_generator as template_generator
 import lib.resource_checker as resource_checker
 from lib.util import get_line_number_of_occurence
-
+from lib.util import delete_marked_lines
 
 __fallback_max_buffer_size__ = 1500  # we have to find one
 
@@ -195,7 +196,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     else:
         c_ast_tmpl = ast_m_3
     # 6. another constant folding
-    # TODO: another visitor that finds "variables that are used as constants"
+    # maybe another visitor that finds "variables that are used as constants"
     # only those variables should be part of constant folding at their time of assignment
     constant_folding_visitor2 = constant_visitor.MpiConstantFoldingVisitor()
     constant_folding_visitor2.visit(c_ast_tmpl)
@@ -277,15 +278,73 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         print("No invariant rank statement for FPGAs found.")
         new_ast = c_ast_tmpl_c
 
+    # 10. search for malloc and other library functions and replace them
+    find_name_visitor4 = name_visitor.MpiSignatureNameSearcher()
+    find_name_visitor4.visit(new_ast)
+    clib_func_calls = find_name_visitor4.get_results_clib()
+    replace_fpga_calls_obj = []
+    for e in clib_func_calls:
+        new_entry = {}
+        new_entry['old'] = e
+        new_entry['new'] = template_generator.replace_clib_libraries(e)
+        replace_fpga_calls_obj.append(new_entry)
+    # to mark malloc as to delete is easier, because it is hard to find how many casts there are in front...
+    # but we have to replace the buffer declaration
+    malloc_func_calls = find_name_visitor4.get_results_malloc()
+    find_memory_assing_visitor = memory_function_visitor.MpiMemoryFunctionFindVisitor(malloc_func_calls)
+    find_memory_assing_visitor.visit(new_ast)
+    malloc_assignments_obj = find_memory_assing_visitor.get_found_assignments()
+    if len(malloc_assignments_obj) != len(malloc_func_calls):
+        print("[WARNING] weired usage of malloc calls, this may brake the transpilation.\n")
+    replace_old_malloc_objs = []
+    tcl_directives_lines = []
+    find_affected_decl = []
+    nop_stmts_for_decl_replacement = []
+    for i in range(0, len(malloc_assignments_obj)):
+        na, tc, ds, no = template_generator.malloc_replacement(malloc_func_calls[i], malloc_assignments_obj[i])
+        new_entry = {}
+        new_entry['old'] = malloc_assignments_obj[i]
+        new_entry['new'] = na
+        replace_old_malloc_objs.append(new_entry)
+        tcl_directives_lines.append(tc)
+        nop_stmts_for_decl_replacement.append(no)
+        if ds is not None:
+            find_affected_decl.append(ds)
+    if len(find_affected_decl) > 0:
+        # here we have to replace original malloc variable declarations
+        # and possible checks for NULL
+        find_name_visitor5 = name_visitor.MpiSignatureNameSearcher(search_for_decls=find_affected_decl)
+        find_name_visitor5.visit(new_ast)
+        decls_to_replace = find_name_visitor5.get_results_dcls()
+        if_blocks_to_replace = find_name_visitor5.get_results_if_obj()
+        for e in decls_to_replace:
+            new_entry = {}
+            new_entry['old'] = e
+            new_entry['new'] = nop_stmts_for_decl_replacement[0]  # they should be always equal
+            replace_old_malloc_objs.append(new_entry)
+        for e in if_blocks_to_replace:
+            new_entry = {}
+            new_entry['old'] = e
+            if e.iffalse is not None:
+                # we ensure expected format
+                new_entry['new'] = e.iffalse
+            else:
+                new_entry['new'] = nop_stmts_for_decl_replacement[0]
+            replace_old_malloc_objs.append(new_entry)
+    replace_fpga_calls_obj.extend(replace_old_malloc_objs)
+    replace_stmt_visitor5 = replace_visitor.MpiStatementReplaceVisitor(replace_fpga_calls_obj)
+    new_ast_2 = new_ast
+    replace_stmt_visitor5.visit(new_ast_2)
+
     # TODO: detect unused variables?
-    # 10. determine buffer size (and return them) AFTER the AST has been modified
+    # 11. determine buffer size (and return them) AFTER the AST has been modified
     # TODO: also replace buffers of void type with dynamic type?
     find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
-    find_name_visitor2.visit(new_ast)
+    find_name_visitor2.visit(new_ast_2)
     buffer_variable_names, buffer_variable_obj = find_name_visitor2.get_results_buffers()
     # print(buffer_variable_names)
     get_value_visitor2 = value_visitor.MpiVariableValueSearcher(buffer_variable_names, [])
-    get_value_visitor2.visit(new_ast)
+    get_value_visitor2.visit(new_ast_2)
     found_buffer_dims = get_value_visitor2.get_results_buffers()
     # print(found_buffer_dims)
     list_of_dims = []
@@ -303,10 +362,13 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         max_dimension_bytes = max(list_of_dims)
     print("Found max MPI buffer size: {} bytes".format(max_dimension_bytes))
 
-    # 7. generate C code again
-    # 8. append original header lines and save in file
+    # 12. generate C code again
+    # 13. append original header lines and save in file
     generator = c_generator.CGenerator()
-    generated_c = str(generator.visit(new_ast))
+    generated_c = str(generator.visit(new_ast_2))
+
+    # delete marked lines
+    filtered_c = delete_marked_lines(generated_c)
 
     line_number = get_line_number_of_occurence('int.*main\(', hw_file_pre_parsing)
     head = ""
@@ -317,15 +379,15 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     for e in head:
         head_str += str(e)
 
-    concatenated_file = head_str + "\n" + generated_c
+    concatenated_file = head_str + "\n" + filtered_c
 
     # print("Writing new c code to file {}.".format(target_file_name))
 
     with open(target_file_name, 'w+') as target_file:
         target_file.write(concatenated_file)
 
-    # 9. check resource usages
+    # 14. check resource usages
     ignore_ret = resource_checker.check_resources(cFp_description, max_dimension_bytes)
 
-    return max_dimension_bytes    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
+    return max_dimension_bytes, tcl_directives_lines    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
 

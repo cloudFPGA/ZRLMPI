@@ -15,6 +15,7 @@
 
 HW_TARGET_C=$5/hls/mpi_wrapperv2/src/app_hw.cpp
 HW_TARGET_H=$5/hls/mpi_wrapperv2/src/app_hw.hpp
+HW_TARGET_TCL=$5/hls/mpi_wrapperv2/src/app_hw_directives.tcl
 
 SW_TARGET_C=$1/SW/app_sw.cpp
 SW_TARGET_H=$1/SW/app_sw.hpp
@@ -29,13 +30,13 @@ then
   echo "This asumes that the the mpi_wrapper in ROLE_DIR will be used"
 else 
   make -C $OWN_DIR/unifdef/
-  #disabeling timestamp check for now..
+  # disabling timestamp check for now..
   #if [[ $3 -nt $HW_TARGET_C ]] || [[ $4 -nt $HW_TARGET_H ]] \
   #  || [[ $3 -nt $SW_TARGET_C ]] || [[ $4 -nt $SW_TARGET_H ]] \
   #|| [[ $6 -nt $HW_TARGET_C ]] || [[ $6 -nt $HW_TARGET_H ]]; then
   #  # the json only influences the HW targets...
     echo "$OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6"
-    $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6 $7
+    $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $HW_TARGET_TCL $SW_TARGET_C $SW_TARGET_H $6 $7
     ret=$?
  #else
  #  ret=0

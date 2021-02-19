@@ -6,7 +6,7 @@
 #  *     Authors: FAB, WEI, NGL
 #  *
 #  *     Description:
-#  *        Visitor searching for all buffers that are used in context of MPI calls.
+#  *        Visitor searching for buffer definitions and compare values of variables
 #  *
 #  *
 
@@ -17,56 +17,23 @@
 
 from pycparser import c_ast
 
+__c_int_compare_operators__ = ["==", "<=", ">=", ">", "<", "!="]
 
-class MpiStatementReplaceVisitor(object):
-    """
-     A base NodeVisitor class for visiting c_ast nodes.
-        Subclass it and define your own visit_XXX methods, where
-        XXX is the class name you want to visit with these
-        methods.
-        For example:
-        class ConstantVisitor(NodeVisitor):
-            def __init__(self):
-                self.values = []
-            def visit_Constant(self, node):
-                self.values.append(node.value)
-        Creates a list of values of all the constant nodes
-        encountered below the given node. To use it:
-        cv = ConstantVisitor()
-        cv.visit(node)
-        Notes:
-        *   generic_visit() will be called for AST nodes for which
-            no visit_XXX method was defined.
-        *   The children of nodes for which a visit_XXX was
-            defined will not be visited - if you need this, call
-            generic_visit() on the node.
-            You can use:
-                NodeVisitor.generic_visit(self, node)
-        *   Modeled after Python's own AST visiting facilities
-            (the ast module of Python 3.0)
-    """
+
+class MpiMemoryFunctionFindVisitor(object):
 
     _method_cache = None
 
-    def __init__(self, objects_to_replace_dict):
+    def __init__(self, objects_to_search_start):
         # Statements start with indentation of self.indent_level spaces, using
         # the _make_indent method
         #
-        self.objects_to_replace = []
         self.objects_to_search = []
-        for e in objects_to_replace_dict:
-            self.objects_to_replace.append(e['new'])
-            self.objects_to_search.append(e['old'])
+        self.objects_to_search.extend(objects_to_search_start)
+        self.found_assignments = []
 
-    def check_and_replace_list(self, list_to_replace):
-        ret = False
-        for i in range(0, len(list_to_replace)):
-            e = list_to_replace[i]
-            if e in self.objects_to_search:
-                target_index = self.objects_to_search.index(e)
-                list_to_replace[i] = self.objects_to_replace[target_index]
-                ret = True
-        return ret
+    def get_found_assignments(self):
+       return self.found_assignments
 
     def visit(self, node):
         """ Visit a node.
@@ -88,40 +55,12 @@ class MpiStatementReplaceVisitor(object):
             node. Implements preorder visiting of the node.
         """
         for c in node:
-            if c in self.objects_to_search:
-                target_index = self.objects_to_search.index(c)
-                # if node.block_items:
-                if hasattr(node, 'block_items'):
-                    insert_index = node.block_items.index(c)
-                    # node.block_items[ni] = self.objects_to_replace[oi]
-                    # ok, now we know where to insert, but we have to split  the "stmt" of if/else, otherwise there would be
-                    # some unnecessary {..} in the code
-                    list_to_insert = []
-                    if type(self.objects_to_replace[target_index]) is list:
-                        for e in self.objects_to_replace[target_index]:
-                            if type(e) is c_ast.Compound:
-                                list_to_insert.extend(e.block_items)
-                            else:
-                                list_to_insert.append(e)
-                    else:
-                        if type(self.objects_to_replace[target_index]) is c_ast.Compound:
-                            list_to_insert.extend(self.objects_to_replace[target_index].block_items)
-                        else:
-                            list_to_insert.append(self.objects_to_replace[target_index])
-                    del node.block_items[insert_index]
-                    # insert_index -= 1 #TODO
-                    if insert_index < 0:
-                        insert_index = 0
-                    for e in list_to_insert:
-                        node.block_items.insert(insert_index, e)
-                        insert_index += 1
-                elif hasattr(node, 'expr') and node.expr == self.objects_to_search[target_index]:
-                    node.expr = self.objects_to_replace[target_index]
-                else:
-                    # node[c] = self.objects_to_replace[target_index]
-                    self.visit(c)
-            else:
-                self.visit(c)
+            self.visit(c)
+            for o in self.objects_to_search:
+                if c == o:
+                    # we found smth, but we are not yet an assignment, so add it to objects
+                    self.objects_to_search.append(node)
+                    break
 
     # def visit_Constant(self, n):
     #     return n.value
@@ -143,19 +82,38 @@ class MpiStatementReplaceVisitor(object):
     #     sref = self._parenthesize_unless_simple(n.name)
     #     return sref + n.type + self.visit(n.field)
 
-    # def visit_FuncCall(self, n):
-    #     func_name = n.name.name
-    #     # print("visiting FuncCall {}\n".format(func_name))
-    #     if func_name in __mpi_api_signatures_buffers__:
-    #         # it's always the first argument
-    #         arg_0 = n.args.exprs[0]
-    #         # print("found 1st arg: {}\n".format(str(arg_0)))
-    #         buffer_name = ""
-    #         current_obj = arg_0
-    #         while True:
+    #def visit_FuncCall(self, n):
+    #    func_name = n.name.name
+    #    # print("visiting FuncCall {}\n".format(func_name))
+    #    if func_name in __mpi_api_signatures_buffers__:
+    #        # it's always the first argument
+    #        arg_0 = n.args.exprs[0]
+    #        # print("found 1st arg: {}\n".format(str(arg_0)))
+    #        buffer_name = ""
+    #        current_obj = arg_0
+    #        while True:
+    #           if hasattr(current_obj, 'name'):
+    #               buffer_name = current_obj.name
+    #               break
+    #           elif hasattr(current_obj, 'expr'):
+    #               current_obj = current_obj.expr
+    #           elif hasattr(current_obj, 'stmt'):
+    #               current_obj = current_obj.stmt
+    #           else:
+    #               break
+    #        # print("found buffer name {}\n".format(buffer_name))
+    #        if buffer_name not in self.found_buffers_names:
+    #            self.found_buffers_names.append(buffer_name)
+    #            self.found_buffers_obj.append(arg_0)
+    #    elif func_name in __mpi_api_signatures_rank__:
+    #        # it's always the second argument
+    #        arg_1 = n.args.exprs[1]
+    #        # print("found 2nd arg: {}\n".format(str(arg_1)))
+    #        rank_name = ""
+    #        current_obj = arg_1
+    #        while True:
     #            if hasattr(current_obj, 'name'):
-    #                # buffer_name = current_obj.name
-    #                buffer_name = current_obj.name.name
+    #                rank_name = current_obj.name
     #                break
     #            elif hasattr(current_obj, 'expr'):
     #                current_obj = current_obj.expr
@@ -163,63 +121,53 @@ class MpiStatementReplaceVisitor(object):
     #                current_obj = current_obj.stmt
     #            else:
     #                break
-    #         # print("found buffer name {}\n".format(buffer_name))
-    #         if buffer_name not in self.found_buffers_names:
-    #             self.found_buffers_names.append(buffer_name)
-    #             self.found_buffers_obj.append(arg_0)
-    #     elif func_name in __mpi_api_signatures_rank__:
-    #         # it's always the second argument
-    #         arg_1 = n.args.exprs[1]
-    #         # print("found 2nd arg: {}\n".format(str(arg_1)))
-    #         rank_name = ""
-    #         current_obj = arg_1
-    #         while True:
-    #             if hasattr(current_obj, 'name'):
-    #                 rank_name = current_obj.name
-    #                 break
-    #             elif hasattr(current_obj, 'expr'):
-    #                 current_obj = current_obj.expr
-    #             elif hasattr(current_obj, 'stmt'):
-    #                 current_obj = current_obj.stmt
-    #             else:
-    #                 break
-    #         # print("found rank name {}\n".format(rank_name))
-    #         if rank_name not in self.found_rank_names:
-    #             self.found_rank_names.append(rank_name)
-    #             self.found_rank_obj.append(arg_1)
-    #     return
+    #        # print("found rank name {}\n".format(rank_name))
+    #        if rank_name not in self.found_rank_names:
+    #            self.found_rank_names.append(rank_name)
+    #            self.found_rank_obj.append(arg_1)
+    #    return
 
-    def visit_UnaryOp(self, n):
-        list_to_replace = [n.expr]
-        was_replaced = self.check_and_replace_list(list_to_replace)
-        # assumption: if one thing was replaced, we don't need to visit further
-        if not was_replaced:
-            for e in list_to_replace:
-                self.visit(e)
-        else:
-            n.expr = list_to_replace[0]
+    # def visit_UnaryOp(self, n):
+    #     operand = self._parenthesize_unless_simple(n.expr)
+    #     if n.op == 'p++':
+    #         return '%s++' % operand
+    #     elif n.op == 'p--':
+    #         return '%s--' % operand
+    #     elif n.op == 'sizeof':
+    #         # Always parenthesize the argument of sizeof since it can be
+    #         # a name.
+    #         return 'sizeof(%s)' % self.visit(n.expr)
+    #     else:
+    #         return '%s%s' % (n.op, operand)
 
-    def visit_BinaryOp(self, n):
-        list_to_replace = [n.left, n.right]
-        was_replaced = self.check_and_replace_list(list_to_replace)
-        # assumption: if one thing was replaced, we don't need to visit further
-        if not was_replaced:
-            for e in list_to_replace:
-                self.visit(e)
-        else:
-            n.left = list_to_replace[0]
-            n.right = list_to_replace[1]
+    #def visit_BinaryOp(self, n):
+    #    if n.op in __c_int_compare_operators__:
+    #        new_compare = {}
+    #        if hasattr(n.left, 'name') and n.left.name in self.variable_names_to_comapre:
+    #            new_compare['name'] = n.left.name
+    #            new_compare['other'] = n.right
+    #            new_compare['position'] = "left"
+    #        elif hasattr(n.right, 'name') and n.right.name in self.variable_names_to_comapre:
+    #            new_compare['name'] = n.right.name
+    #            new_compare['other'] = n.left
+    #            new_compare['position'] = "right"
+
+    #        if 'other' in new_compare.keys() and type(new_compare['other']) == c_ast.Constant:
+    #            new_compare['c_value'] = new_compare['other'].value
+    #            new_compare['c_type'] = new_compare['other'].type
+
+    #        if 'other' in new_compare.keys():
+    #            new_compare['op'] = n.op
+    #            new_compare['operator_object'] = n
+    #            self.found_compares.append(new_compare)
 
     def visit_Assignment(self, n):
-        list_to_replace = [n.rvalue, n.lvalue]
-        was_replaced = self.check_and_replace_list(list_to_replace)
-        # assumption: if one thing was replaced, we don't need to visit further
-        if not was_replaced:
-            for e in list_to_replace:
-                self.visit(e)
-        else:
-            n.rvalue = list_to_replace[0]
-            n.lvalue = list_to_replace[1]
+        for c in n:
+            self.visit(c)
+            for o in self.objects_to_search:
+                if c == o:
+                    self.found_assignments.append(n)
+                    break
 
     # def visit_IdentifierType(self, n):
     #     return ' '.join(n.names)
@@ -232,44 +180,20 @@ class MpiStatementReplaceVisitor(object):
     #     else:
     #         return self.visit(n)
 
-    def visit_Decl(self, n):
-        if n.init:
-            list_to_replace = [n.init]
-            was_replaced = self.check_and_replace_list(list_to_replace)
-            # assumption: if one thing was replaced, we don't need to visit further
-            if not was_replaced:
-                for e in list_to_replace:
-                    self.visit(e)
-            else:
-                n.init = list_to_replace[0]
-        if n.type:
-            list_to_replace = [n.type]
-            was_replaced = self.check_and_replace_list(list_to_replace)
-            # assumption: if one thing was replaced, we don't need to visit further
-            if not was_replaced:
-                for e in list_to_replace:
-                    self.visit(e)
-            else:
-                n.type = list_to_replace[0]
-
-    def visit_ArrayDecl(self, n):
-        if n.type:
-            list_to_replace = [n.type]
-            was_replaced = self.check_and_replace_list(list_to_replace)
-            # assumption: if one thing was replaced, we don't need to visit further
-            if not was_replaced:
-                for e in list_to_replace:
-                    self.visit(e)
-            else:
-                n.type = list_to_replace[0]
+    # def visit_Decl(self, n, no_type=False):
+    #     if n.name in self.buffer_names_to_search:
+    #         try:
+    #             dim = n.type.dim
+    #             self.found_buffer_definition[n.name] = dim
+    #         except Exception as e:
+    #             print(e)
+    #             print("FAILED to determine buffer dimension of declaration at {}\n".format(str(n.coord)))
 
     # def visit_DeclList(self, n):
-    #     s = self.visit(n.decls[0])
-    #     if len(n.decls) > 1:
-    #         s += ', ' + ', '.join(self.visit_Decl(decl, no_type=True)
-    #                               for decl in n.decls[1:])
-    #     return s
-    #
+    #     #TODO
+    #     print("visit of DeclList NOT YET IMPLEMENTED")
+    #     return
+
     # def visit_Typedef(self, n):
     #     s = ''
     #     if n.storage: s += ' '.join(n.storage) + ' '
@@ -358,23 +282,36 @@ class MpiStatementReplaceVisitor(object):
     #
     # def visit_Continue(self, n):
     #     return 'continue;'
-    #
+
     # def visit_TernaryOp(self, n):
-    #     s  = '(' + self._visit_expr(n.cond) + ') ? '
-    #     s += '(' + self._visit_expr(n.iftrue) + ') : '
-    #     s += '(' + self._visit_expr(n.iffalse) + ')'
-    #     return s
-    #
+    #     for e in self.conditions_to_search:
+    #         if n.cond == e['operator_object']:
+    #             new_found = {}
+    #             new_found['old'] = n
+    #             if e['fpga_decision_value'] == "True":
+    #                 new_found['new'] = n.iftrue
+    #             else:
+    #                 new_found['new'] = n.iffalse
+    #             self.found_statements.append(new_found)
+
     # def visit_If(self, n):
-    #     s = 'if ('
-    #     if n.cond: s += self.visit(n.cond)
-    #     s += ')\n'
-    #     s += self._generate_stmt(n.iftrue, add_indent=True)
-    #     if n.iffalse:
-    #         s += self._make_indent() + 'else\n'
-    #         s += self._generate_stmt(n.iffalse, add_indent=True)
-    #     return s
-    #
+    #     for e in self.conditions_to_search:
+    #         if n.cond == e['operator_object']:
+    #             new_found = {}
+    #             result_value = -1
+    #             new_found['old'] = n
+    #             if e['fpga_decision_value'] == "True":
+    #                 new_found['new'] = n.iftrue
+    #                 result_value = 1
+    #             else:
+    #                 if n.iffalse is not None:
+    #                     new_found['new'] = n.iffalse
+    #                 else:
+    #                     new_found['new'] = c_ast.EmptyStatement()
+    #                 result_value = 0
+    #             self.found_statements.append(new_found)
+    #             n.cond = c_ast.Constant('int', str(result_value))
+
     # def visit_For(self, n):
     #     s = 'for ('
     #     if n.init: s += self.visit(n.init)
@@ -400,12 +337,12 @@ class MpiStatementReplaceVisitor(object):
     #     if n.cond: s += self.visit(n.cond)
     #     s += ');'
     #     return s
-    #
+
     # def visit_Switch(self, n):
-    #     s = 'switch (' + self.visit(n.cond) + ')\n'
-    #     s += self._generate_stmt(n.stmt, add_indent=True)
-    #     return s
-    #
+    #     for e in self.conditions_to_search:
+    #         if n.cond == e['operator_object']:
+    #             print("A switch statement has a rank condition: NOT YET IMPLEMENTED\n".format(n.cond))
+
     # def visit_Case(self, n):
     #     s = 'case ' + self.visit(n.expr) + ':\n'
     #     for stmt in n.stmts:

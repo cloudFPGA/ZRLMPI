@@ -13,6 +13,8 @@
 from pycparser import c_ast
 import random
 import string
+from lib.util import delete_line_pattern
+from lib.util import clib_funcs_to_mark_for_delete
 
 __scatter_tag__ = c_ast.Constant("int", "0")  # or smth else?
 __gather_tag__ = c_ast.Constant("int", "0")  # or smth else?
@@ -1159,5 +1161,75 @@ def recv_replacement(recv_call):
     for_stmt = c_ast.Compound(loop_stmts)
     pAST = c_ast.For(loop_variable, for_condition, for_next, for_stmt)
     return pAST
+
+
+def replace_clib_libraries(clib_call):
+    f_name = clib_call.name.name
+    new_name = ""
+    found_name = False
+    for f in clib_funcs_to_mark_for_delete:
+        if f in f_name:
+            new_name = delete_line_pattern
+            found_name = True
+            break
+    if not found_name:
+        new_name = "my_{}".format(f_name)
+    new_name_id = c_ast.ID(new_name)
+    new_call = c_ast.FuncCall(new_name_id, clib_call.args)
+    return new_call
+
+
+def _extract_int_size_of_malloc(malloc_args):
+    if type(malloc_args) == c_ast.Constant:
+        return int(malloc_args.value)
+    if type(malloc_args) == c_ast.BinaryOp:
+        right_value = _extract_int_size_of_malloc(malloc_args.right)
+        left_value = _extract_int_size_of_malloc(malloc_args.left)
+        cmd = "{} {} {}".format(left_value, malloc_args.op, right_value)
+        result_value = eval(cmd)
+        return result_value
+    elif type(malloc_args) == c_ast.UnaryOp and malloc_args.op == 'sizeof':
+        return 1  # for array calculation, sizeof is always 1, no matter if * or +
+    else:
+        print("[WARNING] unable to determine right malloc array size")
+        return 1
+
+
+def get_nop_decl():
+    nop_name = "{}_{}_X".format(delete_line_pattern, get_random_name_extension())
+    nop_op = c_ast.Decl(name=nop_name, quals=[], storage=[],
+                        funcspec=[], type=c_ast.TypeDecl(declname=nop_name, quals=[], type=c_ast.IdentifierType(['char'])),
+                        init=None, bitsize=None)
+    return nop_op
+
+
+__array_map_directive_string__ = "set_directive_array_map -instance boFdram -mode horizontal {} {}"
+__default_directive_location__ = "app_main"
+
+
+def malloc_replacement(malloc_call, malloc_stmt):
+    # TODO: read current func_name from object
+    # the placement is maybe not always 'app_main'
+    array_size_value = _extract_int_size_of_malloc(malloc_call.args.exprs[0])
+    array_size = c_ast.Constant(type='int', value=str(array_size_value))
+    assert type(malloc_stmt) == c_ast.Assignment
+    assert type(malloc_stmt.lvalue) == c_ast.ID or type(malloc_stmt.lvalue) == c_ast.Decl
+    array_name = malloc_stmt.lvalue.name
+    assert type(malloc_stmt.rvalue) == c_ast.Cast
+    array_prt_type = malloc_stmt.rvalue.to_type.type
+    array_raw_type = malloc_stmt.rvalue.to_type.type.type
+    array_type_decl = c_ast.ArrayDecl(type=c_ast.TypeDecl(declname=array_name, type=array_raw_type, quals=[]),
+                                      dim_quals=[], dim=array_size)
+    array_decl = c_ast.Decl(name=array_name, quals=[], storage=[], funcspec=[],
+                                          type=array_type_decl,
+                                          init=None,
+                                          bitsize=None)
+    pAST = array_decl
+    tcl_directives = __array_map_directive_string__.format(__default_directive_location__, array_name)
+    decl_to_search = array_name
+    if type(malloc_stmt.lvalue) == c_ast.Decl:
+        decl_to_search = None
+    nop_op = get_nop_decl()
+    return pAST, tcl_directives, decl_to_search, nop_op
 
 

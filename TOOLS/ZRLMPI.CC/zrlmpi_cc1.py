@@ -21,6 +21,7 @@ from pycparser import parse_file, c_parser, c_generator, c_ast
 import lib.ast_processing as ast_processing
 from lib.util import get_line_number_of_occurence
 import lib.template_generator as template_generator
+from lib.util import generate_tcl_directive
 
 __match_regex__ = []
 __replace_hw__ = []
@@ -49,12 +50,15 @@ __replace_sw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
 
 # Main
 __match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv\\s*\\)')
-__replace_hw__.append('int app_main(\n    // ----- MPI_Interface -----\n' +
+__replace_hw__.append('void app_main(\n    // ----- MPI_Interface -----\n' +
                       '    stream<MPI_Interface> *soMPIif,\n' +
-                      '    stream<MPI_Feedback> *siMPIFeB,\n'
+                      '    stream<MPI_Feedback> *siMPIFeB,\n' +
                       '    stream<Axis<64> > *soMPI_data,\n' +
-                      '    stream<Axis<64> > *siMPI_data\n    )')
-__replace_sw__.append('int app_main()')
+                      '    stream<Axis<64> > *siMPI_data,\n' +
+                      '    // ----- DRAM -----\n' +
+                      '    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]\n' +
+                      '    )')
+__replace_sw__.append('void app_main()')
 
 # MPI Init
 __match_regex__.append('MPI_Init\\(\s*\\&argc\\,\s*\\&argv\s*\\)')
@@ -164,11 +168,21 @@ def add_header_line_after(pattern_escaped, line_to_add, filename_old, filename_n
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 9:
+    if len(sys.argv) != 10:
         print(
-            "USAGE: {0} mpi_input.c mpi_input.h hw_output_file.c hw_output_file.h sw_output_file.c sw_output_file.h cluster.json cFp.json".format(
+            "USAGE: {0} mpi_input.c mpi_input.h hw_output_file.c hw_output_file.h hw_directives_output.tcl sw_output_file.c sw_output_file.h cluster.json cFp.json".format(
                 sys.argv[0]))
         exit(1)
+
+    args_mpi_input_c = sys.argv[1]
+    args_mpi_input_h = sys.argv[2]
+    args_hw_outfile_c = sys.argv[3]
+    args_hw_outfile_h = sys.argv[4]
+    args_hw_directives_out = sys.argv[5]
+    args_sw_outfile_c = sys.argv[6]
+    args_sw_outfile_h = sys.argv[7]
+    args_cluster_json = sys.argv[8]
+    args_cfp_json = sys.argv[9]
 
     own_dir = os.path.dirname(os.path.realpath(__file__))
     tmp_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw1.c"
@@ -183,8 +197,8 @@ if __name__ == '__main__':
     os.popen("rm -rf {}/{}".format(own_dir, __TMP_DIR__)).read()
     os.popen("mkdir {}/{}".format(own_dir, __TMP_DIR__)).read()
 
-    hw_pre_c, sw_pre_c = unifdef_split(own_dir, sys.argv[1])
-    hw_pre_h, sw_pre_h = unifdef_split(own_dir, sys.argv[2])
+    hw_pre_c, sw_pre_c = unifdef_split(own_dir, args_mpi_input_c)
+    hw_pre_h, sw_pre_h = unifdef_split(own_dir, args_mpi_input_h)
 
     with open(tmp_hw_file_c, 'w+') as out_hw, open(tmp_sw_file_c, 'w+') as out_sw:
         zrlmpi_regex_before_cc(sw_pre_c.stdout.decode('utf-8'), hw_pre_c.stdout.decode('utf-8'), out_hw, out_sw)
@@ -197,12 +211,12 @@ if __name__ == '__main__':
     # here, hw and sw files are the same
     parsed_file = gcc_file_parsing(own_dir, __TMP_DIR__, tmp_hw_file_c, sys.argv[2], tmp_hw_file_h, tmp2_hw_file_c)
     cluster_description = {}
-    with open(sys.argv[7], 'r') as in_config:
+    with open(args_cluster_json, 'r') as in_config:
         cluster_description = json.load(in_config)
     # TODO: support range definitions in JSON (convert to array here)
 
     cFp_description = {}
-    with open(sys.argv[8], 'r') as in_config:
+    with open(args_cfp_json, 'r') as in_config:
         cFp_description = json.load(in_config)
 
     tmp3_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw3.c"
@@ -212,7 +226,7 @@ if __name__ == '__main__':
     # replicator nodes must be the same for all versions
     replicator_nodes = template_generator.calculate_replicator_nodes(cluster_description)
     main_ast = get_main_ast(parsed_file)
-    zrlmpi_max_buffer_size_bytes = ast_processing.process_ast(main_ast, cluster_description, cFp_description,
+    zrlmpi_max_buffer_size_bytes, tcl_lines = ast_processing.process_ast(main_ast, cluster_description, cFp_description,
                                                               tmp_hw_file_c, tmp3_hw_file_c
                                                               , replicator_nodes=replicator_nodes)
 
@@ -233,12 +247,16 @@ if __name__ == '__main__':
     __replace_sw__.append('#include "app_sw.hpp"')
 
     # c
-    with open(sys.argv[3], 'w+') as hw_out_file, open(sys.argv[5], 'w+') as sw_out_file, \
+    with open(args_hw_outfile_c, 'w+') as hw_out_file, open(args_sw_outfile_c, 'w+') as sw_out_file, \
             open(tmp3_hw_file_c) as hw_in_file, open(tmp3_sw_file_c) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
     # h
-    with open(sys.argv[4], 'w+') as hw_out_file, open(sys.argv[6], 'w+') as sw_out_file, \
+    with open(args_hw_outfile_h, 'w+') as hw_out_file, open(args_sw_outfile_h, 'w+') as sw_out_file, \
             open(tmp2_hw_file_h) as hw_in_file, open(tmp_sw_file_h) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
+
+    tcl_file = generate_tcl_directive(tcl_lines)
+    with open(args_hw_directives_out, 'w+') as tcl_out_file:
+        tcl_out_file.write(tcl_file)
 
     print("\n...finished cross-compelation.\n")
