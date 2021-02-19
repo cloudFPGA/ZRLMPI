@@ -358,15 +358,24 @@ void MPI_Init()
   return;
 }
 
+
+void MPI_Init(int* argc, char*** argv)
+{
+ MPI_Init();
+}
+
+
 void MPI_Comm_rank(MPI_Comm communicator, int* rank)
 {
   *rank = own_rank;
 }
 
+
 void MPI_Comm_size( MPI_Comm communicator, int* size)
 {
   *size = cluster_size;
 }
+
 
 void send_internal(
     int* data,
@@ -702,7 +711,7 @@ int resolvehelper(const char* hostname, int family, const char* service, sockadd
 
 static void printUsage(const char* argv0)
 {
-  fprintf(stderr, "Usage: %s <tcp|udp> <host-address> <cluster-size> <own-rank> <ip-rank-1> <ip-rank-2> <...>\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
+  fprintf(stderr, "Usage: %s <tcp|udp> <host-address> <cluster-size> <own-rank> <ip-rank-1> <ip-rank-2> <...> <ip-rank-n> [<possible> <MPI> <app> <arguments>]\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
   exit(EXIT_FAILURE);
 }
 
@@ -744,6 +753,20 @@ int main(int argc, char **argv)
     printUsage(argv[0]);
   }
 
+  //generating argc and argv for MPI app
+  int argc_mpi_app = argc - cluster_size - 4 + 1; //+1 for own argv[0]
+  if(argc_mpi_app <= 0)
+  {
+    argc_mpi_app = 1;
+  }
+  char *argv_mpi_app[argc_mpi_app];
+  argv_mpi_app[0] = argv[0];
+  for(int a = 1; a < argc_mpi_app; a++)
+  {
+    argv_mpi_app[a] = argv[cluster_size + 4];
+  } 
+  
+ 
 
 
   int result = 0;
@@ -886,10 +909,11 @@ int main(int argc, char **argv)
   printf("[kvm network correction enbabled]\n");
 #endif
 
+  printf("Number of arguments for MPI APP: %d\n", argc_mpi_app);
 
   std::cerr << "----- starting MPI app -----" << std::endl;
   //call actual MPI code 
-  app_main();
+  app_main(argc_mpi_app, argv_mpi_app);
 
 
   return 0;
