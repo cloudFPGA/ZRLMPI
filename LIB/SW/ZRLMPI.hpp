@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "zrlmpi_int.hpp"
-//#include "zrlmpi_common.hpp"
+#include "zrlmpi_common.hpp"
 
 #define MPI_Status uint8_t
 #define MPI_Comm   uint8_t
@@ -20,7 +20,7 @@
 
 #define my_memcpy memcpy
 
-//void MPI_Init(int* argc, char*** argv);
+void MPI_Init(int* argc, char*** argv);
 void MPI_Init();
 void MPI_Comm_rank(MPI_Comm communicator, int* rank);
 void MPI_Comm_size( MPI_Comm communicator, int* size);
@@ -63,7 +63,8 @@ void MPI_Finalize();
 #define ZC2_NETWORK
 
 //forward declaration
-int app_main();
-
+#ifndef _ZRLMPI_APP_INCLUDED_
+int app_main(int argc, char **argv);
+#endif
 
 #endif
