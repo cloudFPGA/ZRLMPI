@@ -317,11 +317,19 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         find_name_visitor5.visit(new_ast)
         decls_to_replace = find_name_visitor5.get_results_dcls()
         if_blocks_to_replace = find_name_visitor5.get_results_if_obj()
-        decls_to_replace.extend(if_blocks_to_replace)
         for e in decls_to_replace:
             new_entry = {}
             new_entry['old'] = e
             new_entry['new'] = nop_stmts_for_decl_replacement[0]  # they should be always equal
+            replace_old_malloc_objs.append(new_entry)
+        for e in if_blocks_to_replace:
+            new_entry = {}
+            new_entry['old'] = e
+            if e.iffalse is not None:
+                # we ensure expected format
+                new_entry['new'] = e.iffalse
+            else:
+                new_entry['new'] = nop_stmts_for_decl_replacement[0]
             replace_old_malloc_objs.append(new_entry)
     replace_fpga_calls_obj.extend(replace_old_malloc_objs)
     replace_stmt_visitor5 = replace_visitor.MpiStatementReplaceVisitor(replace_fpga_calls_obj)

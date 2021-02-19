@@ -413,12 +413,22 @@ class MpiSignatureNameSearcher(object):
                         type(n.cond.right) == c_ast.Constant and n.cond.right.type == __null_constant__.type and \
                         n.cond.right.value == __null_constant__.value:
                     if n.cond.left.name in self.search_for_decls:
-                        self.found_if_obj.append(n)
+                        node_to_add = n
+                        if n.cond.op == "!=":
+                            # switch to expected format
+                            node_to_add.iftrue = n.iffalse
+                            node_to_add.iffales = n.iftrue
+                        self.found_if_obj.append(node_to_add)
                 elif type(n.cond.right) == c_ast.ID and \
                         type(n.cond.left) == c_ast.Constant and n.cond.left.type == __null_constant__.type and \
                         n.cond.left.value == __null_constant__.value:
                     if n.cond.right.name in self.search_for_decls:
-                        self.found_if_obj.append(n)
+                        node_to_add = n
+                        if n.cond.op == "!=":
+                            # switch to expected format
+                            node_to_add.iftrue = n.iffalse
+                            node_to_add.iffales = n.iftrue
+                        self.found_if_obj.append(node_to_add)
                 else:
                     for c in n:
                         self.visit(c)
