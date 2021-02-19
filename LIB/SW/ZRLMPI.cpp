@@ -54,6 +54,17 @@ timestamp_t t0 = 0;
 
 #ifdef KVM_CORRECTION
 struct timespec kvm_net;
+
+bool packet_was_lost()
+{
+  int rnum = (rand() % (KVM_NETWORK_LOSS));
+  if(rnum <= 0)
+  {
+     return true;
+  }
+  return false;
+}
+
 #endif
 
 #define RECVH_TIMEOUT_RETURN (-3)
@@ -181,6 +192,10 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       if(recv_packets_cnt == 0)
       {
         nanosleep(&kvm_net, &kvm_net);
+      }
+      if(packet_was_lost() && with_timeout)
+      {
+          return RECVH_TIMEOUT_RETURN;
       }
 #endif
 
@@ -911,8 +926,9 @@ int main(int argc, char **argv)
 
   //to correct kvm "network cards"
 #ifdef KVM_CORRECTION
+  srand(time(NULL));
   kvm_net.tv_sec = 0;
-  kvm_net.tv_nsec = 600*1000; //0.6ms (on both sides, based on ping-pong experiments)
+  kvm_net.tv_nsec = KVM_CORRECTION_US*1000; //0.6ms (on both sides, based on ping-pong experiments)
   printf("[kvm network correction enbabled]\n");
 #endif
 
