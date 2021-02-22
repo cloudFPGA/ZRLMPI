@@ -67,7 +67,7 @@ def create_new_cluster(number_of_FPGA_nodes, role_image_id, host_address, sw_ran
 
     # r1 = requests.post("http://"+__cf_manager_url__+"/clusters?username={0}&password={1}&prepare_mpi=1&mpi_size={2}".format(__openstack_user__,__openstack_pw__,size),
     #                   json=cluster_req)
-    r1 = requests.post("http://"+__cf_manager_url__+"/clusters?username={0}&password={1}&project_name={2}&dont_verify_memory=1".format(
+    r1 = requests.post("http://"+__cf_manager_url__+"/clusters?username={0}&password={1}&project_name={2}&dont_verify_memory=0".format(
                         __openstack_user__, __openstack_pw__, __openstack_project__),
                         json=cluster_req)
 
