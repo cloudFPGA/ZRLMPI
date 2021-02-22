@@ -25,6 +25,8 @@
 
 #define ZRLMPI_PROTOCOL_TIMEOUT_MS 10
 #define ZRLMPI_PROTOCOL_TIMEOUT_CYCLES 1562500  //10ms, with cycle=6.4ns, 20bit
+//#define ZRLMPI_PROTOCOL_TIMEOUT_MS 100
+//#define ZRLMPI_PROTOCOL_TIMEOUT_CYCLES 15625000  //100ms, with cycle=6.4ns, 23bit
 
 //to disable debug printfs
 #define DEBUG

@@ -465,8 +465,8 @@ void mpi_wrapper(
 #pragma HLS INTERFACE ap_fifo port=siMPI_data
 #pragma HLS DATA_PACK     variable=siMPI_data
 
-#pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct
-#pragma HLS INTERFACE m_axi port=vectors bundle=boAPP_DRAM offset=direct
+#pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct latency=52
+#pragma HLS INTERFACE m_axi port=vectors bundle=boAPP_DRAM offset=direct latency=52
 
 #pragma HLS reset variable=my_app_done
 #pragma HLS reset variable=sendCnt
