@@ -20,7 +20,7 @@
 #define MPI_FLOAT   1
 
 
-#define my_memcpy memcpy
+//#define my_memcpy memcpy
 
 void MPI_Init(int* argc, char*** argv);
 void MPI_Init();
@@ -61,7 +61,10 @@ void MPI_Finalize();
 //#define CUSTOM_MTU 1500 //ZC2
 #define CUSTOM_MTU 1416 //ZYC2
 
-//#define KVM_CORRECTION
+#define KVM_CORRECTION
+#define KVM_CORRECTION_US 200
+#define KVM_NETWORK_LOSS 80000 //so probability is 1/KVM_NETWORK_LOSS
+
 #define ZC2_NETWORK
 
 //forward declaration
