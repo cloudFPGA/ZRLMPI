@@ -74,7 +74,6 @@ struct Axis {
 #define MPI_FLOAT   1
 
 
-void my_memcpy(int *dst, int *src, int length);
 void my_perror(const char *s);
 void my_exit(int status);
 void my_free(void *ignore);

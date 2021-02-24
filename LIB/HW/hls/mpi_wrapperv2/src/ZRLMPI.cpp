@@ -48,15 +48,6 @@ void setMMIO_out(ap_uint<16> *MMIO_out)
 }
 
 
-void my_memcpy(int * dst, int* src, int length)
-{
-#pragma HLS inline
-  for(int i = 0; i < length/sizeof(int); i++)
-  {
-    dst[i] = src[i];
-  }
-}
-
 void my_exit(int status)
 {
 #pragma HLS inline
@@ -446,9 +437,9 @@ void mpi_wrapper(
     stream<Axis<64> > *soMPI_data,
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
-    //ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
-    ap_uint<512> boFdram[100],
-    Vector3D vectors[2000]
+    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
+    //ap_uint<512> boFdram[100],
+    //Vector3D vectors[2000]
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -466,7 +457,7 @@ void mpi_wrapper(
 #pragma HLS DATA_PACK     variable=siMPI_data
 
 #pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct latency=52
-#pragma HLS INTERFACE m_axi port=vectors bundle=boAPP_DRAM offset=direct latency=52
+//#pragma HLS INTERFACE m_axi port=vectors bundle=boAPP_DRAM offset=direct latency=52
 
 #pragma HLS reset variable=my_app_done
 #pragma HLS reset variable=sendCnt
@@ -529,8 +520,8 @@ void mpi_wrapper(
 
   if(my_app_done == 0)
   {
-    //app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, boFdram);
-    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, vectors);
+    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, boFdram);
+    //app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, vectors);
   }
 
   // at the end

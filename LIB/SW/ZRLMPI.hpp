@@ -20,7 +20,7 @@
 #define MPI_FLOAT   1
 
 
-#define my_memcpy memcpy
+//#define my_memcpy memcpy
 
 void MPI_Init(int* argc, char*** argv);
 void MPI_Init();
