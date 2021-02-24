@@ -309,11 +309,9 @@ class MpiSignatureNameSearcher(object):
     #                               for decl in n.decls[1:])
     #     return s
     #
-    # def visit_Typedef(self, n):
-    #     s = ''
-    #     if n.storage: s += ' '.join(n.storage) + ' '
-    #     s += self._generate_type(n.type)
-    #     return s
+    def visit_Typedef(self, n):
+        for c in n:
+            self.visit(c)
     #
     # def visit_Cast(self, n):
     #     s = '(' + self._generate_type(n.to_type) + ')'

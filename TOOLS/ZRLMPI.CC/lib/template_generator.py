@@ -282,7 +282,8 @@ def reduce_replacement(reduce_call, cluster_size_constant, rank_obj):
     buffer_variable = accum_buffer_variable_decl
     root_stmts = []
     memcpy_args = []
-    memcpy_args.append(accum_buffer_variable_id)
+    # memcpy_args.append(accum_buffer_variable_id)
+    memcpy_args.append(target_buffer)
     memcpy_args.append(source_buffer)
     sizeof_args = []
     sizeof_args.append(c_ast.Constant('string', datatype_string))
@@ -301,16 +302,17 @@ def reduce_replacement(reduce_call, cluster_size_constant, rank_obj):
     recv_args.append(__status_ignore__)
     recv_call = c_ast.FuncCall(c_ast.ID("MPI_Recv"), c_ast.ExprList(recv_args))
     else_stmts.append(recv_call)
-    root_if = c_ast.If(c_ast.BinaryOp("==", c_ast.ID(loop_variable_name), root_rank), c_ast.Compound(root_stmts),
-                       c_ast.Compound(else_stmts))
-    loop_stmts.append(root_if)
     # add reduce function
     red_args = []
     red_args.append(target_buffer)
     red_args.append(accum_buffer_variable_id)
     red_args.append(chunk_size)
     red_func = c_ast.FuncCall(c_ast.ID(reduce_func), c_ast.ExprList(red_args))
-    loop_stmts.append(red_func)
+    else_stmts.append(red_func)
+    root_if = c_ast.If(c_ast.BinaryOp("==", c_ast.ID(loop_variable_name), root_rank), c_ast.Compound(root_stmts),
+                       c_ast.Compound(else_stmts))
+    loop_stmts.append(root_if)
+    # loop_stmts.append(red_func)
     for_stmt = c_ast.Compound(loop_stmts)
     then_stmt = []
     then_stmt.append(c_ast.For(loop_variable, for_condition, for_next, for_stmt))
@@ -918,7 +920,17 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
             available_buffer_list['decls'].append(all_buffer_variable_decl)
             available_buffer_list['ids'].append(all_buffer_variable_id)
     # 2. take care of replicator nodes
-    # own source buffer is used as temporary accumulator
+    # we need a new buffer as temporary accumulator
+        replicator_accum_buffer_name = "{}_{}_82".format(__buffer_variable__name__, get_random_name_extension())
+        replicator_accum_buffer_decl = c_ast.Decl(name=replicator_accum_buffer_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
+                                              type=c_ast.ArrayDecl(type=c_ast.TypeDecl(replicator_accum_buffer_name, [],
+                                                                                       c_ast.IdentifierType([datatype_string])), dim_quals=[],
+                                                                   #dim=c_ast.Constant('int', str(all_inter_buffer_size))
+                                                                   dim=accum_inter_buffer_size # same size
+                                                                   ),
+                                              init=None,
+                                              bitsize=None)
+        replicator_accum_buffer_id = c_ast.ID(replicator_accum_buffer_name)
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
     rns = replicator_nodes["replicators"]
@@ -928,10 +940,18 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
         group_rcv_nodes = replicator_nodes[rr]
         size_of_this_group = len(group_rcv_nodes)
         inter_then_part_stmts = []
+        # 0. add buffer decl
+        inter_then_part_stmts.append(replicator_accum_buffer_decl)
         # 1. accum own part
-        # own source buffer is used as temporary accumulator
-        # --> nothing to do
-        # 1. collect from groups
+        memcpy_args0 = []
+        memcpy_args0.append(replicator_accum_buffer_id)
+        memcpy_args0.append(source_buffer)
+        sizeof_args0 = []
+        sizeof_args0.append(c_ast.Constant('string', datatype_string))
+        memcpy_args0.append(c_ast.BinaryOp("*", orig_chunk_size, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args0))))
+        memcpy0 = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args0))
+        inter_then_part_stmts.append(memcpy0)
+        # 2. collect from groups
         for rcvi in group_rcv_nodes:
             recv_args = []
             recv_args.append(all_buffer_variable_id)
@@ -944,14 +964,14 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
             recv_call = c_ast.FuncCall(c_ast.ID("MPI_Recv"), c_ast.ExprList(recv_args))
             inter_then_part_stmts.append(recv_call)
             red_args = []
-            red_args.append(source_buffer)
+            red_args.append(replicator_accum_buffer_id)
             red_args.append(all_buffer_variable_id)
             red_args.append(orig_chunk_size)
             red_func = c_ast.FuncCall(c_ast.ID(reduce_func), c_ast.ExprList(red_args))
             inter_then_part_stmts.append(red_func)
         # 3. forward accum data
         send_call_args = []
-        send_call_args.append(source_buffer)
+        send_call_args.append(replicator_accum_buffer_id)
         send_call_args.append(orig_chunk_size)
         send_call_args.append(reduce_datatype)
         send_call_args.append(root_rank)
