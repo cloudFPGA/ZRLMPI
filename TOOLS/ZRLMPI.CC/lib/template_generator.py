@@ -488,6 +488,8 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
         size_of_this_group = len(group_rcv_nodes)
         # 1. receive large chung
         inter_then_part_stmts = []
+        if template_only:
+            inter_then_part_stmts.append(all_buffer_variable_decl)
         # if rr == rns[0]:
         #     # first node, declare buffer
         #     inter_then_part_stmts.append(all_buffer_variable_decl)
@@ -597,7 +599,7 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    if template_only or (not found_buffer and not return_array_decl):
+    if not template_only and (not found_buffer and not return_array_decl):
         # TODO: put this on global level?
         past_stmts = []
         past_stmts.append(all_buffer_variable_decl)
@@ -695,6 +697,8 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
         group_rcv_nodes = replicator_nodes[rr]
         size_of_this_group = len(group_rcv_nodes)
         inter_then_part_stmts = []
+        if template_only:
+            inter_then_part_stmts.append(all_buffer_variable_decl)
         # 1. collect from groups
         recv_cnt = 1  # start with 1, 0 is the node itself
         for rcvi in group_rcv_nodes:
@@ -802,7 +806,7 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    if template_only or (not found_buffer and not return_array_decl):
+    if not template_only and (not found_buffer and not return_array_decl):
         past_stmts = []
         past_stmts.append(all_buffer_variable_decl)
         past_stmts.append(if_else_tree)
@@ -1029,6 +1033,8 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
         group_rcv_nodes = replicator_nodes[rr]
         size_of_this_group = len(group_rcv_nodes)
         inter_then_part_stmts = []
+        if template_only:
+            inter_then_part_stmts.append(all_buffer_variable_decl)
         # 0. add buffer decl
         inter_then_part_stmts.append(replicator_accum_buffer_decl)
         # 1. accum own part
@@ -1132,7 +1138,7 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    if template_only or (not found_buffer and not return_array_decl):
+    if not template_only and (not found_buffer and not return_array_decl):
         past_stmts = []
         past_stmts.append(all_buffer_variable_decl)
         past_stmts.append(if_else_tree)
