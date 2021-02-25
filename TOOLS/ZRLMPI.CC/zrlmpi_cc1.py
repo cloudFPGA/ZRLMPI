@@ -49,15 +49,22 @@ __replace_hw_BEFORE_CC__.append('#include "ZRLMPI.hpp"')
 __replace_sw_BEFORE_CC__.append('#define _ZRLMPI_APP_INCLUDED_\n#include "ZRLMPI.hpp"')
 
 # Main
-__match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv\\s*\\)')
+# __match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv\\s*\\)')
+# __replace_hw__.append('void app_main(\n    // ----- MPI_Interface -----\n' +
+#                       '    stream<MPI_Interface> *soMPIif,\n' +
+#                       '    stream<MPI_Feedback> *siMPIFeB,\n' +
+#                       '    stream<Axis<64> > *soMPI_data,\n' +
+#                       '    stream<Axis<64> > *siMPI_data,\n' +
+#                       '    // ----- DRAM -----\n' +
+#                       '    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]\n' +
+#                       '    )')
+__match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv')
 __replace_hw__.append('void app_main(\n    // ----- MPI_Interface -----\n' +
                       '    stream<MPI_Interface> *soMPIif,\n' +
                       '    stream<MPI_Feedback> *siMPIFeB,\n' +
                       '    stream<Axis<64> > *soMPI_data,\n' +
                       '    stream<Axis<64> > *siMPI_data,\n' +
-                      '    // ----- DRAM -----\n' +
-                      '    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]\n' +
-                      '    )')
+                      '    // ----- DRAM -----\n')
 __replace_sw__.append('void app_main(int argc, char **argv)')
 
 # MPI Init
@@ -258,6 +265,9 @@ if __name__ == '__main__':
     with open(args_hw_outfile_h, 'w+') as hw_out_file, open(args_sw_outfile_h, 'w+') as sw_out_file, \
             open(tmp2_hw_file_h) as hw_in_file, open(tmp_sw_file_h) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
+
+    # add "static" tcl directives
+    tcl_lines.append("set_directive_inline -region -recursive app_main")
 
     tcl_file = generate_tcl_directive(tcl_lines)
     with open(args_hw_directives_out, 'w+') as tcl_out_file:

@@ -4,6 +4,6 @@
     "fpga" : [1, 2, 3, 4]
   },
   "config": {
-    "optimization": 0
+    "optimization": 3
   }
 }

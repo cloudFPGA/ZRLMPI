@@ -921,8 +921,8 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
             available_buffer_list['ids'].append(all_buffer_variable_id)
     # 2. take care of replicator nodes
     # we need a new buffer as temporary accumulator
-        replicator_accum_buffer_name = "{}_{}_82".format(__buffer_variable__name__, get_random_name_extension())
-        replicator_accum_buffer_decl = c_ast.Decl(name=replicator_accum_buffer_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
+    replicator_accum_buffer_name = "{}_{}_82".format(__buffer_variable__name__, get_random_name_extension())
+    replicator_accum_buffer_decl = c_ast.Decl(name=replicator_accum_buffer_name, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
                                               type=c_ast.ArrayDecl(type=c_ast.TypeDecl(replicator_accum_buffer_name, [],
                                                                                        c_ast.IdentifierType([datatype_string])), dim_quals=[],
                                                                    #dim=c_ast.Constant('int', str(all_inter_buffer_size))
@@ -930,7 +930,7 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
                                                                    ),
                                               init=None,
                                               bitsize=None)
-        replicator_accum_buffer_id = c_ast.ID(replicator_accum_buffer_name)
+    replicator_accum_buffer_id = c_ast.ID(replicator_accum_buffer_name)
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
     rns = replicator_nodes["replicators"]
@@ -1248,12 +1248,13 @@ def malloc_replacement(malloc_call, malloc_stmt):
                                           type=array_type_decl,
                                           init=None,
                                           bitsize=None)
-    pAST = array_decl
+    # pAST = array_decl
     tcl_directives = __array_map_directive_string__.format(__default_directive_location__, array_name)
     decl_to_search = array_name
     if type(malloc_stmt.lvalue) == c_ast.Decl:
         decl_to_search = None
     nop_op = get_nop_decl()
-    return pAST, tcl_directives, decl_to_search, nop_op
+    pAST = nop_op
+    return pAST, tcl_directives, decl_to_search, nop_op, array_decl
 
 

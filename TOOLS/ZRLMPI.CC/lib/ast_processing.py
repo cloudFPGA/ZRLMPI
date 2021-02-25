@@ -300,14 +300,16 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     tcl_directives_lines = []
     find_affected_decl = []
     nop_stmts_for_decl_replacement = []
+    memory_array_decls = []
     for i in range(0, len(malloc_assignments_obj)):
-        na, tc, ds, no = template_generator.malloc_replacement(malloc_func_calls[i], malloc_assignments_obj[i])
+        na, tc, ds, no, decl = template_generator.malloc_replacement(malloc_func_calls[i], malloc_assignments_obj[i])
         new_entry = {}
         new_entry['old'] = malloc_assignments_obj[i]
         new_entry['new'] = na
         replace_old_malloc_objs.append(new_entry)
         tcl_directives_lines.append(tc)
         nop_stmts_for_decl_replacement.append(no)
+        memory_array_decls.append(decl)
         if ds is not None:
             find_affected_decl.append(ds)
     if len(find_affected_decl) > 0:
@@ -335,6 +337,11 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     replace_stmt_visitor5 = replace_visitor.MpiStatementReplaceVisitor(replace_fpga_calls_obj)
     new_ast_2 = new_ast
     replace_stmt_visitor5.visit(new_ast_2)
+    # adapt decl list
+    if new_ast_2.decl.type.args.params is not None:
+        new_ast_2.decl.type.args.params.extend(memory_array_decls)
+    else:
+        new_ast_2.decl.type.args.params = memory_array_decls
 
     # TODO: detect unused variables?
     # 11. determine buffer size (and return them) AFTER the AST has been modified

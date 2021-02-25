@@ -27,21 +27,6 @@ static timestamp_t get_timestamp ()
 #endif
 
 
-//
-//struct My_vector<D> {
-//  int32_t n[D];
-//}
-//
-
-
-#define VDIM 3
-typedef struct Vector3D {
-  int32_t x;
-  int32_t y;
-  int32_t z;
-} Vector3D;
-
-
 //// Distance**2 between d-vectors pointed to by v1, v2.
 //float distance2(const float *v1, const float *v2, const int d) {
 //  float dist = 0.0;
@@ -52,70 +37,43 @@ typedef struct Vector3D {
 //  return dist;
 //}
 
-// Distance**2 between 3D-vectors pointed to by v1, v2.
-uint32_t my_distance2(const Vector3D *v1, const Vector3D *v2)
+// simplified Distance**2 between 3D-vectors pointed to by v1, v2 for int arithmetic
+int64_t my_distance2(int32_t *v1_x, int32_t *v1_y, int32_t *v1_z, int32_t *v2_x, int32_t *v2_y, int32_t *v2_z)
 {
-  int64_t dist = 0;
-  int64_t diff = 0;
-  int64_t diff2 = 0;
+   int64_t diff = 0;
+   int64_t dist = 0;
+   int64_t diff2 = 0;
 
-  diff = (v1->x - v2->x) / SCALE_FACTOR;
-  diff2 = (diff * diff);
-  if (diff2 >= UINT_MAX)
-  {
-    return UINT_MAX;
-  }
+  diff = (int64_t) (*v1_x - *v2_x);
+  diff2 = (int64_t) (diff * diff);
+  dist += diff2;
+  
+  diff = (int64_t) (*v1_y - *v2_y);
+  diff2 = (int64_t) (diff * diff);
+  dist += diff2;
+  
+  diff = (int64_t) (*v1_z - *v2_z);
+  diff2 = (int64_t) (diff * diff);
   dist += diff2;
 
-  diff = (v1 -> y - v2 ->y) / SCALE_FACTOR;
-  diff2 = (diff * diff);
-  if (diff2 >= UINT_MAX)
-  {
-    return UINT_MAX;
-  }
-  dist += diff2;
-
-  diff = (v1->z - v2->z) / SCALE_FACTOR;
-  diff2 = (diff * diff);
-  if (diff2 >= UINT_MAX)
-  {
-    return UINT_MAX;
-  }
-  dist += diff2;
-
-#ifdef ZRLMPI_SW_ONLY
-  if(dist < 0)
-  {
-    printf("DISTANCE < 0\n");
-    printf("V1:\n");
-    printf("%+013d ",  v1->x);
-    printf("%+013d ",  v1->y);
-    printf("%+013d\n", v1->z);
-    printf("V2:\n");
-    printf("%+013d ",  v2->x);
-    printf("%+013d ",  v2->y);
-    printf("%+013d\n", v2->z);
-    printf("dist: %+013lld\n", (long long int) dist);
-    exit(42);
-  }
-#endif
-  if (dist >= UINT_MAX)
-  {
-    dist = UINT_MAX;
-  }
-  return (uint32_t) dist;
+  //dist = dist >> SCALE_FACTOR;
+  return (int64_t) dist;
 }
 
 // Assign a vector to the correct cluster by computing its distances to
 // each cluster centroid.
-int assign_vector(const Vector3D *vector, Vector3D centroids[MAX_CENTROIDS], const int k)
+int assign_vector(int32_t *vector_x, int32_t *vector_y, int32_t *vector_z, int centroids_x[MAX_CENTROIDS], 
+                  int centroids_y[MAX_CENTROIDS], int centroids_z[MAX_CENTROIDS], int k)
 {
   int best_cluster = 0;
-  uint32_t best_dist = my_distance2(vector, &centroids[0]);
-  for (int c = 1; c < k; c++)
+  int64_t best_dist = LONG_MAX;
+  for (int c = 0; c < k; c++)
   {
-    uint32_t dist = my_distance2(vector, &centroids[c]);
-    if (dist < best_dist) {
+    int64_t dist = my_distance2(vector_x, vector_y, vector_z, &centroids_x[c],
+                                 &centroids_y[c], &centroids_z[c]);
+    //printf("dist: %+013lld\n", (long long int) dist);
+    if (dist < best_dist) 
+    {
       best_cluster = c;
       best_dist = dist;
     }
@@ -125,39 +83,42 @@ int assign_vector(const Vector3D *vector, Vector3D centroids[MAX_CENTROIDS], con
 
 
 // Add a vector into a sum of vectors.
-void add_vector(const Vector3D *vector, Vector3D *sum)
+void add_vector(int32_t *vector_x, int32_t *vector_y, int32_t *vector_z, int32_t *sum_x, int32_t *sum_y, int32_t *sum_z)
 {
-  sum->x += vector->x;
-  sum->y += vector->y;
-  sum->z += vector->z;
+  *sum_x += *vector_x;
+  *sum_y += *vector_y;
+  *sum_z += *vector_z;
 }
 
-void div_vector(Vector3D *vector, int32_t dividend)
+void div_vector(int32_t *vector_x, int32_t *vector_y, int32_t *vector_z, int32_t dividend)
 {
   if(dividend != 0)
   {
-    vector->x /= dividend;
-    vector->y /= dividend;
-    vector->z /= dividend;
+    *vector_x /= dividend;
+    *vector_y /= dividend;
+    *vector_z /= dividend;
   }
 }
 
 // Print the centroids one per line.
-void print_centroids(const Vector3D *centroids, const int k) {
+void print_centroids(int32_t *centroids_x, int32_t *centroids_y, int32_t *centroids_z, int k) {
   //printf("Centroids:\n");
   for (int i = 0; i<k; i++) 
   {
-    printf("%+013d ", centroids[i].x);
-    printf("%+013d ", centroids[i].y);
-    printf("%+013d ", centroids[i].z);
+    printf("%+013d ", centroids_x[i]);
+    printf("%+013d ", centroids_y[i]);
+    printf("%+013d ", centroids_z[i]);
     printf("\n");
   }
 }
 
-void reading_vectors3D(FILE* file_stream, Vector3D *all_vectors, int nr_vectors)
+void reading_vectors3D(FILE* file_stream, int32_t *all_vectors_x, int32_t *all_vectors_y, int32_t *all_vectors_z, int nr_vectors)
 {
   char line[256];
   int li = 0;
+#ifdef DEBUG
+  printf("expecting 3 dimensions per line\n");
+#endif
   while (fgets(line, 256, file_stream) && li < nr_vectors)
   {
     char* tok;
@@ -173,7 +134,9 @@ void reading_vectors3D(FILE* file_stream, Vector3D *all_vectors, int nr_vectors)
       tok = strtok(NULL, " ");
     }
     //printf("read line [%04d]: %+013d %+013d %+013d\n", li, var[0], var[1], var[2]);
-    all_vectors[li] = (Vector3D) { .x = var[0], .y = var[1], .z = var[2] };
+    all_vectors_x[li] = var[0];
+    all_vectors_y[li] = var[1];
+    all_vectors_z[li] = var[2];
     li++;
   }
 }
@@ -204,9 +167,31 @@ int main(int argc, char** argv)
 
   // Data structures in all processes.
   // Vectors assigned for this process
-  Vector3D *vectors;
-  vectors = (Vector3D*) malloc(vectors_per_proc * sizeof(Vector3D));
-  if(vectors == NULL)
+  int32_t *vectors_x, *vectors_y, *vectors_z, *labels;
+  vectors_x = (int32_t*) malloc(vectors_per_proc * sizeof(int32_t));
+  if(vectors_x == NULL)
+  {
+    perror("malloc");
+    exit(1);
+  }
+
+  vectors_y = (int32_t*) malloc(vectors_per_proc * sizeof(int32_t));
+  if(vectors_y == NULL)
+  {
+    perror("malloc");
+    exit(1);
+  }
+  
+  vectors_z = (int32_t*) malloc(vectors_per_proc * sizeof(int32_t));
+  if(vectors_z == NULL)
+  {
+    perror("malloc");
+    exit(1);
+  }
+  
+  // The cluster assignments for each site.
+  labels = (int32_t*) malloc(vectors_per_proc * sizeof(int32_t));
+  if(labels == NULL)
   {
     perror("malloc");
     exit(1);
@@ -214,30 +199,36 @@ int main(int argc, char** argv)
 
   // The sum of vectors assigned to each cluster by this process.
   // k vectors of d elements.
-  Vector3D sums[MAX_CENTROIDS];
+  int32_t sums_x[MAX_CENTROIDS];
+  int32_t sums_y[MAX_CENTROIDS];
+  int32_t sums_z[MAX_CENTROIDS];
 
   // The number of vectors assigned to each cluster by this process. k integers.
   int counts[MAX_CENTROIDS];
 
   // The current centroids against which vectors are being compared.
   // These are shipped to the process by the root process.
-  Vector3D centroids[MAX_CENTROIDS];
+  int32_t centroids_x[MAX_CENTROIDS];
+  int32_t centroids_y[MAX_CENTROIDS];
+  int32_t centroids_z[MAX_CENTROIDS];
 
-  // The cluster assignments for each site.
-  int labels[vectors_per_proc];
 
   //
   // Data structures maintained only in root process.
   //
   // All the sites for all the processes.
   // site_per_proc * nprocs vectors of d floats.
-  Vector3D *all_vectors = NULL;
+  int32_t *all_vectors_x = NULL;
+  int32_t *all_vectors_y = NULL;
+  int32_t *all_vectors_z = NULL;
   // Sum of sites assigned to each cluster by all processes.
-  Vector3D *grand_sums = NULL;
+  int32_t *all_sums_x = NULL;
+  int32_t *all_sums_y = NULL;
+  int32_t *all_sums_z = NULL;
   // Number of sites assigned to each cluster by all processes.
-  int32_t *grand_counts = NULL;
+  int32_t *all_counts = NULL;
   // Result of program: a cluster label for each site.
-  int *all_labels;
+  int *all_labels = NULL;;
 
   if(rank == 0)
   {
@@ -272,35 +263,65 @@ int main(int argc, char** argv)
 
     printf("Number of vectors: %d; maximum per proc: %d\n", nr_vectors, vectors_per_proc);
 
-    all_vectors = (Vector3D*) malloc(nr_vectors * sizeof(Vector3D));
-    if(all_vectors == NULL)
+    all_vectors_x = (int32_t*) malloc(nr_vectors * sizeof(int32_t));
+    if(all_vectors_x == NULL)
+    {
+      perror("malloc");
+      exit(1);
+    }
+    
+    all_vectors_y = (int32_t*) malloc(nr_vectors * sizeof(int32_t));
+    if(all_vectors_y == NULL)
+    {
+      perror("malloc");
+      exit(1);
+    }
+    
+    all_vectors_z = (int32_t*) malloc(nr_vectors * sizeof(int32_t));
+    if(all_vectors_z == NULL)
     {
       perror("malloc");
       exit(1);
     }
 
-    reading_vectors3D(file_stream, all_vectors, nr_vectors);
+    reading_vectors3D(file_stream, all_vectors_x, all_vectors_y, all_vectors_z, nr_vectors);
     fclose(file_stream);
 
     // Take evenly distributed vectors as the initial cluster centroids.
     int step = nr_vectors/k;
     for (int i = 0; i < k; i++)
     {
-      centroids[i] = all_vectors[i*step];
+      centroids_x[i] = all_vectors_x[i*step];
+      centroids_y[i] = all_vectors_y[i*step];
+      centroids_z[i] = all_vectors_z[i*step];
     }
     printf("finished reading file...\n");
-#ifdef PRINTALL
-    print_centroids(centroids, k);
-#endif
-    grand_sums = (Vector3D*) malloc(k * sizeof(Vector3D));
-    if(grand_sums == NULL)
+//#ifdef PRINTALL
+//    print_centroids(centroids_x, centrodis_y, centroids_z, k);
+//#endif
+    all_sums_x = (int32_t*) malloc(k * sizeof(int32_t));
+    if(all_sums_x == NULL)
     {
       perror("malloc");
       exit(1);
     }
 
-    grand_counts = (int32_t*) malloc(k * sizeof(int32_t));
-    if(grand_counts == NULL)
+    all_sums_y = (int32_t*) malloc(k * sizeof(int32_t));
+    if(all_sums_y == NULL)
+    {
+      perror("malloc");
+      exit(1);
+    }
+    
+    all_sums_z = (int32_t*) malloc(k * sizeof(int32_t));
+    if(all_sums_z == NULL)
+    {
+      perror("malloc");
+      exit(1);
+    }
+
+    all_counts = (int32_t*) malloc(k * sizeof(int32_t));
+    if(all_counts == NULL)
     {
       perror("malloc");
       exit(1);
@@ -332,76 +353,111 @@ int main(int argc, char** argv)
   //printf("[%d] k: %d\n", rank, k);
 
   // Root sends each process its share of sites.
-  MPI_Scatter((int32_t*) all_vectors, VDIM*vectors_per_proc, MPI_INTEGER, (int32_t*) vectors, VDIM*vectors_per_proc, MPI_INTEGER, 0, MPI_COMM_WORLD);
+  MPI_Scatter(all_vectors_x, vectors_per_proc, MPI_INTEGER, vectors_x, vectors_per_proc, MPI_INTEGER, 0, MPI_COMM_WORLD);
+  MPI_Scatter(all_vectors_y, vectors_per_proc, MPI_INTEGER, vectors_y, vectors_per_proc, MPI_INTEGER, 0, MPI_COMM_WORLD);
+  MPI_Scatter(all_vectors_z, vectors_per_proc, MPI_INTEGER, vectors_z, vectors_per_proc, MPI_INTEGER, 0, MPI_COMM_WORLD);
 
 
-  uint32_t norm = INT_MAX;  // Will tell us if centroids have moved.
+  int norm = INT_MAX;  // Will tell us if centroids have moved.
   int iteration = 0;
 
   while(norm > NORM_LOWER_LIMIT && iteration < MAX_ITERATIONS)
   { // While they've moved...
 
-    // Broadcast the current cluster centroids to all processes.
-    MPI_Bcast((int32_t*) centroids, k*VDIM, MPI_INTEGER, 0, MPI_COMM_WORLD);
-
     // Each process reinitializes its cluster accumulators.
     for (int i = 0; i < k; i++)
     {
-      sums[i] = (Vector3D) {.x = 0, .y = 0, .z = 0};
-    }
-    for (int i = 0; i < k; i++)
-    {
+      sums_x[i] = 0;
+      sums_y[i] = 0;
+      sums_z[i] = 0;
       counts[i] = 0;
     }
+    //if(rank != 0)
+    //{
+    //  for (int i = 0; i < k; i++)
+    //  {
+    //    centroids_x[i] = 0;
+    //    centroids_y[i] = 0;
+    //    centroids_z[i] = 0;
+    //  }
+    //}
+
+    // Broadcast the current cluster centroids to all processes.
+    MPI_Bcast(centroids_x, k, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    MPI_Bcast(centroids_y, k, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    MPI_Bcast(centroids_z, k, MPI_INTEGER, 0, MPI_COMM_WORLD);
+
 
     // Find the closest centroid to each site and assign to cluster.
     for (int i = 0; i < vectors_per_proc; i++)
     {
-      int cluster = assign_vector(&vectors[i], centroids, k);
+      int cluster = assign_vector(&vectors_x[i], &vectors_y[i], &vectors_z[i],
+                                 centroids_x, centroids_y, centroids_z, k);
       // Record the assignment of the site to the cluster.
       counts[cluster]++;
-      add_vector(&vectors[i], &sums[cluster]);
+      add_vector(&vectors_x[i], &vectors_y[i], &vectors_z[i], &sums_x[cluster],
+                  &sums_y[cluster], &sums_z[cluster]);
     }
 
+#ifdef PRINTALL
+    if(rank == 0)
+    {
+      printf("root sums:\n");
+      print_centroids(sums_x, sums_y, sums_z, k);
+    }
+#endif
 
     // Gather and sum at root all cluster sums for individual processes.
-    MPI_Reduce((int32_t*) sums, (int32_t*) grand_sums, k * VDIM, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce((int32_t*) counts, (int32_t*) grand_counts, k, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(sums_x, all_sums_x, k, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(sums_y, all_sums_y, k, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(sums_z, all_sums_z, k, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD);
+    
+    MPI_Reduce(counts, all_counts, k, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (rank == 0)
     {
 #ifdef PRINTALL
       printf("all sums:\n");
-      print_centroids(grand_sums, k);
+      print_centroids(all_sums_x, all_sums_y, all_sums_z, k);
       printf("all counts:\n");
       for(int i = 0; i<k; i++)
       {
-        printf("   %03d:   %d\n", i, grand_counts[i]);
+        printf("   %03d:   %d\n", i, all_counts[i]);
       }
 #endif
       // Root process computes new centroids by dividing sums per cluster
       // by count per cluster.
-      for (int i = 0; i<k; i++) 
+      for (int i = 0; i<k; i++)
       {
-        div_vector(&grand_sums[i], grand_counts[i]);
+        div_vector(&all_sums_x[i], &all_sums_y[i], &all_sums_z[i], all_counts[i]);
       }
       printf("after div\n");
       // Have the centroids changed much?
       //norm = distance2(grand_sums, centroids, vector_dim*k);
       norm = 0;
-      for (int i = 0; i<k; i++) 
+      int64_t norm_tmp = 0;
+      for (int i = 0; i<k; i++)
       {
-        norm += my_distance2(&grand_sums[i], &centroids[i]);
+        norm_tmp += my_distance2(&all_sums_x[i], &all_sums_y[i], &all_sums_z[i], 
+                                  &centroids_x[i], &centroids_y[i], &centroids_z[i]);
       }
-      printf("[%04d] norm: %u\n", iteration, norm);
+      if(norm_tmp >= INT_MAX || norm_tmp < 0)
+      {
+        norm = INT_MAX;
+      } else {
+        norm = (int32_t) norm_tmp;
+      }
+      printf("[%04d] norm: %d\n", iteration, norm);
       // Copy new centroids from grand_sums into centroids.
       for (int i = 0; i<k; i++)
       {
-        centroids[i] = grand_sums[i];
+        centroids_x[i] = all_sums_x[i];
+        centroids_y[i] = all_sums_y[i];
+        centroids_z[i] = all_sums_z[i];
       }
 #ifdef PRINTALL
       printf("current centroids: \n");
-      print_centroids(centroids,k);
+      print_centroids(centroids_x, centroids_y, centroids_z, k);
 #endif
     }
     // Broadcast the norm.  All processes will use this in the loop test.
@@ -410,9 +466,10 @@ int main(int argc, char** argv)
   }
 
   // Now centroids are fixed, so compute a final label for each site.
-  for (int i = 0; i < vectors_per_proc; i++) 
+  for (int i = 0; i < vectors_per_proc; i++)
   {
-    labels[i] = assign_vector(&vectors[i], centroids, k);
+    labels[i] = assign_vector(&vectors_x[i], &vectors_y[i], &vectors_z[i],
+                                 centroids_x, centroids_y, centroids_z, k);
   }
 
   // Gather all labels into root process.
@@ -435,23 +492,30 @@ int main(int argc, char** argv)
     printf("Final counts:\n");
     for(int i = 0; i<k; i++)
     {
-      printf("   %03d:   %d\n", i, grand_counts[i]);
+      printf("   %03d:   %d\n", i, all_counts[i]);
     }
     //printf("Final centroids:\n");
-    //print_centroids(centroids,k);
+    //print_centroids(centroids_x, centroids_y, centroids_z,k);
 #ifdef DEBUG 
     t1 = get_timestamp();
     double secs = (t1 - t0) / 1000000.0L;
     printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>\tMPI C runtime: %lfs\n", secs);
 #endif
 
-  free(all_vectors);
-  free(grand_sums);
-  free(grand_counts);
+  free(all_vectors_x);
+  free(all_vectors_y);
+  free(all_vectors_z);
+  free(all_sums_x);
+  free(all_sums_y);
+  free(all_sums_z);
+  free(all_counts);
   free(all_labels);
   }
 
-  free(vectors);
+  free(vectors_x);
+  free(vectors_y);
+  free(vectors_z);
+  free(labels);
   MPI_Finalize();
 
 }
