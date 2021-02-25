@@ -104,6 +104,7 @@ def copy_and_update_ZRLMPI_wrapper(template_path, target_path, buffer_decls, buf
     generated_c += "\n"
     with open(target_path, 'w+') as target_file:
         target_file.write(generated_c)
+    return new_call_line
 
 
 __vhdl_component_tmpl__ = "; {} : IN STD_LOGIC_VECTOR (63 downto 0)"
@@ -319,13 +320,17 @@ if __name__ == '__main__':
     __replace_hw__.append('#include "app_hw.hpp"')
     __replace_sw__.append('#include "app_sw.hpp"')
 
+    # take care of ZRLMPI generation
+    header_signature_line = copy_and_update_ZRLMPI_wrapper(args_zrlmpicc_template, args_zrlmpicc_target, buffer_init_src, buffer_names)
+
     # c
     with open(args_hw_outfile_c, 'w+') as hw_out_file, open(args_sw_outfile_c, 'w+') as sw_out_file, \
             open(tmp3_hw_file_c) as hw_in_file, open(tmp3_sw_file_c) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
     # h
-    new_signature_line += ';'
-    __replace_hw__[__match_regex_hw_main_position__] = new_signature_line
+    #shortened_signature_line = new_signature_line[0:9] + new_signature_line[31:-1]  #to remove the last bracket and argc etc...
+    shortened_signature_line = "void " + header_signature_line[4:-2]
+    __replace_hw__[__match_regex_hw_main_position__] = shortened_signature_line
     with open(args_hw_outfile_h, 'w+') as hw_out_file, open(args_sw_outfile_h, 'w+') as sw_out_file, \
             open(tmp2_hw_file_h) as hw_in_file, open(tmp_sw_file_h) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
@@ -337,8 +342,6 @@ if __name__ == '__main__':
     with open(args_hw_directives_out, 'w+') as tcl_out_file:
         tcl_out_file.write(tcl_file)
 
-    # take care of ZRLMPI generation
-    copy_and_update_ZRLMPI_wrapper(args_zrlmpicc_template, args_zrlmpicc_target, buffer_init_src, buffer_names)
 
     # take care of Role vhdl
     copy_and_update_Role_vhdl(args_role_vhdl_template, args_role_vhdl_target, buffer_names, buffer_sizes_bytes)
