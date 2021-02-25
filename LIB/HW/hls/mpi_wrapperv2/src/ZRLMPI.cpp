@@ -437,11 +437,13 @@ void mpi_wrapper(
     stream<Axis<64> > *soMPI_data,
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
-    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
-    //ap_uint<512> boFdram[100],
-    //int32_t vectors_x[2000],
-    //int32_t vectors_y[2000],
-    //int32_t vectors_z[2000]
+  //  ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
+    ap_uint<512> boFdram[100],
+    int template_buffer_rWgTH_4[800000],
+    int32_t vectors_x[200000],
+    int32_t vectors_y[200000],
+    int32_t vectors_z[200000],
+    int labels[200000]
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -474,11 +476,6 @@ void mpi_wrapper(
 #pragma HLS reset variable=memory_pattern_read
 #pragma HLS reset variable=memory_test_flag
 
-  int template_buffer_rWgTH_4[800000];
-  int32_t vectors_x[200000];
-  int32_t vectors_y[200000];
-  int32_t vectors_z[200000];
-  int labels[200000];
 
 
   //===========================================================
