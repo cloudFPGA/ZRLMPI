@@ -439,7 +439,9 @@ void mpi_wrapper(
     // ----- DRAM -----
     ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
     //ap_uint<512> boFdram[100],
-    //Vector3D vectors[2000]
+    //int32_t vectors_x[2000],
+    //int32_t vectors_y[2000],
+    //int32_t vectors_z[2000]
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -457,7 +459,8 @@ void mpi_wrapper(
 #pragma HLS DATA_PACK     variable=siMPI_data
 
 #pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct latency=52
-//#pragma HLS INTERFACE m_axi port=vectors bundle=boAPP_DRAM offset=direct latency=52
+
+//#pragma HLS array_map variable=words instance=boFdram horizontal
 
 #pragma HLS reset variable=my_app_done
 #pragma HLS reset variable=sendCnt
@@ -471,7 +474,12 @@ void mpi_wrapper(
 #pragma HLS reset variable=memory_pattern_read
 #pragma HLS reset variable=memory_test_flag
 
-  //#pragma HLS loop_flatten off 
+  int template_buffer_rWgTH_4[800000];
+  int32_t vectors_x[200000];
+  int32_t vectors_y[200000];
+  int32_t vectors_z[200000];
+  int labels[200000];
+
 
   //===========================================================
   // Wait for INIT
@@ -520,8 +528,8 @@ void mpi_wrapper(
 
   if(my_app_done == 0)
   {
-    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, boFdram);
-    //app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, vectors);
+    //app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, boFdram);
+    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, vectors_x, vectors_y, vectors_z, template_buffer_rWgTH_4, labels);
   }
 
   // at the end
