@@ -64,7 +64,7 @@ __replace_hw__.append('void app_main(\n    // ----- MPI_Interface -----\n' +
                       '    stream<MPI_Interface> *soMPIif,\n' +
                       '    stream<MPI_Feedback> *siMPIFeB,\n' +
                       '    stream<Axis<64> > *soMPI_data,\n' +
-                      '    stream<Axis<64> > *siMPI_data,\n' +
+                      '    stream<Axis<64> > *siMPI_data\n' +
                       '    // ----- DRAM -----\n')
 __replace_sw__.append('void app_main(int argc, char **argv')
 
