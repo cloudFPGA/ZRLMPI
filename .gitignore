@@ -51,5 +51,6 @@ cc_delme/
 app_hw_directives.tcl
 TOOLS/ZRLMPI.CC/ZRLMPI_out.cpp
 TOOLS/ZRLMPI.CC/Role_out.vhdl
+LIB/HW/hls/mpi_wrapperv2/src/ZRLMPI.cpp
 
 

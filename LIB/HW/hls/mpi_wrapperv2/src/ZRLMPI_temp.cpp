@@ -24,7 +24,7 @@ ap_uint<1> memory_test_flag = 0;
 
 
 //uint8_t bytes[ZRLMPI_MAX_DETECTED_BUFFER_SIZE];
-uint32_t words[(ZRLMPI_MAX_DETECTED_BUFFER_SIZE+3)/4]; //TODO!
+//uint32_t words[(ZRLMPI_MAX_DETECTED_BUFFER_SIZE+3)/4]; //TODO!
 //#pragma HLS RESOURCE variable=words core=RAM_2P_BRAM
 
 #define MEMORY_TEST_PATTERN 0x0A0B0C0D0E0FC001
@@ -232,21 +232,28 @@ void MPI_Send(
   //  words[i + 3] = data[i/4] & 0xFF;
   //}
   printf("[MPI_Send] input data:\n");
+  //if(count > 1)
+  //{
+  //  for(int i=0; i< count; i++)
+  //  {
+  //    //#pragma HLS unroll
+  //    words[i] = data[i];
+  //    printf("\t[%02d] %04d\n", i, data[i]);
+  //  }
+  //  printf("\n");
+  //} else {
+  //  words[0] = data[0];
+  //  printf("\t[00] %04d\n", data[0]);
+  //}
+
   if(count > 1)
   {
-    for(int i=0; i< count; i++)
-    {
-      //#pragma HLS unroll
-      words[i] = data[i];
-      printf("\t[%02d] %04d\n", i, data[i]);
-    }
-    printf("\n");
+    send_internal(soMPIif, siMPIFeB, soMPI_data, (uint32_t*) data, count, datatype, destination, tag, communicator);
   } else {
+    uint32_t words[1];
     words[0] = data[0];
-    printf("\t[00] %04d\n", data[0]);
+    send_internal(soMPIif, siMPIFeB, soMPI_data, words, count, datatype, destination, tag, communicator);
   }
-
-  send_internal(soMPIif, siMPIFeB, soMPI_data, words, count, datatype, destination, tag, communicator);
 }
 
 
@@ -384,7 +391,14 @@ void MPI_Recv(
 {
 #pragma HLS inline
 
-  recv_internal(soMPIif, siMPIFeB, siMPI_data, words, count, datatype, source, tag, communicator, status);
+  if(count > 1)
+  {
+    recv_internal(soMPIif, siMPIFeB, siMPI_data, (uint32_t*) data, count, datatype, source, tag, communicator, status);
+  } else {
+    uint32_t words[1];
+    recv_internal(soMPIif, siMPIFeB, siMPI_data, words, count, datatype, source, tag, communicator, status);
+    data[0] = words[0];
+  }
 
   //for(int i=0; i<count; i++)
   //{
@@ -396,19 +410,19 @@ void MPI_Recv(
   //}
 
   printf("[MPI_Recv] output data:\n");
-  if(count > 1) {
-    for(int i=0; i<count; i++)
-    {
-      //#pragma HLS unroll
-      data[i]  = (int) words[i];
-      printf("\t[%02d] %04d\n", i, data[i]);
-      //TODO: if count-1 (last word), handle non complete words (here not necessary)
-    }
-    printf("\n");
-  } else {
-    data[0] = words[0];
-    printf("\t[00] %04d\n", data[0]);
-  }
+  //if(count > 1) {
+  //  for(int i=0; i<count; i++)
+  //  {
+  //    //#pragma HLS unroll
+  //    data[i]  = (int) words[i];
+  //    printf("\t[%02d] %04d\n", i, data[i]);
+  //    //TODO: if count-1 (last word), handle non complete words (here not necessary)
+  //  }
+  //  printf("\n");
+  //} else {
+  //  data[0] = words[0];
+  //  printf("\t[00] %04d\n", data[0]);
+  //}
 
 }
 
@@ -438,12 +452,11 @@ void mpi_wrapper(
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
   //  ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
-    ap_uint<512> boFdram[100],
-    int template_buffer_rWgTH_4[800000],
-    int32_t vectors_x[200000],
-    int32_t vectors_y[200000],
-    int32_t vectors_z[200000],
-    int labels[200000]
+    ap_uint<512> boFdram[BOFDRAM_LINE_RESERVATION],
+    /* buffer declarations that end up in memory are insereted below
+     * if they exist 
+     */
+    /* ZRLMPI_BUFFER_DECLS -- ADD buffer declaration here */
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -461,8 +474,7 @@ void mpi_wrapper(
 #pragma HLS DATA_PACK     variable=siMPI_data
 
 #pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct latency=52
-
-//#pragma HLS array_map variable=words instance=boFdram horizontal
+//#pragma HLS array_map variable=words instance=boFdram horizontal //TODO
 
 #pragma HLS reset variable=my_app_done
 #pragma HLS reset variable=sendCnt
@@ -525,8 +537,8 @@ void mpi_wrapper(
 
   if(my_app_done == 0)
   {
-    //app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, boFdram);
-    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data, vectors_x, vectors_y, vectors_z, template_buffer_rWgTH_4, labels);
+    /* the call of app_main with correct buffers will be inserted by the Transpiler below */
+    /* ZRLMPI_APP_MAIN_CALL -- ADD app_main_call here */
   }
 
   // at the end

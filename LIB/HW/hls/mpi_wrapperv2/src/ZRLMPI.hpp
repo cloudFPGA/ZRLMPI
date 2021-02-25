@@ -118,7 +118,7 @@ void MPI_Finalize();
 #define DRAM_BYTES_PER_LINE 64
 #define ZRLMPI_DRAM_SIZE_LINES 134217728 //8GB
 //#define ZRLMPI_DRAM_SIZE_LINES 100663296 //6GB
-
+#define BOFDRAM_LINE_RESERVATION 2
 
 void mpi_wrapper(
     // ----- FROM FMC -----
