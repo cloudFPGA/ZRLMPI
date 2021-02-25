@@ -17,6 +17,12 @@ HW_TARGET_C=$5/hls/mpi_wrapperv2/src/app_hw.cpp
 HW_TARGET_H=$5/hls/mpi_wrapperv2/src/app_hw.hpp
 HW_TARGET_TCL=$5/hls/mpi_wrapperv2/src/app_hw_directives.tcl
 
+ZRLMPI_TEMPLATE_C=$5/hls/mpi_wrapperv2/src/ZRLMPI_temp.cpp
+ZRLMPI_TARGET_C=$5/hls/mpi_wrapperv2/src/ZRLMPI.cpp
+
+ROLE_TEMPLATE_VHDL=$2/templates/Role_template.vhdl
+ROLE_TARGET_VHDL=$5/hdl/Role.vhdl
+
 SW_TARGET_C=$1/SW/app_sw.cpp
 SW_TARGET_H=$1/SW/app_sw.hpp
 
@@ -36,7 +42,7 @@ else
   #|| [[ $6 -nt $HW_TARGET_C ]] || [[ $6 -nt $HW_TARGET_H ]]; then
   #  # the json only influences the HW targets...
     echo "$OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $SW_TARGET_C $SW_TARGET_H $6"
-    $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $HW_TARGET_TCL $SW_TARGET_C $SW_TARGET_H $6 $7
+    $OWN_DIR/zrlmpi.cc1 $PY_ENV $3 $4 $HW_TARGET_C $HW_TARGET_H $HW_TARGET_TCL $SW_TARGET_C $SW_TARGET_H $6 $7 $ZRLMPI_TEMPLATE_C $ZRLMPI_TARGET_C $ROLE_TEMPLATE_VHDL $ROLE_ROLE_TARGET_VHDL
     ret=$?
  #else
  #  ret=0
