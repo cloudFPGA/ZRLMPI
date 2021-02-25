@@ -121,6 +121,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     tcl_directives_lines = []
     memory_array_decls = []
     buffer_array_names = []
+    buffer_array_sizes_bytes = []
     if replicator_nodes is not None:
         if replicator_nodes['msg'] == template_generator.__NO_OPTIMIZATION_MSG__:
             dont_optimize = True
@@ -140,6 +141,9 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
             if array_dcl is not None and tcl_list is not None and an is not None:
                 memory_array_decls.append(array_dcl)
                 buffer_array_names.append(an)
+                assert type(array_dcl.type.dim) is c_ast.Constant
+                new_size_bytes = int(array_dcl.type.dim.value) * __size_of_c_type__[array_dcl.type.dim.type]
+                buffer_array_sizes_bytes.append(new_size_bytes)
                 if not reuse_interim_buffers:
                     # only in this case the tcl list
                     tcl_directives_lines.extend(tcl_list)
@@ -158,6 +162,9 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
             if array_dcl is not None and tcl_list is not None and an is not None:
                 memory_array_decls.append(array_dcl)
                 buffer_array_names.append(an)
+                assert type(array_dcl.type.dim) is c_ast.Constant
+                new_size_bytes = int(array_dcl.type.dim.value) * __size_of_c_type__[array_dcl.type.dim.type]
+                buffer_array_sizes_bytes.append(new_size_bytes)
                 if not reuse_interim_buffers:
                     # only in this case the tcl list
                     tcl_directives_lines.extend(tcl_list)
@@ -185,8 +192,11 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
                 template_generator.optimized_reduce_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list, template_only)
             new_entry['new'] = pAST
             if array_dcl is not None and tcl_list is not None and an is not None:
-                memory_array_decls.append(array_dcl)
-                buffer_array_names.append(an)
+                memory_array_decls.extend(array_dcl) #here, extend
+                buffer_array_names.extend(an)
+                assert type(array_dcl.type.dim) is c_ast.Constant
+                new_size_bytes = int(array_dcl.type.dim.value) * __size_of_c_type__[array_dcl.type.dim.type]
+                buffer_array_sizes_bytes.append(new_size_bytes)
                 if not reuse_interim_buffers:
                     # only in this case the tcl list
                     tcl_directives_lines.extend(tcl_list)
@@ -346,6 +356,9 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         nop_stmts_for_decl_replacement.append(no)
         memory_array_decls.append(decl)
         buffer_array_names.append(an)
+        assert type(decl.type.dim) is c_ast.Constant
+        new_size_bytes = int(decl.type.dim.value) * __size_of_c_type__[decl.type.dim.type]
+        buffer_array_sizes_bytes.append(new_size_bytes)
         if ds is not None:
             find_affected_decl.append(ds)
     if len(find_affected_decl) > 0:
@@ -406,9 +419,10 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     print("Found max MPI buffer size: {} bytes.".format(max_dimension_bytes))
 
     # if max dimension above limit, inline words
-    if max_dimension_bytes > resource_checker.maximum_bram_buffer_size_bytes:
-        print("Buffer size is about threshold, internal MPI buffer will be mapped to DRAM.")
-        tcl_directives_lines.append(__words_inlining_directive__)
+    # TODO: necessary?
+    # if max_dimension_bytes > resource_checker.maximum_bram_buffer_size_bytes:
+    #     print("Buffer size is about threshold, internal MPI buffer will be mapped to DRAM.")
+    #     tcl_directives_lines.append(__words_inlining_directive__)
 
     # 12. generate C code again
     # 13. append original header lines and save in file
@@ -442,5 +456,5 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     # 14. check resource usages
     ignore_ret = resource_checker.check_resources(cFp_description, max_dimension_bytes)
 
-    return max_dimension_bytes, tcl_directives_lines, buffer_init, signature_line, buffer_array_names    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
+    return max_dimension_bytes, tcl_directives_lines, buffer_init, signature_line, buffer_array_names, buffer_array_sizes_bytes    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
 

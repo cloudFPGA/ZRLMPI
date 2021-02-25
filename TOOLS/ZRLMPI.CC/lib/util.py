@@ -65,7 +65,8 @@ def get_buffer_decl_lines(generated_c, length):
     i = 0
     for l in generated_c.splitlines():
         if i < length:
-           decl_lines.append("  "+l)
+           new_l = l[:-1]
+           decl_lines.append("  ,"+new_l)
         elif i == length:
             sig_line = l
             function.append(l)

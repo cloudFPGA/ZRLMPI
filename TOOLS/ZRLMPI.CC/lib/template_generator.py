@@ -1145,7 +1145,7 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
     if return_array_decl and not template_only:
         array_decl = [all_buffer_variable_decl, replicator_accum_buffer_decl]
         tcl_ret = tcl_list_return
-        array_name = all_buffer_variable_name
+        array_name = [all_buffer_variable_name, replicator_accum_buffer_name]
     return pAST, available_buffer_list, array_decl, tcl_ret, array_name
 
 

@@ -50,5 +50,6 @@ py_zrlmpi/
 cc_delme/
 app_hw_directives.tcl
 TOOLS/ZRLMPI.CC/ZRLMPI_out.cpp
+TOOLS/ZRLMPI.CC/Role_out.vhdl
 
 

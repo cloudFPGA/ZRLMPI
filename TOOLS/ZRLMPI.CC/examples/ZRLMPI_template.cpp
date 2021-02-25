@@ -437,11 +437,12 @@ void mpi_wrapper(
     stream<Axis<64> > *soMPI_data,
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
-    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
-    //ap_uint<512> boFdram[100],
-    //int32_t vectors_x[2000],
-    //int32_t vectors_y[2000],
-    //int32_t vectors_z[2000]
+    //ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
+    ap_uint<512> boFdram[5]
+/* buffer declarations that end up in memory are insereted below
+ * if they exist 
+ */
+/* ZRLMPI_BUFFER_DECLS -- ADD buffer declaration here */
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -474,10 +475,6 @@ void mpi_wrapper(
 #pragma HLS reset variable=memory_pattern_read
 #pragma HLS reset variable=memory_test_flag
 
-/* buffer declarations that end up in memory are insereted below
- * if they exist 
- */
-/* ZRLMPI_BUFFER_DECLS -- ADD buffer declaration here */
 
   //===========================================================
   // Wait for INIT

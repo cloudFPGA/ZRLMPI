@@ -106,6 +106,40 @@ def copy_and_update_ZRLMPI_wrapper(template_path, target_path, buffer_decls, buf
         target_file.write(generated_c)
 
 
+__vhdl_component_tmpl__ = "; {} : IN STD_LOGIC_VECTOR (63 downto 0)"
+__vhdl_port_map_tmpl__ = ', {}     => x"{}" '
+__vhdl_component_pattern__ = "ZRLMPI_COMPONENT_INSERT"
+__vhdl_port_map_pattern__ = "ZRLMPI_PORT_MAP_INSERT"
+__boFdram_default_size_lines__ = 2
+
+
+def copy_and_update_Role_vhdl(template_path, target_path, buffer_names, buffer_sizes):
+    generated_role = None
+    component_line = get_line_number_of_occurence(__vhdl_component_pattern__, template_path)
+    port_map_line = get_line_number_of_occurence(__vhdl_port_map_pattern__, template_path)
+    with open(template_path, 'r') as tfile:
+        generated_role = tfile.read().splitlines()
+    new_component_lines = []
+    for n in buffer_names:
+        new_component_lines.append(__vhdl_component_tmpl__.format(n))
+    if len(new_component_lines) > 0:
+        current_offset = __boFdram_default_size_lines__
+        new_comp_l = "\n".join(new_component_lines)
+        generated_role[component_line] = new_comp_l
+        assert len(buffer_sizes) == len(buffer_names)
+        new_port_map_lines = []
+        for i in range(0, len(buffer_names)):
+            offset = "{:016x}".format(current_offset)
+            new_port_map = __vhdl_port_map_tmpl__.format(buffer_names[i],offset)
+            current_offset += buffer_sizes[i]
+            new_port_map_lines.append(new_port_map)
+        new_port_l = "\n".join(new_port_map_lines)
+        generated_role[port_map_line] = new_port_l
+    generated_vhdl = "\n".join(generated_role)
+    with open(target_path, 'w+') as target_file:
+        target_file.write(generated_vhdl)
+
+
 def zrlmpi_cc_v0(inputSWOnly, inputHW, hw_out_file, sw_out_file):
     hw_out = inputHW
     sw_out = inputSWOnly
@@ -202,10 +236,10 @@ def add_header_line_after(pattern_escaped, line_to_add, filename_old, filename_n
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 12:
+    if len(sys.argv) != 14:
         print(
             "USAGE: {0} mpi_input.c mpi_input.h hw_output_file.c hw_output_file.h hw_directives_output.tcl sw_output_file.c " +
-            "sw_output_file.h cluster.json cFp.json ZRLMPI_template.cpp ZRLMPI_out_file.cpp".format(
+            "sw_output_file.h cluster.json cFp.json ZRLMPI_template.cpp ZRLMPI_out_file.cpp Role_template.vhdl Role_out_file.vhdl".format(
                 sys.argv[0]))
         exit(1)
 
@@ -220,6 +254,8 @@ if __name__ == '__main__':
     args_cfp_json = sys.argv[9]
     args_zrlmpicc_template = sys.argv[10]
     args_zrlmpicc_target = sys.argv[11]
+    args_role_vhdl_template = sys.argv[12]
+    args_role_vhdl_target = sys.argv[13]
 
     own_dir = os.path.dirname(os.path.realpath(__file__))
     tmp_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw1.c"
@@ -263,9 +299,9 @@ if __name__ == '__main__':
     # replicator nodes must be the same for all versions
     replicator_nodes = template_generator.calculate_replicator_nodes(cluster_description)
     main_ast = get_main_ast(parsed_file)
-    zrlmpi_max_buffer_size_bytes, tcl_lines, buffer_init_src, new_signature_line, buffer_names = ast_processing.process_ast(main_ast, cluster_description, cFp_description,
-                                                              tmp_hw_file_c, tmp3_hw_file_c
-                                                              , replicator_nodes=replicator_nodes)
+    zrlmpi_max_buffer_size_bytes, tcl_lines, buffer_init_src, new_signature_line, buffer_names, buffer_sizes_bytes = \
+        ast_processing.process_ast(main_ast, cluster_description, cFp_description, tmp_hw_file_c, tmp3_hw_file_c,
+                                   replicator_nodes=replicator_nodes)
 
     # now, process template for SW file
     main_ast = get_main_ast(parsed_file)
@@ -301,6 +337,10 @@ if __name__ == '__main__':
     with open(args_hw_directives_out, 'w+') as tcl_out_file:
         tcl_out_file.write(tcl_file)
 
+    # take care of ZRLMPI generation
     copy_and_update_ZRLMPI_wrapper(args_zrlmpicc_template, args_zrlmpicc_target, buffer_init_src, buffer_names)
+
+    # take care of Role vhdl
+    copy_and_update_Role_vhdl(args_role_vhdl_template, args_role_vhdl_target, buffer_names, buffer_sizes_bytes)
 
     print("\n...finished cross-compelation.\n")
