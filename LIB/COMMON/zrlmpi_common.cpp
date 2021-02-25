@@ -10,7 +10,7 @@ void MPI_SUM_INTEGER(int32_t *accum, int32_t *source, uint16_t length)
 #pragma HLS INLINE
   for(uint16_t i = 0; i < length; i++)
   {
-    accum[i] = accum[i] + source[i];
+    accum[i] += source[i];
   }
 }
 
@@ -20,7 +20,7 @@ void MPI_SUM_FLOAT(float *accum, float *source, uint16_t length)
 #pragma HLS INLINE
   for(uint16_t i = 0; i < length; i++)
   {
-    accum[i] = accum[i] + source[i];
+    accum[i] += source[i];
   }
 }
 
