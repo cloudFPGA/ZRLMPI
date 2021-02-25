@@ -37,6 +37,8 @@ def _own_poor_ast_hash(n):
 
 __c_implicit_type_pyramide__ = ['bool', 'char', 'short int', 'int' , 'unsigned int', 'long', 'unsigned',
                                 'long long', 'float', 'double', 'long double']
+__functions_not_to_fold__ = ['MPI_Comm_rank', 'MPI_Comm_size']
+__ids_not_to_replace__ = ['MPI_COMM_WORLD, MPI_INTEGER, MPI_FLOAT, MPI_SUM']
 
 
 def _get_c_highest_shared_type(t1, t2):
@@ -146,7 +148,7 @@ class MpiConstantFoldingVisitor(object):
 
     def visit_FuncCall(self, n):
         func_name = n.name.name
-        if func_name == 'sizeof' and len(n.args.exprs) == 1:
+        if func_name == 'sizeof' and len(n.args.exprs) == 1 and n.args.exprs[0].value != 'void':
             cmd = "ctypes.sizeof(ctypes.c_{})".format(n.args.exprs[0].value)
             result_value = eval(cmd)
             new_node = c_ast.Constant('int', str(result_value))
@@ -156,8 +158,33 @@ class MpiConstantFoldingVisitor(object):
             for e in lnh:
                 self.replaced_constant_cache[e] = new_node
         else:
-            for c in n:
-                self.visit(c)
+            need_replace = False
+            new_args = []
+            if n.args is not None and n.name.name not in __functions_not_to_fold__:
+                for a in n.args.exprs:
+                    found_local = False
+                    if type(a) is not c_ast.Constant:
+                        self.visit(a)
+                        ahl = self.get_list_of_visible_obj_hashs(a)
+                        ahl.reverse()
+                        if type(a) is c_ast.ID:
+                            if a.name not in __ids_not_to_replace__:
+                                for ah in ahl:
+                                    if ah in self.replaced_constant_cache:
+                                        constant = self.replaced_constant_cache[ah]
+                                        new_args.append(constant)
+                                        found_local = True
+                                        need_replace = True
+                                        # one is enough!
+                                        break
+                    if not found_local:
+                        new_args.append(a)
+                if need_replace:
+                    expr_list = c_ast.ExprList(new_args)
+                    new_node = c_ast.FuncCall(n.name, expr_list)
+                    new_entry = {'old': n, 'new': new_node}
+                    self.new_objects_list.append(new_entry)
+                    # no need to add it to constant cache...
         return
 
     def visit_Assignment(self, n):

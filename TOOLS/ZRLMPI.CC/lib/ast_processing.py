@@ -27,8 +27,9 @@ from lib.util import delete_marked_lines
 from lib.util import get_buffer_decl_lines
 
 __fallback_max_buffer_size__ = 1500  # we have to find one
-
 __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
+# __words_inlining_directive__ = "set_directive_array_map -instance boFdram -mode horizontal mpi_wrapper words"
+__words_inlining_directive__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -latency 52 -mode m_axi mpi_wrapper words"
 
 
 def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_parsing, target_file_name, template_only=False,
@@ -58,6 +59,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
                 if opt_val >= 3:
                     reuse_interim_buffers = True
                     print("enabled buffer reuse")
+    if template_only:
+        reuse_interim_buffers = False
     # print("Maximum rank in cluster: {}\n".format(max_rank))
     all_ranks = list(range(0, max_rank+1))
     fpga_ranks = cluster_description['nodes']['fpga']
@@ -92,8 +95,15 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     constant_folding_visitor1.visit(ast_m_1)
     constants_to_replace = constant_folding_visitor1.get_new_objects()
     replace_stmt_visitor1 = replace_visitor.MpiStatementReplaceVisitor(constants_to_replace)
-    ast_m_2 = ast_m_1
-    replace_stmt_visitor1.visit(ast_m_2)
+    ast_m_12 = ast_m_1
+    replace_stmt_visitor1.visit(ast_m_12)
+    # we are doing two rounds of constant folding
+    constant_folding_visitor12 = constant_visitor.MpiConstantFoldingVisitor()
+    constant_folding_visitor12.visit(ast_m_12)
+    constants_to_replace2 = constant_folding_visitor1.get_new_objects()
+    replace_stmt_visitor12 = replace_visitor.MpiStatementReplaceVisitor(constants_to_replace2)
+    ast_m_2 = ast_m_12
+    replace_stmt_visitor12.visit(ast_m_2)
     # 4. find rank names & find collective names
     find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor2.visit(ast_m_2)
@@ -108,6 +118,9 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     collectives_new_obj = []
     dont_optimize = True
     available_optimization_buffer_list = template_generator.create_available_buffer_structure()
+    tcl_directives_lines = []
+    memory_array_decls = []
+    buffer_array_names = []
     if replicator_nodes is not None:
         if replicator_nodes['msg'] == template_generator.__NO_OPTIMIZATION_MSG__:
             dont_optimize = True
@@ -121,8 +134,15 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         else:
             if not reuse_interim_buffers:
                 available_optimization_buffer_list = None
-            pAST, available_optimization_buffer_list = template_generator.optimized_scatter_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            pAST, available_optimization_buffer_list, array_dcl, tcl_list, an = \
+                template_generator.optimized_scatter_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list, template_only)
             new_entry['new'] = pAST
+            if array_dcl is not None and tcl_list is not None and an is not None:
+                memory_array_decls.append(array_dcl)
+                buffer_array_names.append(an)
+                if not reuse_interim_buffers:
+                    # only in this case the tcl list
+                    tcl_directives_lines.extend(tcl_list)
         collectives_new_obj.append(new_entry)
     for e in gather_calls_obj:
         new_entry = {}
@@ -132,8 +152,15 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         else:
             if not reuse_interim_buffers:
                 available_optimization_buffer_list = None
-            pAST, available_optimization_buffer_list = template_generator.optimized_gather_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            pAST, available_optimization_buffer_list, array_dcl, tcl_list, an = \
+                template_generator.optimized_gather_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list, template_only)
             new_entry['new'] = pAST
+            if array_dcl is not None and tcl_list is not None and an is not None:
+                memory_array_decls.append(array_dcl)
+                buffer_array_names.append(an)
+                if not reuse_interim_buffers:
+                    # only in this case the tcl list
+                    tcl_directives_lines.extend(tcl_list)
         collectives_new_obj.append(new_entry)
     for e in bcast_calls_obj:
         new_entry = {}
@@ -154,8 +181,15 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         else:
             if not reuse_interim_buffers:
                 available_optimization_buffer_list = None
-            pAST, available_optimization_buffer_list = template_generator.optimized_reduce_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list)
+            pAST, available_optimization_buffer_list,array_dcl, tcl_list, an = \
+                template_generator.optimized_reduce_replacement(e, replicator_nodes, c_ast.ID(rank_variable_names[0]), available_optimization_buffer_list, template_only)
             new_entry['new'] = pAST
+            if array_dcl is not None and tcl_list is not None and an is not None:
+                memory_array_decls.append(array_dcl)
+                buffer_array_names.append(an)
+                if not reuse_interim_buffers:
+                    # only in this case the tcl list
+                    tcl_directives_lines.extend(tcl_list)
         collectives_new_obj.append(new_entry)
     # replace send and recv if necessary
     if replace_send_recv:
@@ -171,6 +205,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
             new_entry['old'] = e
             new_entry['new'] = template_generator.recv_replacement(e)
             collectives_new_obj.append(new_entry)
+    if available_optimization_buffer_list is not None:
+        tcl_directives_lines.extend(available_optimization_buffer_list['tcls'])
     ast_m_3 = ast_m_2
     replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(collectives_new_obj)
     replace_stmt_visitor0.visit(ast_m_3)
@@ -298,11 +334,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     if len(malloc_assignments_obj) != len(malloc_func_calls):
         print("[WARNING] weired usage of malloc calls, this may brake the transpilation.\n")
     replace_old_malloc_objs = []
-    tcl_directives_lines = []
     find_affected_decl = []
     nop_stmts_for_decl_replacement = []
-    memory_array_decls = []
-    buffer_array_names = []
     for i in range(0, len(malloc_assignments_obj)):
         na, tc, ds, no, decl, an = template_generator.malloc_replacement(malloc_func_calls[i], malloc_assignments_obj[i])
         new_entry = {}
@@ -366,11 +399,16 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         list_of_dims.append(new_dim)
     max_dimension_bytes = 0
     if len(list_of_dims) == 0:
-        print("[WARNING] Did not found a maximum buffer size, this could lead to a failing HLS synthesis")
+        print("[WARNING] Did not found a maximum buffer size, this could lead to a failing HLS synthesis.")
         max_dimension_bytes = __fallback_max_buffer_size__
     else:
         max_dimension_bytes = max(list_of_dims)
-    print("Found max MPI buffer size: {} bytes".format(max_dimension_bytes))
+    print("Found max MPI buffer size: {} bytes.".format(max_dimension_bytes))
+
+    # if max dimension above limit, inline words
+    if max_dimension_bytes > resource_checker.maximum_bram_buffer_size_bytes:
+        print("Buffer size is about threshold, internal MPI buffer will be mapped to DRAM.")
+        tcl_directives_lines.append(__words_inlining_directive__)
 
     # 12. generate C code again
     # 13. append original header lines and save in file

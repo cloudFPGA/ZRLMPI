@@ -14,6 +14,8 @@ __cF_resources__ = {'FMKU60': {'name': 'FMKU60', 'Themisto': {}}}
 __cF_resources__['FMKU60']['Themisto']['name'] = "Role_Themisto"
 __cF_resources__['FMKU60']['Themisto']['BRAM_kB'] = 743  # TODO: import from somewhere?
 
+maximum_bram_buffer_size_bytes = 131072
+
 
 def check_resources(cFp, buffer_size):
     """

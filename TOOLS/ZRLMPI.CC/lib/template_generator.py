@@ -15,6 +15,7 @@ import random
 import string
 from lib.util import delete_line_pattern
 from lib.util import clib_funcs_to_mark_for_delete
+from lib.resource_checker import maximum_bram_buffer_size_bytes
 
 __scatter_tag__ = c_ast.Constant("int", "0")  # or smth else?
 __gather_tag__ = c_ast.Constant("int", "0")  # or smth else?
@@ -27,12 +28,19 @@ __new_start_variable_name__ = "new_start"
 __new_count_variable_name__ = "new_count"
 __random_name_suffix_length__ = 5
 
+# __array_map_directive_string__ = "set_directive_array_map -instance boFdram -mode horizontal {} {}"
+__array_map_directive_string__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -latency 52 -mode m_axi {} {}"
+# __default_directive_location__ = "app_main"
+__default_directive_location__ = "mpi_wrapper"
+
 # __max_packet_length__ = "(1024/sizeof({})"
 # __max_packet_length__ = 256
 # __max_packet_length__ = 352
 __max_packet_length__ = 346  # to apply with VXLAN in ZYC2
 
 __NO_OPTIMIZATION_MSG__ = "NO-Optimization-Possible"
+
+__mpi_op_defines__ = {'0': 'MPI_SUM'}
 
 
 def get_type_string_from_int(datatype_int):
@@ -394,11 +402,11 @@ def disassemble_chunk_sizes(n):
 
 
 def create_available_buffer_structure():
-    ret = {'list': [], 'decls': [], 'ids': []}
+    ret = {'list': [], 'decls': [], 'ids': [], 'tcls': []}
     return ret
 
 
-def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, available_buffer_list):
+def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, available_buffer_list, template_only):
     """
 
     :param available_buffer_list: available internal optimization buffers
@@ -410,6 +418,9 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
     orig_datatype = scatter_call.args.exprs[2]
     datatype_string = get_type_string_from_int(int(orig_datatype.value))
     orig_chunk_size = scatter_call.args.exprs[1]
+    real_chunk_size, err = _extract_int_size_of_malloc(orig_chunk_size)
+    if err is None:
+        orig_chunk_size = c_ast.Constant('int', str(real_chunk_size))
     orig_src_buffer = scatter_call.args.exprs[0]
     orig_root_rank = scatter_call.args.exprs[6]
     orig_communicator = scatter_call.args.exprs[7]
@@ -418,7 +429,12 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
     # then: root, else: for replicator nodes,
     # for first replicator node, create buffer
     # 1. global inits
+    return_array_decl = False
+    tcl_list_return = []
     all_inter_buffer_size = c_ast.BinaryOp('*', c_ast.Constant('int', str(replicator_nodes["group_size"])), orig_chunk_size)
+    real_all_inter_buffer_size, err = _extract_int_size_of_malloc(all_inter_buffer_size)
+    if err is None:
+        all_inter_buffer_size = c_ast.Constant('int', str(real_all_inter_buffer_size))
     all_inter_buffer_signature = disassemble_chunk_sizes(all_inter_buffer_size)
     found_buffer = False
     all_buffer_variable_id = None
@@ -445,10 +461,22 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
                                  init=None,
                                  bitsize=None)
         all_buffer_variable_id = c_ast.ID(all_buffer_variable_name)
+        buffer_real_size, err = _extract_int_size_of_malloc(all_inter_buffer_size)
+        tcl_directive = __array_map_directive_string__.format(__default_directive_location__, all_buffer_variable_name)
         if available_buffer_list is not None:
             available_buffer_list['list'].append(all_inter_buffer_signature)
             available_buffer_list['decls'].append(all_buffer_variable_decl)
             available_buffer_list['ids'].append(all_buffer_variable_id)
+            # if err is none, there might be some variable in thre
+            if err is None and buffer_real_size > maximum_bram_buffer_size_bytes:
+                available_buffer_list['tcls'].append(tcl_directive)
+                return_array_decl = True
+                print("[INFO] tree operation buffer is to large, will be mapped to DRAM.")
+        else:
+            if err is None and buffer_real_size > maximum_bram_buffer_size_bytes:
+                return_array_decl = True
+                tcl_list_return.append(tcl_directive)
+                print("[INFO] tree operation buffer is to large, will be mapped to DRAM.")
     # 2. take care of replicator nodes
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
@@ -569,18 +597,25 @@ def optimized_scatter_replacement(scatter_call, replicator_nodes, rank_obj, avai
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    if not found_buffer:
-        #TODO: put this on global level?
+    if template_only or (not found_buffer and not return_array_decl):
+        # TODO: put this on global level?
         past_stmts = []
         past_stmts.append(all_buffer_variable_decl)
         past_stmts.append(if_else_tree)
         pAST = c_ast.Compound(past_stmts)
     else:
         pAST = if_else_tree
-    return pAST, available_buffer_list
+    array_decl = None
+    tcl_ret = None
+    array_name = None
+    if return_array_decl and not template_only:
+        array_decl = all_buffer_variable_decl
+        tcl_ret = tcl_list_return
+        array_name = all_buffer_variable_name
+    return pAST, available_buffer_list, array_decl, tcl_ret, array_name
 
 
-def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, available_buffer_list):
+def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, available_buffer_list, template_only):
     """
 
     :param gather_call: original method call
@@ -591,6 +626,9 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
     orig_datatype = gather_call.args.exprs[2]
     datatype_string = get_type_string_from_int(int(orig_datatype.value))
     orig_chunk_size = gather_call.args.exprs[1]
+    real_chunk_size, err = _extract_int_size_of_malloc(orig_chunk_size)
+    if err is None:
+        orig_chunk_size = c_ast.Constant('int', str(real_chunk_size))
     orig_src_buffer = gather_call.args.exprs[0]
     orig_root_rank = gather_call.args.exprs[6]
     orig_communicator = gather_call.args.exprs[7]
@@ -599,7 +637,12 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
     # then: root, else: for replicator nodes,
     # for first replicator node, create buffer
     # 1. global inits
+    return_array_decl = False
+    tcl_list_return = []
     all_inter_buffer_size = c_ast.BinaryOp('*', c_ast.Constant('int', str(replicator_nodes["group_size"])), orig_chunk_size)
+    real_all_inter_buffer_size, err = _extract_int_size_of_malloc(all_inter_buffer_size)
+    if err is None:
+        all_inter_buffer_size = c_ast.Constant('int', str(real_all_inter_buffer_size))
     all_inter_buffer_signature = disassemble_chunk_sizes(all_inter_buffer_size)
     found_buffer = False
     all_buffer_variable_id = None
@@ -626,10 +669,22 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
                                               init=None,
                                               bitsize=None)
         all_buffer_variable_id = c_ast.ID(all_buffer_variable_name)
+        buffer_real_size, err = _extract_int_size_of_malloc(all_inter_buffer_size)
+        tcl_directive = __array_map_directive_string__.format(__default_directive_location__, all_buffer_variable_name)
         if available_buffer_list is not None:
             available_buffer_list['list'].append(all_inter_buffer_signature)
             available_buffer_list['decls'].append(all_buffer_variable_decl)
             available_buffer_list['ids'].append(all_buffer_variable_id)
+            # if err is none, there might be some variable in thre
+            if err is None and buffer_real_size > maximum_bram_buffer_size_bytes:
+                available_buffer_list['tcls'].append(tcl_directive)
+                return_array_decl = True
+                print("[INFO] tree operation buffer is to large, will be mapped to DRAM.")
+        else:
+            if err is None and buffer_real_size > maximum_bram_buffer_size_bytes:
+                return_array_decl = True
+                tcl_list_return.append(tcl_directive)
+                print("[INFO] tree operation buffer is to large, will be mapped to DRAM.")
     # 2. take care of replicator nodes
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
@@ -747,14 +802,21 @@ def optimized_gather_replacement(gather_call, replicator_nodes, rank_obj, availa
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, orig_root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    if not found_buffer:
+    if template_only or (not found_buffer and not return_array_decl):
         past_stmts = []
         past_stmts.append(all_buffer_variable_decl)
         past_stmts.append(if_else_tree)
         pAST = c_ast.Compound(past_stmts)
     else:
         pAST = if_else_tree
-    return pAST, available_buffer_list
+    array_decl = None
+    tcl_ret = None
+    array_name = None
+    if return_array_decl and not template_only:
+        array_decl = all_buffer_variable_decl
+        tcl_ret = tcl_list_return
+        array_name = all_buffer_variable_name
+    return pAST, available_buffer_list, array_decl, tcl_ret, array_name
 
 
 def optimized_bcast_replacement(bcast_call, replicator_nodes, rank_obj, available_buffer_list):
@@ -868,7 +930,7 @@ def optimized_bcast_replacement(bcast_call, replicator_nodes, rank_obj, availabl
     return pAST, available_buffer_list
 
 
-def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, available_buffer_list):
+def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, available_buffer_list, template_only):
     """
 
     :param reduce_call: original method call
@@ -878,8 +940,17 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
     """
     reduce_datatype = reduce_call.args.exprs[3]
     datatype_string = get_type_string_from_int(int(reduce_datatype.value))
-    reduce_func = get_reduce_function_from_name_and_type(reduce_call.args.exprs[4].name, int(reduce_datatype.value))
+    reduce_func_arg = reduce_call.args.exprs[4]
+    reduce_func_name = None
+    if type(reduce_func_arg) is c_ast.Constant:
+        reduce_func_name = __mpi_op_defines__[reduce_func_arg.value]
+    else:
+        reduce_func_name = reduce_func_arg.name
+    reduce_func = get_reduce_function_from_name_and_type(reduce_func_name, int(reduce_datatype.value))
     orig_chunk_size = reduce_call.args.exprs[2]
+    real_chunk_size, err = _extract_int_size_of_malloc(orig_chunk_size)
+    if err is None:
+        orig_chunk_size = c_ast.Constant('int', str(real_chunk_size))
     root_rank = reduce_call.args.exprs[5]
     orig_communicator = reduce_call.args.exprs[6]
     target_buffer = reduce_call.args.exprs[1]
@@ -888,7 +959,12 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
     # then: root, else: for replicator nodes,
     # for first replicator node, create buffer
     # 1. global inits
+    return_array_decl = False
+    tcl_list_return = []
     accum_inter_buffer_size = orig_chunk_size
+    real_all_inter_buffer_size, err = _extract_int_size_of_malloc(accum_inter_buffer_size)
+    if err is None:
+        accum_inter_buffer_size = c_ast.Constant('int', str(real_all_inter_buffer_size))
     all_inter_buffer_signature = disassemble_chunk_sizes(accum_inter_buffer_size)
     found_buffer = False
     all_buffer_variable_id = None
@@ -915,10 +991,22 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
                                               init=None,
                                               bitsize=None)
         all_buffer_variable_id = c_ast.ID(all_buffer_variable_name)
+        buffer_real_size, err = _extract_int_size_of_malloc(accum_inter_buffer_size)
+        tcl_directive = __array_map_directive_string__.format(__default_directive_location__, all_buffer_variable_name)
         if available_buffer_list is not None:
             available_buffer_list['list'].append(all_inter_buffer_signature)
             available_buffer_list['decls'].append(all_buffer_variable_decl)
             available_buffer_list['ids'].append(all_buffer_variable_id)
+            # if err is none, there might be some variable in thre
+            if err is None and buffer_real_size > maximum_bram_buffer_size_bytes:
+                available_buffer_list['tcls'].append(tcl_directive)
+                return_array_decl = True
+                print("[INFO] tree operation buffer is to large, will be mapped to DRAM.")
+        else:
+            if err is None and buffer_real_size > maximum_bram_buffer_size_bytes:
+                return_array_decl = True
+                tcl_list_return.append(tcl_directive)
+                print("[INFO] tree operation buffer is to large, will be mapped to DRAM.")
     # 2. take care of replicator nodes
     # we need a new buffer as temporary accumulator
     replicator_accum_buffer_name = "{}_{}_82".format(__buffer_variable__name__, get_random_name_extension())
@@ -931,6 +1019,7 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
                                               init=None,
                                               bitsize=None)
     replicator_accum_buffer_id = c_ast.ID(replicator_accum_buffer_name)
+    tcl_directive = __array_map_directive_string__.format(__default_directive_location__, replicator_accum_buffer_name)
     intermediate_parts = {}
     intermediate_part_cnts = replicator_nodes['cnt']
     rns = replicator_nodes["replicators"]
@@ -1043,14 +1132,21 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
     # 4. create pAst
     condition = c_ast.BinaryOp("==", rank_obj, root_rank)
     if_else_tree = c_ast.If(condition, root_part, intermediate_parts[last_processed_rn])
-    if not found_buffer:
+    if template_only or (not found_buffer and not return_array_decl):
         past_stmts = []
         past_stmts.append(all_buffer_variable_decl)
         past_stmts.append(if_else_tree)
         pAST = c_ast.Compound(past_stmts)
     else:
         pAST = if_else_tree
-    return pAST, available_buffer_list
+    array_decl = None
+    tcl_ret = None
+    array_name = None
+    if return_array_decl and not template_only:
+        array_decl = [all_buffer_variable_decl, replicator_accum_buffer_decl]
+        tcl_ret = tcl_list_return
+        array_name = all_buffer_variable_name
+    return pAST, available_buffer_list, array_decl, tcl_ret, array_name
 
 
 def send_replacemet(send_call):
@@ -1205,18 +1301,23 @@ def replace_clib_libraries(clib_call):
 
 def _extract_int_size_of_malloc(malloc_args):
     if type(malloc_args) == c_ast.Constant:
-        return int(malloc_args.value)
+        return int(malloc_args.value), None
     if type(malloc_args) == c_ast.BinaryOp:
-        right_value = _extract_int_size_of_malloc(malloc_args.right)
-        left_value = _extract_int_size_of_malloc(malloc_args.left)
+        right_value, err1 = _extract_int_size_of_malloc(malloc_args.right)
+        left_value, err2 = _extract_int_size_of_malloc(malloc_args.left)
         cmd = "{} {} {}".format(left_value, malloc_args.op, right_value)
         result_value = eval(cmd)
-        return result_value
+        err = None
+        if err1 is not None:
+            err = err1
+        elif err2 is not None:
+            err = err2
+        return result_value, err
     elif type(malloc_args) == c_ast.UnaryOp and malloc_args.op == 'sizeof':
-        return 1  # for array calculation, sizeof is always 1, no matter if * or +
+        return 1, None  # for array calculation, sizeof is always 1, no matter if * or +
     else:
         print("[WARNING] unable to determine right malloc array size")
-        return 1
+        return 1, "ERROR"
 
 
 def get_nop_decl():
@@ -1227,14 +1328,10 @@ def get_nop_decl():
     return nop_op
 
 
-__array_map_directive_string__ = "set_directive_array_map -instance boFdram -mode horizontal {} {}"
-__default_directive_location__ = "app_main"
-
-
 def malloc_replacement(malloc_call, malloc_stmt):
     # TODO: read current func_name from object
     # the placement is maybe not always 'app_main'
-    array_size_value = _extract_int_size_of_malloc(malloc_call.args.exprs[0])
+    array_size_value, err = _extract_int_size_of_malloc(malloc_call.args.exprs[0])
     array_size = c_ast.Constant(type='int', value=str(array_size_value))
     assert type(malloc_stmt) == c_ast.Assignment
     assert type(malloc_stmt.lvalue) == c_ast.ID or type(malloc_stmt.lvalue) == c_ast.Decl
