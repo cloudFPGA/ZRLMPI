@@ -57,3 +57,21 @@ def delete_marked_lines(lines):
     ret = "\n".join(filtered)
     return ret
 
+
+def get_buffer_decl_lines(generated_c, length):
+    decl_lines = []
+    function = []
+    sig_line = None
+    i = 0
+    for l in generated_c.splitlines():
+        if i < length:
+           decl_lines.append("  "+l)
+        elif i == length:
+            sig_line = l
+            function.append(l)
+        else:
+            function.append(l)
+        i += 1
+    ff = "\n".join(function)
+    ll = "\n".join(decl_lines)
+    return ff, ll, sig_line

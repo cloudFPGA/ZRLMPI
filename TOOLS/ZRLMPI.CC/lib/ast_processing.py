@@ -24,6 +24,7 @@ import lib.template_generator as template_generator
 import lib.resource_checker as resource_checker
 from lib.util import get_line_number_of_occurence
 from lib.util import delete_marked_lines
+from lib.util import get_buffer_decl_lines
 
 __fallback_max_buffer_size__ = 1500  # we have to find one
 
@@ -301,8 +302,9 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     find_affected_decl = []
     nop_stmts_for_decl_replacement = []
     memory_array_decls = []
+    buffer_array_names = []
     for i in range(0, len(malloc_assignments_obj)):
-        na, tc, ds, no, decl = template_generator.malloc_replacement(malloc_func_calls[i], malloc_assignments_obj[i])
+        na, tc, ds, no, decl, an = template_generator.malloc_replacement(malloc_func_calls[i], malloc_assignments_obj[i])
         new_entry = {}
         new_entry['old'] = malloc_assignments_obj[i]
         new_entry['new'] = na
@@ -310,6 +312,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         tcl_directives_lines.append(tc)
         nop_stmts_for_decl_replacement.append(no)
         memory_array_decls.append(decl)
+        buffer_array_names.append(an)
         if ds is not None:
             find_affected_decl.append(ds)
     if len(find_affected_decl) > 0:
@@ -371,11 +374,16 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
 
     # 12. generate C code again
     # 13. append original header lines and save in file
+    # generate buffer declarations
+    num_of_decls = len(memory_array_decls)
+    new_ast_3 = c_ast.FileAST(memory_array_decls)
+    new_ast_3.ext.append(new_ast_2)
     generator = c_generator.CGenerator()
-    generated_c = str(generator.visit(new_ast_2))
+    generated_c = str(generator.visit(new_ast_3))
 
+    function_c, buffer_init, signature_line = get_buffer_decl_lines(generated_c, num_of_decls)
     # delete marked lines
-    filtered_c = delete_marked_lines(generated_c)
+    filtered_c = delete_marked_lines(function_c)
 
     line_number = get_line_number_of_occurence('int.*main\(', hw_file_pre_parsing)
     head = ""
@@ -396,5 +404,5 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     # 14. check resource usages
     ignore_ret = resource_checker.check_resources(cFp_description, max_dimension_bytes)
 
-    return max_dimension_bytes, tcl_directives_lines    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
+    return max_dimension_bytes, tcl_directives_lines, buffer_init, signature_line, buffer_array_names    # ZRLMPI_MAX_DETECTED_BUFFER_SIZE_bytes
 

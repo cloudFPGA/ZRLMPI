@@ -1255,6 +1255,6 @@ def malloc_replacement(malloc_call, malloc_stmt):
         decl_to_search = None
     nop_op = get_nop_decl()
     pAST = nop_op
-    return pAST, tcl_directives, decl_to_search, nop_op, array_decl
+    return pAST, tcl_directives, decl_to_search, nop_op, array_decl, array_name
 
 

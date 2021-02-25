@@ -58,6 +58,7 @@ __replace_sw_BEFORE_CC__.append('#define _ZRLMPI_APP_INCLUDED_\n#include "ZRLMPI
 #                       '    // ----- DRAM -----\n' +
 #                       '    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]\n' +
 #                       '    )')
+__match_regex_hw_main_position__ = 0
 __match_regex__.append('int\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv')
 __replace_hw__.append('void app_main(\n    // ----- MPI_Interface -----\n' +
                       '    stream<MPI_Interface> *soMPIif,\n' +
@@ -81,6 +82,28 @@ __replace_sw__.append(__SKIP_STRING__)
 __match_regex__.append('MPI_Recv\\(')
 __replace_hw__.append('MPI_Recv(soMPIif, siMPIFeB, siMPI_data, ')
 __replace_sw__.append(__SKIP_STRING__)
+
+__wrapper_pattern_buffer__ = 'ZRLMPI_BUFFER_DECLS'
+__wrapper_pattern_call__ = 'ZRLMPI_APP_MAIN_CALL'
+__app_main_call_start__ = '    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data'
+
+
+def copy_and_update_ZRLMPI_wrapper(template_path, target_path, buffer_decls, buffer_names):
+    generated_wrapper = None
+    buffer_line = get_line_number_of_occurence(__wrapper_pattern_buffer__, template_path)
+    call_line = get_line_number_of_occurence(__wrapper_pattern_call__, template_path)
+    with open(template_path, 'r') as tfile:
+        generated_wrapper = tfile.read().splitlines()
+    generated_wrapper[buffer_line] = buffer_decls
+    new_call_line = __app_main_call_start__
+    for n in buffer_names:
+        new_call_line += ', ' + n
+    new_call_line += ');'
+    generated_wrapper[call_line] = new_call_line
+    generated_c = "\n".join(generated_wrapper)
+    generated_c += "\n"
+    with open(target_path, 'w+') as target_file:
+        target_file.write(generated_c)
 
 
 def zrlmpi_cc_v0(inputSWOnly, inputHW, hw_out_file, sw_out_file):
@@ -179,9 +202,10 @@ def add_header_line_after(pattern_escaped, line_to_add, filename_old, filename_n
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 10:
+    if len(sys.argv) != 12:
         print(
-            "USAGE: {0} mpi_input.c mpi_input.h hw_output_file.c hw_output_file.h hw_directives_output.tcl sw_output_file.c sw_output_file.h cluster.json cFp.json".format(
+            "USAGE: {0} mpi_input.c mpi_input.h hw_output_file.c hw_output_file.h hw_directives_output.tcl sw_output_file.c " +
+            "sw_output_file.h cluster.json cFp.json ZRLMPI_template.cpp ZRLMPI_out_file.cpp".format(
                 sys.argv[0]))
         exit(1)
 
@@ -194,6 +218,8 @@ if __name__ == '__main__':
     args_sw_outfile_h = sys.argv[7]
     args_cluster_json = sys.argv[8]
     args_cfp_json = sys.argv[9]
+    args_zrlmpicc_template = sys.argv[10]
+    args_zrlmpicc_target = sys.argv[11]
 
     own_dir = os.path.dirname(os.path.realpath(__file__))
     tmp_hw_file_c = own_dir + __TMP_DIR__ + "/tmp_hw1.c"
@@ -237,7 +263,7 @@ if __name__ == '__main__':
     # replicator nodes must be the same for all versions
     replicator_nodes = template_generator.calculate_replicator_nodes(cluster_description)
     main_ast = get_main_ast(parsed_file)
-    zrlmpi_max_buffer_size_bytes, tcl_lines = ast_processing.process_ast(main_ast, cluster_description, cFp_description,
+    zrlmpi_max_buffer_size_bytes, tcl_lines, buffer_init_src, new_signature_line, buffer_names = ast_processing.process_ast(main_ast, cluster_description, cFp_description,
                                                               tmp_hw_file_c, tmp3_hw_file_c
                                                               , replicator_nodes=replicator_nodes)
 
@@ -262,6 +288,8 @@ if __name__ == '__main__':
             open(tmp3_hw_file_c) as hw_in_file, open(tmp3_sw_file_c) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
     # h
+    new_signature_line += ';'
+    __replace_hw__[__match_regex_hw_main_position__] = new_signature_line
     with open(args_hw_outfile_h, 'w+') as hw_out_file, open(args_sw_outfile_h, 'w+') as sw_out_file, \
             open(tmp2_hw_file_h) as hw_in_file, open(tmp_sw_file_h) as sw_in_file:
         zrlmpi_cc_v0(sw_in_file.read(), hw_in_file.read(), hw_out_file, sw_out_file)
@@ -272,5 +300,7 @@ if __name__ == '__main__':
     tcl_file = generate_tcl_directive(tcl_lines)
     with open(args_hw_directives_out, 'w+') as tcl_out_file:
         tcl_out_file.write(tcl_file)
+
+    copy_and_update_ZRLMPI_wrapper(args_zrlmpicc_template, args_zrlmpicc_target, buffer_init_src, buffer_names)
 
     print("\n...finished cross-compelation.\n")
