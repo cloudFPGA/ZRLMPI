@@ -123,7 +123,7 @@ def copy_and_update_Role_vhdl(template_path, target_path, buffer_names, buffer_s
     for n in buffer_names:
         new_component_lines.append(__vhdl_component_tmpl__.format(n))
     if len(new_component_lines) > 0:
-        current_offset = __boFdram_default_size_lines__
+        current_offset = __boFdram_default_size_lines__ * 64  # bytes per line
         new_comp_l = "\n".join(new_component_lines)
         generated_role[component_line] = new_comp_l
         assert len(buffer_sizes) == len(buffer_names)
