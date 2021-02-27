@@ -257,7 +257,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         generator2 = c_generator.CGenerator()
         generated_c = str(generator2.visit(c_ast_tmpl_c))
 
-        line_number = get_line_number_of_occurence('int.*main\(', hw_file_pre_parsing)
+        # line_number = get_line_number_of_occurence('int.*main\(', hw_file_pre_parsing)
+        line_number = get_line_number_of_occurence('int.*main\(/ || /void.*main\(', hw_file_pre_parsing)
         head = ""
         with open(hw_file_pre_parsing, 'r') as in_file:
             head = [next(in_file) for x in range(line_number - 1)]
