@@ -59,14 +59,15 @@ __replace_sw_BEFORE_CC__.append('#define _ZRLMPI_APP_INCLUDED_\n#include "ZRLMPI
 #                       '    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]\n' +
 #                       '    )')
 __match_regex_hw_main_position__ = 0
-__match_regex__.append('void\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv')
-__replace_hw__.append('void app_main(\n    // ----- MPI_Interface -----\n' +
+# __match_regex__.append('void\\s*main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv')
+__match_regex__.append('main\\(\\s*int\\ argc\\,\\s*char\\ \\*\\*argv')
+__replace_hw__.append('app_main(\n    // ----- MPI_Interface -----\n' +
                       '    stream<MPI_Interface> *soMPIif,\n' +
                       '    stream<MPI_Feedback> *siMPIFeB,\n' +
                       '    stream<Axis<64> > *soMPI_data,\n' +
                       '    stream<Axis<64> > *siMPI_data\n' +
                       '    // ----- DRAM -----\n')
-__replace_sw__.append('void app_main(int argc, char **argv')
+__replace_sw__.append('app_main(int argc, char **argv')
 
 # MPI Init
 __match_regex__.append('MPI_Init\\(\s*\\&argc\\,\s*\\&argv\s*\\)')
