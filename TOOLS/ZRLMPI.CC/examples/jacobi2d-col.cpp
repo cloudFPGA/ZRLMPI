@@ -33,7 +33,7 @@ void print_array(const int *A, size_t width, size_t height)
 }
 #endif
 
-int main( int argc, char **argv )
+void main( int argc, char **argv )
 {
   int        rank, size;
   MPI_Status status;
@@ -224,7 +224,6 @@ int main( int argc, char **argv )
   }
   MPI_Finalize();
 
-  return 0;
 }
 
 

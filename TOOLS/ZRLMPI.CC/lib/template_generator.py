@@ -1322,7 +1322,7 @@ def _extract_int_size_of_malloc(malloc_args):
     elif type(malloc_args) == c_ast.UnaryOp and malloc_args.op == 'sizeof':
         return 1, None  # for array calculation, sizeof is always 1, no matter if * or +
     else:
-        print("[WARNING] unable to determine right malloc array size")
+        # print("[WARNING] unable to determine right malloc array size")
         return 1, "ERROR"
 
 

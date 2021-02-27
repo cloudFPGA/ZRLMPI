@@ -53,6 +53,6 @@
 #define ITERATIONS 2
 
 
-int main( int argc, char **argv );
+void main( int argc, char **argv );
 
 #endif
