@@ -452,11 +452,11 @@ void mpi_wrapper(
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
   //  ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
-    ap_uint<512> boFdram[BOFDRAM_LINE_RESERVATION],
+    ap_uint<512> boFdram[BOFDRAM_LINE_RESERVATION]
     /* buffer declarations that end up in memory are insereted below
-     * if they exist 
-     */
-    /* ZRLMPI_BUFFER_DECLS -- ADD buffer declaration here */
+     * if they exist */
+    //ZRLMPI_BUFFER_DECLS
+    // (empty line for the template)
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -539,6 +539,7 @@ void mpi_wrapper(
   {
     /* the call of app_main with correct buffers will be inserted by the Transpiler below */
     /* ZRLMPI_APP_MAIN_CALL -- ADD app_main_call here */
+    // (empty line for the template)
   }
 
   // at the end
