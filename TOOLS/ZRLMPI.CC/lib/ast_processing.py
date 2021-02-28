@@ -385,13 +385,21 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
             replace_old_malloc_objs.append(new_entry)
     replace_fpga_calls_obj.extend(replace_old_malloc_objs)
     replace_stmt_visitor5 = replace_visitor.MpiStatementReplaceVisitor(replace_fpga_calls_obj)
-    new_ast_2 = new_ast
-    replace_stmt_visitor5.visit(new_ast_2)
+    new_ast_21 = new_ast
+    replace_stmt_visitor5.visit(new_ast_21)
     # adapt decl list
-    if new_ast_2.decl.type.args.params is not None:
-        new_ast_2.decl.type.args.params.extend(memory_array_decls)
+    if new_ast_21.decl.type.args.params is not None:
+        new_ast_21.decl.type.args.params.extend(memory_array_decls)
     else:
-        new_ast_2.decl.type.args.params = memory_array_decls
+        new_ast_21.decl.type.args.params = memory_array_decls
+
+    # 10b: modify MPI calls with dram
+    find_name_visitor6 = name_visitor.MpiSignatureNameSearcher(seach_for_dram=buffer_array_names)
+    find_name_visitor6.visit(new_ast_21)
+    mpi_calls_to_replace = find_name_visitor6.get_found_dram_calls()
+    replace_stmt_visitor6 = replace_visitor.MpiStatementReplaceVisitor(mpi_calls_to_replace)
+    new_ast_2 = new_ast_21
+    replace_stmt_visitor6.visit(new_ast_2)
 
     # TODO: detect unused variables?
     # 11. determine buffer size (and return them) AFTER the AST has been modified

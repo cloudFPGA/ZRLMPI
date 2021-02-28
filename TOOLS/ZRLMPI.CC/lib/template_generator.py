@@ -29,14 +29,16 @@ __new_count_variable_name__ = "new_count"
 __random_name_suffix_length__ = 5
 
 # __array_map_directive_string__ = "set_directive_array_map -instance boFdram -mode horizontal {} {}"
-__array_map_directive_string__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -latency 52 -mode m_axi {} {}"
+# __array_map_directive_string__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -latency 52 -mode m_axi {} {}"
+__array_map_directive_string__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -mode m_axi -latency 52 -num_write_outstanding 16 -num_read_outstanding 16 -max_write_burst_length 256 -max_read_burst_length 256 {} {}"
 # __default_directive_location__ = "app_main"
 __default_directive_location__ = "mpi_wrapper"
 
 # __max_packet_length__ = "(1024/sizeof({})"
 # __max_packet_length__ = 256
 # __max_packet_length__ = 352
-__max_packet_length__ = 346  # to apply with VXLAN in ZYC2
+# __max_packet_length__ = 346  # to apply with VXLAN in ZYC2
+__max_packet_length__ = 65536  # for counters in FPGA, and to reduce cost of packet loss
 
 __NO_OPTIMIZATION_MSG__ = "NO-Optimization-Possible"
 
