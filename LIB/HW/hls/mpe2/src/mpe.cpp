@@ -588,8 +588,8 @@ void pMpeGlobal(
   static NrcPort current_data_dst_port = 0x0;
   static bool expect_more_data = false;
 
-  static uint16_t exp_recv_count_enqueue = 0;
-  static uint16_t enqueue_recv_total_cnt = 0;
+  static uint32_t exp_recv_count_enqueue = 0;
+  static uint32_t enqueue_recv_total_cnt = 0;
 
   static bool receive_right_data_started = false;
 
