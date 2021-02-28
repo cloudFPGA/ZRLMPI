@@ -33,7 +33,7 @@ __words_inlining_directive__ = "set_directive_interface -bundle boAPP_DRAM -offs
 
 
 def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_parsing, target_file_name, template_only=False,
-                replace_send_recv=True, optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False):
+                replace_send_recv=False, optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
