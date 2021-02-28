@@ -88,7 +88,7 @@ class MpiConstantFoldingVisitor(object):
         self.current_context_hash = __root_context_hash__
         self.context_stack = []
         self.do_not_touch_objects = []
-        self.do_replace_constant = False
+        self.do_replace_constant = True
         self.Im_first_call = True
         self.init_of_for_loop = False
         self.body_of_loop = False
@@ -122,13 +122,15 @@ class MpiConstantFoldingVisitor(object):
             visitor = getattr(self, method, self.generic_visit)
             self._method_cache[node.__class__.__name__] = visitor
 
-        if self.Im_first_call:
-            self.Im_first_call = False
-            visitor(node)
-            self.do_replace_constant = True
-            return visitor(node)
-        else:
-            return visitor(node)
+
+        # if self.Im_first_call:
+        #    self.Im_first_call = False
+        #    visitor(node)
+        #    self.do_replace_constant = True
+        #    return visitor(node)
+        #else:
+        #    return visitor(node)
+        return visitor(node)
 
     def generic_visit(self, node):
         """ Called if no explicit visitor function exists for a
@@ -209,18 +211,18 @@ class MpiConstantFoldingVisitor(object):
             self.visit(n.lvalue)
         if type(n.rvalue) is not c_ast.ID:
             self.visit(n.rvalue)
-        if type(n.lvalue) is c_ast.ID:
-            lhl = self.get_list_of_visible_obj_hashs(n.lvalue)
-            lhl.reverse()
-            for l in lhl:
-                if l in self.do_not_touch_objects:
-                    return
+        #if type(n.lvalue) is c_ast.ID:
+        #    lhl = self.get_list_of_visible_obj_hashs(n.lvalue)
+        #    lhl.reverse()
+        #    for lh in lhl:
+        #        if lh in self.do_not_touch_objects:
+        #            return
         # rh = self.get_context_based_obj_hash(n.rvalue)
         rhl = self.get_list_of_visible_obj_hashs(n.rvalue)
         rhl.reverse()
-        for r in rhl:
-            if r in self.do_not_touch_objects:
-                return
+        # for r in rhl:
+        #     if r in self.do_not_touch_objects:
+        #         return
         # nh = self.get_context_based_obj_hash(n)
         if type(n.lvalue) is c_ast.ID:
             if type(n.rvalue) is c_ast.Constant:
@@ -257,14 +259,14 @@ class MpiConstantFoldingVisitor(object):
                         for e in lnh2:
                             self.replaced_constant_cache[e] = constant
                         break
-                if not found_constant:
+                if not found_constant and self.do_replace_constant:
                     # we have to remove it from all caches
                     decl_ID = c_ast.ID(n.lvalue.name)
                     lnh = self.get_list_of_visible_obj_hashs(decl_ID)
                     for e in lnh:
                         if e in self.replaced_constant_cache:
                             del self.replaced_constant_cache[e]
-                        self.do_not_touch_objects.append(e)
+                        # self.do_not_touch_objects.append(e)
         return
 
     # def visit_IdentifierType(self, n):
@@ -279,12 +281,12 @@ class MpiConstantFoldingVisitor(object):
     #         return self.visit(n)
 
     def visit_Decl(self, n):
-        if self.init_of_for_loop or self.body_of_loop:
-            decl_ID = c_ast.ID(n.name)
-            lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
-            for e in lnh2:
-                self.do_not_touch_objects.append(e)
-            return
+        #if self.init_of_for_loop or self.body_of_loop:
+        #    decl_ID = c_ast.ID(n.name)
+        #    lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
+        #    for e in lnh2:
+        #        self.do_not_touch_objects.append(e)
+        #    return
         if n.init:
             self.visit(n.init)
             if type(n.init) is c_ast.Constant:
@@ -322,11 +324,11 @@ class MpiConstantFoldingVisitor(object):
                         for e in lnh2:
                             self.replaced_constant_cache[e] = self.replaced_constant_cache[ch]
                         break
-                if not found_constant:
-                    decl_ID = c_ast.ID(n.name)
-                    lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
-                    for e in lnh2:
-                        self.do_not_touch_objects.append(e)
+                # if not found_constant and self.do_replace_constant:
+                #     decl_ID = c_ast.ID(n.name)
+                #     lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
+                #     for e in lnh2:
+                #         self.do_not_touch_objects.append(e)
         if n.type:
             self.visit(n.type)
 
@@ -344,7 +346,7 @@ class MpiConstantFoldingVisitor(object):
             chl = self.get_list_of_visible_obj_hashs(n.dim)
             chl.reverse()
             for ch in chl:
-                if ch in self.replaced_constant_cache and self.do_replace_constant:
+                if ch in self.replaced_constant_cache:
                     constant = self.replaced_constant_cache[ch]
                     new_node = c_ast.ArrayDecl(type=n.type, dim_quals=n.dim_quals, coord=n.coord,
                                                dim=constant)
@@ -455,7 +457,7 @@ class MpiConstantFoldingVisitor(object):
             for e in snh:
                 if e in self.replaced_constant_cache:
                     del self.replaced_constant_cache[e]
-                self.do_not_touch_objects.append(e)
+                # self.do_not_touch_objects.append(e)
         else:
             self.visit(n.expr)
             nhl = self.get_list_of_visible_obj_hashs(n.expr)
@@ -610,9 +612,9 @@ class MpiConstantFoldingVisitor(object):
 
     def visit_For(self, n):
         # we better NOT visit n.init and n.cond, since we know there will rarely be constants
-        self.init_of_for_loop = True
-        self.visit(n.init)
-        self.init_of_for_loop = False
+        # self.init_of_for_loop = True
+        # self.visit(n.init)
+        # self.init_of_for_loop = False
         was_true = self.body_of_loop
         self.body_of_loop = True
         self.visit(n.stmt)
