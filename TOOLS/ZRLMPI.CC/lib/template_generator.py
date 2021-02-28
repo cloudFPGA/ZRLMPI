@@ -29,7 +29,8 @@ __new_count_variable_name__ = "new_count"
 __random_name_suffix_length__ = 5
 
 # __array_map_directive_string__ = "set_directive_array_map -instance boFdram -mode horizontal {} {}"
-__array_map_directive_string__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -latency 52 -mode m_axi {} {}"
+# __array_map_directive_string__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -latency 52 -mode m_axi {} {}"
+__array_map_directive_string__ = "set_directive_interface -bundle boAPP_DRAM -offset direct -mode m_axi -latency 52 -num_write_outstanding 16 -num_read_outstanding 16 -max_write_burst_length 256 -max_read_burst_length 256 {} {}"
 # __default_directive_location__ = "app_main"
 __default_directive_location__ = "mpi_wrapper"
 
