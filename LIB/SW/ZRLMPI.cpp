@@ -181,7 +181,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       {
         if(errno == EAGAIN || errno == EWOULDBLOCK)
         {
-#ifdef DEBUG
+#ifdef DEBUG0
           printf("[recvfrom] timeout occured!\n");
 #endif
           return RECVH_TIMEOUT_RETURN;
