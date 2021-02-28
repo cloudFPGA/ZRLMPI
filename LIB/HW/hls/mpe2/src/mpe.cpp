@@ -52,6 +52,7 @@ uint16_t get_next_cache_line(
     )
 {
 #pragma HLS inline off
+//#pragma HLS pipeline II=1
 
   uint16_t ret = INVALID_CACHE_LINE_NUMBER;
   for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
@@ -72,6 +73,132 @@ uint16_t get_next_cache_line(
   return ret;
 }
 
+//returns the ZERO-based bit position (so 0 for LSB)
+//0xFE for no bit
+//uint8_t getRightmostBitPos(ap_uint<64> num)
+//{
+//#pragma HLS INLINE// off
+//  ap_uint<64> one_hot = num & -num;
+//  if(one_hot == 0)
+//  {
+//    return 0xFE;
+//  }
+//  uint8_t pos = 0;
+//  for (int i = 0; i < 64; i++)
+//  {
+//#pragma HLS unroll
+//    if(one_hot <= 1)
+//    {
+//      break;
+//    }
+//    pos++;
+//    one_hot >>= 1;
+//  }
+//  //printf("[NAL:RigthmostBit] returning %d for input %d\n", (int) pos, (int) num);
+//  return pos;
+//}
+//
+////returns the ZERO-based bit position (so 0 for LSB)
+//uint8_t getRightmostFREEPos(ap_uint<64> num)
+//{
+//#pragma HLS INLINE// off
+//  ap_uint<64> one_hot = num & -num;
+//  if(one_hot == 0)
+//  {
+//    return 0;
+//  }
+//  uint8_t pos = 0;
+//  for (int i = 0; i < 64; i++)
+//  {
+//#pragma HLS unroll
+//    if(one_hot == 0)
+//    {
+//      break;
+//    }
+//    pos++;
+//    one_hot >>= 1;
+//  }
+//  //printf("[NAL:RigthmostBit] returning %d for input %d\n", (int) pos, (int) num);
+//  return pos;
+//}
+//
+//uint64_t array_to_vector(bool header_cache_valid[HEADER_CACHE_LENGTH])
+//{
+//#pragma HLS inline
+//
+//#ifndef __SYNTHESIS__
+//  if(HEADER_CACHE_LENGTH != 64)
+//  {
+//    printf("ERROR: Header cache is only working for pipeline II=1 with length 64");
+//    exit(-1);
+//  }
+//#endif
+//
+//  uint64_t ret = 0;
+//  for(int i = 0; i<64; i++)
+//  {
+//    #pragma HLS unroll
+//    if(header_cache_valid[i])
+//    {
+//      ret |= ((uint64_t) 1) << (64 - i);
+//    }
+//  }
+//return ret;
+//
+//}
+
+//uint16_t get_next_cache_line(
+//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
+//    bool header_cache_valid[HEADER_CACHE_LENGTH],
+//    uint16_t start_value,
+//    ap_uint<256> &next_cache_line
+//    )
+//{
+//#pragma HLS inline
+////#pragma HLS pipeline II=1
+//
+//  uint64_t encoded_vec = array_to_vector(header_cache_valid);
+//  //printf("\t\t\t\tencoded vec: %#016llx\n",encoded_vec);
+//
+//  uint64_t start_value_encoded = (0xFFFFFFFFFFFFFFFF) << start_value;
+//
+//  encoded_vec &= start_value_encoded;
+//  //printf("\t\t\t\tencoded vec with start value: %#016llx, start value %d\n",encoded_vec, start_value);
+//
+//  uint8_t pos = getRightmostBitPos(encoded_vec);
+//  //printf("\t\t\t\t[get_next_cache_line] pos: %d\n",pos);
+//  if(pos == 0xFE)
+//  {
+//    return INVALID_CACHE_LINE_NUMBER;
+//  }
+//  if(pos < HEADER_CACHE_LENGTH)
+//  {
+//    next_cache_line = header_cache[pos];
+//  }
+//  return pos;
+//}
+//
+//void add_cache_line(
+//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
+//    bool header_cache_valid[HEADER_CACHE_LENGTH],
+//    ap_uint<256> &new_cache_line
+//    )
+//{
+//#pragma HLS inline //off
+//
+//  uint64_t encoded_vec = array_to_vector(header_cache_valid);
+//  //printf("\t\t\t\tencoded vec: %#016llx\n",encoded_vec);
+//
+//  uint8_t pos = getRightmostFREEPos(encoded_vec);
+//  //printf("\t\t\t\t[add_cache_line] pos: %d\n",pos);
+//
+//  if( pos < HEADER_CACHE_LENGTH )
+//  {
+//      header_cache[pos] = new_cache_line;
+//      header_cache_valid[pos] = true;
+//  }
+//
+//}
 
 void add_cache_line(
     ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
@@ -172,7 +299,7 @@ mpeState checkCache(
     )
 {
 #pragma HLS inline off
-  //#pragma HLS pipeline II=1
+//#pragma HLS pipeline II=1
 
 
   ap_uint<256> next_cache_line = 0x0;
@@ -418,7 +545,7 @@ void pMpeGlobal(
 {
   //-- DIRECTIVES FOR THIS PROCESS ------------------------------------------
 #pragma HLS INLINE off
-  //#pragma HLS pipeline II=1
+//#pragma HLS pipeline II=1
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static mpeState fsmMpeState = MPE_RESET;
   static bool cache_invalidated = false;
@@ -471,6 +598,7 @@ void pMpeGlobal(
 #pragma HLS array_partition variable=bytes complete dim=0
   //#pragma HLS array_partition variable=header_cache cyclic factor=32 dim=0
   //#pragma HLS array_partition variable=header_cache_valid cyclic factor=32 dim=0
+//#pragma HLS array_partition variable=header_cache_valid complete dim=0
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
@@ -1248,10 +1376,15 @@ void mpe_main(
     stream<Axis<64> > &soMPI_data
     )
 {
-#pragma HLS INTERFACE axis register both port=siTcp_data
-#pragma HLS INTERFACE axis register both port=siTcp_meta
-#pragma HLS INTERFACE axis register both port=soTcp_data
-#pragma HLS INTERFACE axis register both port=soTcp_meta
+//#pragma HLS INTERFACE axis register both port=siTcp_data
+//#pragma HLS INTERFACE axis register both port=siTcp_meta
+//#pragma HLS INTERFACE axis register both port=soTcp_data
+//#pragma HLS INTERFACE axis register both port=soTcp_meta
+#pragma HLS INTERFACE axis register off port=siTcp_data
+#pragma HLS INTERFACE axis register off port=siTcp_meta
+#pragma HLS INTERFACE axis register off port=soTcp_data
+#pragma HLS INTERFACE axis register off port=soTcp_meta
+
 #pragma HLS INTERFACE ap_ovld register port=po_rx_ports name=poROL_NRC_Rx_ports
 
 #pragma HLS INTERFACE ap_vld register port=own_rank name=piFMC_rank
@@ -1284,8 +1417,10 @@ void mpe_main(
   static stream<uint16_t>    sExpectedLength("sExpectedLength"); //in LINES!
   static stream<bool>        sDeqRecvDone("sDeqRecvDone");
 
-#pragma HLS STREAM variable=sFifoDataTX     depth=128
-#pragma HLS STREAM variable=sFifoDataRX     depth=128
+//#pragma HLS STREAM variable=sFifoDataTX     depth=128
+//#pragma HLS STREAM variable=sFifoDataRX     depth=128
+#pragma HLS STREAM variable=sFifoDataTX     depth=256
+#pragma HLS STREAM variable=sFifoDataRX     depth=256
 #pragma HLS STREAM variable=sDeqSendDestId  depth=2
 #pragma HLS STREAM variable=sDeqSendDone    depth=2
 #pragma HLS STREAM variable=sExpectedLength depth=2
