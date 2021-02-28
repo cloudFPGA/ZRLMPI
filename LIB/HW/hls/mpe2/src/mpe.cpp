@@ -1376,14 +1376,14 @@ void mpe_main(
     stream<Axis<64> > &soMPI_data
     )
 {
-//#pragma HLS INTERFACE axis register both port=siTcp_data
-//#pragma HLS INTERFACE axis register both port=siTcp_meta
-//#pragma HLS INTERFACE axis register both port=soTcp_data
-//#pragma HLS INTERFACE axis register both port=soTcp_meta
-#pragma HLS INTERFACE axis register off port=siTcp_data
-#pragma HLS INTERFACE axis register off port=siTcp_meta
-#pragma HLS INTERFACE axis register off port=soTcp_data
-#pragma HLS INTERFACE axis register off port=soTcp_meta
+#pragma HLS INTERFACE axis register both port=siTcp_data
+#pragma HLS INTERFACE axis register both port=siTcp_meta
+#pragma HLS INTERFACE axis register both port=soTcp_data
+#pragma HLS INTERFACE axis register both port=soTcp_meta
+//#pragma HLS INTERFACE axis register off port=siTcp_data
+//#pragma HLS INTERFACE axis register off port=siTcp_meta
+//#pragma HLS INTERFACE axis register off port=soTcp_data
+//#pragma HLS INTERFACE axis register off port=soTcp_meta
 
 #pragma HLS INTERFACE ap_ovld register port=po_rx_ports name=poROL_NRC_Rx_ports
 

@@ -148,7 +148,8 @@ void MPI_Finalize();
 //#define ZRLMPI_DRAM_SIZE_LINES 100663296 //6GB
 #define BOFDRAM_LINE_RESERVATION 2
 //#define INTERNAL_BRAM_BUFFER_SIZE_WORDS 8000 //must be %2==0! //8k = 32 burst transfers
-#define INTERNAL_BRAM_BUFFER_SIZE_WORDS 4000 //must be %2==0! //4k = 16 burst transfers
+//#define INTERNAL_BRAM_BUFFER_SIZE_WORDS 4000 //must be %2==0! //4k = 16 burst transfers
+#define INTERNAL_BRAM_BUFFER_SIZE_WORDS 352 //must be %2==0! //should match MTU?
 
 
 void mpi_wrapper(
