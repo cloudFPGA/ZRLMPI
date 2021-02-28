@@ -16,7 +16,7 @@
 #define DATA_CHANNEL_TAG 1
 #define CMD_CHANNEL_TAG 2
 
-
+#define VECTOR_DIM 3
 
 //#define NR_VECTORS 50
 //#define NR_VECTORS 10000
