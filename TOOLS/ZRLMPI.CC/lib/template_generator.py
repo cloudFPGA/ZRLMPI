@@ -36,7 +36,8 @@ __default_directive_location__ = "mpi_wrapper"
 # __max_packet_length__ = "(1024/sizeof({})"
 # __max_packet_length__ = 256
 # __max_packet_length__ = 352
-__max_packet_length__ = 346  # to apply with VXLAN in ZYC2
+# __max_packet_length__ = 346  # to apply with VXLAN in ZYC2
+__max_packet_length__ = 65536  # for counters in FPGA, and to reduce cost of packet loss
 
 __NO_OPTIMIZATION_MSG__ = "NO-Optimization-Possible"
 

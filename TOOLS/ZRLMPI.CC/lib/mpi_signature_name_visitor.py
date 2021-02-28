@@ -33,6 +33,8 @@ __mpi_api_signatres_reduce__ = ['MPI_Reduce']
 __c_api_malloc_signatures__ = ['malloc']
 __c_api_clib_signatures__ = ['free', 'perror', 'exit', 'memcopy']
 
+__dram_func_name_extension__ = "_DRAM"
+
 __null_constant__ = c_ast.Constant(type='int', value='0')
 
 
@@ -66,7 +68,7 @@ class MpiSignatureNameSearcher(object):
 
     _method_cache = None
 
-    def __init__(self, search_for_decls=None):
+    def __init__(self, search_for_decls=None, seach_for_dram=None):
         # Statements start with indentation of self.indent_level spaces, using
         # the _make_indent method
         #
@@ -87,6 +89,8 @@ class MpiSignatureNameSearcher(object):
         self.search_for_decls = search_for_decls
         self.found_decl_obj = []
         self.found_if_obj = []
+        self.search_for_dram = seach_for_dram
+        self.found_dram_calls = []
 
     def get_results_buffers(self):
         return self.found_buffers_names, self.found_buffers_obj
@@ -130,6 +134,9 @@ class MpiSignatureNameSearcher(object):
 
     def get_results_if_obj(self):
         return self.found_if_obj
+
+    def get_found_dram_calls(self):
+        return self.found_dram_calls
 
     def visit(self, node):
         """ Visit a node.
@@ -203,6 +210,32 @@ class MpiSignatureNameSearcher(object):
             if buffer_name not in self.found_buffers_names:
                 self.found_buffers_names.append(buffer_name)
                 self.found_buffers_obj.append(arg_0)
+            if self.search_for_dram is not None:
+                id_name = ''
+                obj_to_visit = [arg_0]
+                while len(obj_to_visit) > 0:
+                    current_obj = obj_to_visit[0]
+                    del obj_to_visit[0]
+                    if type(current_obj) == c_ast.ID:
+                        id_name = current_obj.name
+                        break
+                    elif type(current_obj) == c_ast.BinaryOp:
+                        obj_to_visit.append(current_obj.left)
+                        obj_to_visit.append(current_obj.right)
+                    elif type(current_obj) == c_ast.UnaryOp:
+                        el = current_obj.expr
+                        if type(el) is list:
+                            obj_to_visit.append(el[0])
+                        else:
+                            obj_to_visit.append(el)
+                if id_name == '':
+                    print("[DEBUG] unable to find buffer name of MPI call.")
+                else:
+                    if id_name in self.search_for_dram:
+                        new_entry = {}
+                        new_entry['old'] = n
+                        new_entry['new'] = c_ast.FuncCall(c_ast.ID(func_name+__dram_func_name_extension__), n.args)
+                        self.found_dram_calls.append(new_entry)
         elif func_name in __mpi_api_signatures_rank__:
             # it's always the second argument
             arg_1 = n.args.exprs[1]
