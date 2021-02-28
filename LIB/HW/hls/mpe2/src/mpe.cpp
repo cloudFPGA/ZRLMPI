@@ -363,7 +363,7 @@ void add_cache_bytes(
 void pDeqRecv(
     stream<uint64_t> &sFifoDataRX,
     stream<Axis<64> > &soMPI_data,
-    stream<uint16_t>  &sExpectedLength, //in LINES!
+    stream<uint32_t>  &sExpectedLength, //in LINES!
     stream<bool>      &sDeqRecvDone
     )
 {
@@ -375,8 +375,8 @@ void pDeqRecv(
   //TODO: add state to drain FIFO after reset?
 #pragma HLS reset variable=recvDeqFsm
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
-  static uint16_t expected_recv_count = 0;
-  static uint16_t recv_total_cnt = 0;
+  static uint32_t expected_recv_count = 0;
+  static uint32_t recv_total_cnt = 0;
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
@@ -539,7 +539,7 @@ void pMpeGlobal(
     stream<NetworkMetaStream>      &siTcp_meta,
     stream<Axis<64> > &siMPI_data,
     stream<uint64_t> &sFifoDataRX,
-    stream<uint16_t>  &sExpectedLength, //in LINES!
+    stream<uint32_t>  &sExpectedLength, //in LINES!
     stream<bool>      &sDeqRecvDone
     )
 {
@@ -1220,7 +1220,7 @@ void pMpeGlobal(
             //valid header && valid source
             //expected_recv_count = header.size;
             //uint16_t expected_length_in_lines = (header.size+7)/8;
-            uint16_t expected_length_in_lines = (header.size+1)/2;
+            uint32_t expected_length_in_lines = (uint32_t) (header.size+1)/2;
             printf("[pMpeGlobal] expect %d LINES of data.\n", expected_length_in_lines);
             sExpectedLength.write(expected_length_in_lines);
 
@@ -1414,7 +1414,7 @@ void mpe_main(
   static stream<uint64_t> sFifoDataRX("sFifoDataRX");
   static stream<NodeId>        sDeqSendDestId("sDeqSendDestId");
   static stream<bool>          sDeqSendDone("sDeqSendDone");
-  static stream<uint16_t>    sExpectedLength("sExpectedLength"); //in LINES!
+  static stream<uint32_t>    sExpectedLength("sExpectedLength"); //in LINES!
   static stream<bool>        sDeqRecvDone("sDeqRecvDone");
 
 //#pragma HLS STREAM variable=sFifoDataTX     depth=128
