@@ -84,6 +84,16 @@ __match_regex__.append('MPI_Recv\\(')
 __replace_hw__.append('MPI_Recv(soMPIif, siMPIFeB, siMPI_data, ')
 __replace_sw__.append(__SKIP_STRING__)
 
+# MPI Send
+__match_regex__.append('MPI_Send_DRAM\\(')
+__replace_hw__.append('MPI_Send_DRAM(soMPIif, siMPIFeB, soMPI_data, ')
+__replace_sw__.append(__SKIP_STRING__)
+
+# MPI Recv
+__match_regex__.append('MPI_Recv_DRAM\\(')
+__replace_hw__.append('MPI_Recv_DRAM(soMPIif, siMPIFeB, siMPI_data, ')
+__replace_sw__.append(__SKIP_STRING__)
+
 __wrapper_pattern_buffer__ = 'ZRLMPI_BUFFER_DECLS'
 __wrapper_pattern_call__ = 'ZRLMPI_APP_MAIN_CALL'
 __app_main_call_start__ = '    app_main(soMPIif, siMPIFeB, soMPI_data, siMPI_data'
