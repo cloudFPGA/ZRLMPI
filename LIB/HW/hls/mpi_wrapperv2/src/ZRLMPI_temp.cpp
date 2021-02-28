@@ -27,6 +27,12 @@ ap_uint<1> memory_test_flag = 0;
 //uint32_t words[(ZRLMPI_MAX_DETECTED_BUFFER_SIZE+3)/4]; //TODO!
 //#pragma HLS RESOURCE variable=words core=RAM_2P_BRAM
 
+#ifdef DRAM_USED
+uint32_t words[INTERNAL_BRAM_BUFFER_SIZE_WORDS];
+#else
+uint32_t words[64];
+#endif
+
 #define MEMORY_TEST_PATTERN 0x0A0B0C0D0E0FC001
 bool memory_pattern_write = false;
 bool memory_pattern_read = false;
@@ -93,6 +99,142 @@ void MPI_Comm_size(MPI_Comm communicator, int* size)
   *size = cluster_size;
 }
 
+
+void MPI_Send_DRAM(
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *soMPI_data,
+    int* data,
+    int count,
+    //uint8_t tkeep_last_word,
+    MPI_Datatype datatype,
+    int destination,
+    int tag,
+    MPI_Comm communicator)
+{
+#pragma HLS inline
+
+  MPI_Interface info = MPI_Interface();
+  info.rank = destination;
+
+  //TODO: handle tag
+  //tag is not yet implemented
+
+  int typeWidth = 1;
+
+  switch(datatype)
+  {
+    case MPI_INTEGER:
+      info.mpi_call = MPI_SEND_INT;
+      //typeWidth = 4;
+      typeWidth = 1;
+      break;
+    case MPI_FLOAT:
+      info.mpi_call = MPI_SEND_FLOAT;
+      //typeWidth = 4;
+      typeWidth = 1;
+      break;
+    default:
+      //not yet implemented 
+      return;
+  }
+
+  uint32_t word_count = typeWidth*count;
+  info.count = word_count;
+
+  //we are using blocking calls, since we are in a blocking synchronization method
+  WrapperSendState sendState = SEND_WRITE_INFO;
+  uint32_t send_i = 0;
+  Axis<64>  tmp64 = Axis<64>();
+  //uint32_t send_i_per_packet = 0;
+  MPI_Feedback fedb;
+  uint32_t address_copied = INTERNAL_BRAM_BUFFER_SIZE_WORDS;
+  uint32_t max_copy_length = INTERNAL_BRAM_BUFFER_SIZE_WORDS * sizeof(int);
+  uint32_t start_address = 0;
+  if(address_copied > word_count)
+  {
+    max_copy_length = word_count * sizeof(int);
+    address_copied = word_count;
+  }
+  memcpy(words, &data[start_address], max_copy_length);
+
+  while(sendState != SEND_DONE)
+  {
+//#pragma HLS pipeline II=1
+    //#pragma HLS loop_flatten off
+    //#pragma HLS unroll factor=1
+
+    switch(sendState) {
+      case SEND_WRITE_INFO:
+        //if(!soMPIif->full())
+        //{
+        soMPIif->write(info);
+        sendState = SEND_WRITE_DATA;
+        //}
+        break;
+
+      case SEND_WRITE_DATA:
+        if(send_i >= address_copied)
+        {
+          start_address = address_copied;
+          if((word_count - send_i) < INTERNAL_BRAM_BUFFER_SIZE_WORDS)
+          {
+            address_copied += (word_count - send_i);
+            max_copy_length = (word_count - send_i) * sizeof(int);
+          } else {
+            address_copied += INTERNAL_BRAM_BUFFER_SIZE_WORDS;
+            max_copy_length = INTERNAL_BRAM_BUFFER_SIZE_WORDS * sizeof(int);
+          }
+          memcpy(words, &data[start_address], max_copy_length);
+        }
+        tmp64.tdata = 0x0;
+        tmp64.tdata = (ap_uint<64>) words[send_i - start_address];
+        tmp64.tkeep = 0xFF;
+        if(send_i < (word_count -1))
+        {
+          tmp64.tdata |= ((ap_uint<64>) words[send_i +1 - start_address]) << 32;
+        }
+        //else, it stays 0
+        send_i += 2;
+        if(send_i >= word_count)
+        {
+          tmp64.tlast = 1;
+          //keep is alway a full line
+          sendState = SEND_FINISH;
+        } else {
+          tmp64.tlast = 0;
+        }
+        printf("write MPI data: %#016llx\n", (uint64_t) tmp64.tdata);
+        //blocking!
+        soMPI_data->write(tmp64);
+        break;
+
+      case SEND_FINISH:
+        fedb = siMPIFeB->read();
+        if(fedb == ZRLMPI_FEEDBACK_OK)
+        {
+          sendState = SEND_DONE;
+          sendCnt++;
+          printf("MPI_send completed.\n");
+        } else {
+          //timeout occured
+          //go directly to write data is ok, since we've written TLAST before
+          sendState = SEND_WRITE_DATA;
+          send_i = 0;
+        }
+
+        //setMMIO_out(MMIO_out);
+        break;
+
+      default:
+      case SEND_DONE:
+        //NOP
+        //ap_wait();
+        break;
+    }
+  }
+}
+
 int send_internal(
     stream<MPI_Interface> *soMPIif,
     stream<MPI_Feedback> *siMPIFeB,
@@ -146,6 +288,7 @@ int send_internal(
   {
     //#pragma HLS loop_flatten off
     //#pragma HLS unroll factor=1
+//#pragma HLS pipeline II=1
 
     switch(sendState) {
       case SEND_WRITE_INFO:
@@ -204,8 +347,6 @@ int send_internal(
     }
   }
   return 1;
-
-
 }
 
 
@@ -250,9 +391,142 @@ void MPI_Send(
   {
     send_internal(soMPIif, siMPIFeB, soMPI_data, (uint32_t*) data, count, datatype, destination, tag, communicator);
   } else {
-    uint32_t words[1];
+    //uint32_t small_words[1];
+    //small_words[0] = data[0];
+    //send_internal(soMPIif, siMPIFeB, soMPI_data, small_words, count, datatype, destination, tag, communicator);
     words[0] = data[0];
     send_internal(soMPIif, siMPIFeB, soMPI_data, words, count, datatype, destination, tag, communicator);
+  }
+}
+
+
+void MPI_Recv_DRAM(
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *siMPI_data,
+    int* data,
+    int count,
+    MPI_Datatype datatype,
+    int source,
+    int tag,
+    MPI_Comm communicator,
+    MPI_Status* status)
+{
+#pragma HLS inline
+
+  MPI_Interface info = MPI_Interface();
+  info.rank = source;
+
+  //TODO: handle tag
+  //tag is not yet implemented
+
+  int typeWidth = 1;
+
+  switch(datatype)
+  {
+    case MPI_INTEGER:
+      info.mpi_call = MPI_RECV_INT;
+      //typeWidth = 4;
+      typeWidth = 1;
+      break;
+    case MPI_FLOAT:
+      info.mpi_call = MPI_RECV_FLOAT;
+      //typeWidth = 4;
+      typeWidth = 1;
+      break;
+    default:
+      //not yet implemented 
+      return;
+  }
+
+  //we are using blocking calls, since we are in a blocking synchronization method
+  info.count = typeWidth * count;
+  uint32_t word_count = info.count;
+  WrapperRecvState recvState = RECV_WRITE_INFO;
+  uint32_t recv_i = 0;
+  bool recv_tlastOccured = false;
+  Axis<64>  tmp64 = Axis<64>();
+  MPI_Feedback fedb;
+  uint32_t max_address_recv = INTERNAL_BRAM_BUFFER_SIZE_WORDS;
+  uint32_t start_address = 0;
+  uint32_t max_copy_length = INTERNAL_BRAM_BUFFER_SIZE_WORDS * sizeof(int);
+
+  while(recvState != RECV_DONE)
+  {
+    //#pragma HLS loop_flatten off
+    //#pragma HLS unroll factor=1
+//#pragma HLS pipeline II=1
+
+    switch(recvState) {
+
+      case RECV_WRITE_INFO:
+        //if(!soMPIif->full())
+        //{
+        soMPIif->write(info);
+        recvState = RECV_READ_DATA;
+        //}
+        break;
+      case RECV_READ_DATA:
+        if(recv_i >= max_address_recv) //is %2=0, so should work...
+        {
+          memcpy(&data[start_address], words, max_copy_length);
+          start_address += INTERNAL_BRAM_BUFFER_SIZE_WORDS;
+          max_address_recv += INTERNAL_BRAM_BUFFER_SIZE_WORDS;
+        }
+        tmp64 = siMPI_data->read();
+        printf("read MPI data: %#016llx\n", (uint64_t) tmp64.tdata);
+        words[recv_i - start_address] = (uint32_t) tmp64.tdata;
+        //we assume tkeep = 0xFF, becuase we sent it...
+        if(recv_i < (word_count-1))
+        {
+          words[recv_i + 1 - start_address] = (uint32_t) (tmp64.tdata >> 32);
+          recv_i += 2;
+        } else {
+          recv_i += 1;
+        }
+
+        if( tmp64.tlast == 1)
+        {
+          printf("received TLAST at count %d!\n", recv_i);
+          recv_tlastOccured = true;
+          recvState = RECV_FINISH;
+        }
+        //check length not necessary, we can trust the tlast from MPE
+        break;
+      case RECV_FINISH:
+        max_copy_length = (recv_i - start_address) * sizeof(int);
+        if(max_copy_length > 0)
+        {
+          memcpy(&data[start_address], words, max_copy_length);
+        }
+
+        fedb = siMPIFeB->read();
+        if(fedb == ZRLMPI_FEEDBACK_OK)
+        {
+          if(status != MPI_STATUS_IGNORE)
+          {
+            *status = 1;
+          }
+
+          recvCnt++;
+          recvState = RECV_DONE;
+          printf("MPI_recv completed.\n");
+        } else {
+          //TIMEOUT occured...
+          recvState = RECV_READ_DATA;
+          recv_tlastOccured = false;
+          recv_i = 0;
+        }
+
+        //setMMIO_out(MMIO_out);
+        break;
+
+      default:
+      case RECV_DONE:
+        //NOP
+        //ap_wait();
+        break;
+    }
   }
 }
 
@@ -309,9 +583,10 @@ int recv_internal(
   {
     //#pragma HLS loop_flatten off
     //#pragma HLS unroll factor=1
+//#pragma HLS pipeline II=1
 
-    switch(recvState) {
-
+    switch(recvState) 
+    {
       case RECV_WRITE_INFO:
         //if(!soMPIif->full())
         //{
@@ -320,10 +595,8 @@ int recv_internal(
         //}
         break;
       case RECV_READ_DATA:
-
         tmp64 = siMPI_data->read();
         printf("read MPI data: %#016llx\n", (uint64_t) tmp64.tdata);
-
         data[recv_i] = (uint32_t) tmp64.tdata;
         //we assume tkeep = 0xFF, becuase we sent it...
         if(recv_i < (word_count-1))
@@ -341,7 +614,6 @@ int recv_internal(
         //check length not necessary, we can trust the tlast from MPE
         break;
       case RECV_FINISH:
-
         fedb = siMPIFeB->read();
         if(fedb == ZRLMPI_FEEDBACK_OK)
         {
@@ -395,7 +667,9 @@ void MPI_Recv(
   {
     recv_internal(soMPIif, siMPIFeB, siMPI_data, (uint32_t*) data, count, datatype, source, tag, communicator, status);
   } else {
-    uint32_t words[1];
+    //uint32_t small_words[1];
+    //recv_internal(soMPIif, siMPIFeB, siMPI_data, small_words, count, datatype, source, tag, communicator, status);
+    //data[0] = small_words[0];
     recv_internal(soMPIif, siMPIFeB, siMPI_data, words, count, datatype, source, tag, communicator, status);
     data[0] = words[0];
   }
@@ -452,7 +726,7 @@ void mpi_wrapper(
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
   //  ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
-    ap_uint<512> boFdram[BOFDRAM_LINE_RESERVATION]
+    int32_t boFdram[BOFDRAM_LINE_RESERVATION]
     /* buffer declarations that end up in memory are insereted below
      * if they exist */
     //ZRLMPI_BUFFER_DECLS
@@ -473,7 +747,8 @@ void mpi_wrapper(
 #pragma HLS INTERFACE ap_fifo port=siMPI_data
 #pragma HLS DATA_PACK     variable=siMPI_data
 
-#pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct latency=52
+//#pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct latency=52
+#pragma HLS INTERFACE m_axi port=boFdram bundle=boAPP_DRAM offset=direct latency=52 num_read_outstanding=16 num_write_outstanding=16 max_read_burst_length=256 max_write_burst_length=256
 //#pragma HLS array_map variable=words instance=boFdram horizontal //TODO
 
 #pragma HLS reset variable=my_app_done
@@ -488,6 +763,9 @@ void mpi_wrapper(
 #pragma HLS reset variable=memory_pattern_read
 #pragma HLS reset variable=memory_test_flag
 
+//#ifdef DRAM_USED
+//  #pragma HLS ARRAY_PARTITION variable=words complete dim=1
+//#endif
 
 
   //===========================================================
@@ -499,13 +777,13 @@ void mpi_wrapper(
     //use & test memory (also to avoid open connections if app is not using them)
     if(!memory_pattern_write)
     {
-      boFdram[1] = MEMORY_TEST_PATTERN;
+      boFdram[1] = (int32_t) MEMORY_TEST_PATTERN;
       memory_pattern_write = true;
       memory_test_flag = 0;
     } else if(!memory_pattern_read)
     {
-      ap_uint<512> tmp = boFdram[1];
-      if(tmp == MEMORY_TEST_PATTERN)
+      ap_uint<32> tmp = boFdram[1];
+      if(tmp == (int32_t) MEMORY_TEST_PATTERN)
       {
         memory_test_flag = 1;
       }

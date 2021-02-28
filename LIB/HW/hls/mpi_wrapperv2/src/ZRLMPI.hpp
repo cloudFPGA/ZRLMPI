@@ -112,6 +112,34 @@ void MPI_Recv(
     MPI_Comm communicator,
     MPI_Status* status);
 
+void MPI_Send_DRAM(
+    // ----- MPI_Interface -----
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *soMPI_data,
+    // ----- MPI Signature -----
+    int* data,
+    int count,
+    MPI_Datatype datatype,
+    int destination,
+    int tag,
+    MPI_Comm communicator);
+
+
+void MPI_Recv_DRAM(
+    // ----- MPI_Interface -----
+    stream<MPI_Interface> *soMPIif,
+    stream<MPI_Feedback> *siMPIFeB,
+    stream<Axis<64> > *siMPI_data,
+    // ----- MPI Signature -----
+    int* data,
+    int count,
+    MPI_Datatype datatype,
+    int source,
+    int tag,
+    MPI_Comm communicator,
+    MPI_Status* status);
+
 
 void MPI_Finalize();
 
@@ -119,6 +147,10 @@ void MPI_Finalize();
 #define ZRLMPI_DRAM_SIZE_LINES 134217728 //8GB
 //#define ZRLMPI_DRAM_SIZE_LINES 100663296 //6GB
 #define BOFDRAM_LINE_RESERVATION 2
+//#define INTERNAL_BRAM_BUFFER_SIZE_WORDS 8000 //must be %2==0! //8k = 32 burst transfers
+//#define INTERNAL_BRAM_BUFFER_SIZE_WORDS 4000 //must be %2==0! //4k = 16 burst transfers
+#define INTERNAL_BRAM_BUFFER_SIZE_WORDS 352 //must be %2==0! //should match MTU?
+
 
 void mpi_wrapper(
     // ----- FROM FMC -----
