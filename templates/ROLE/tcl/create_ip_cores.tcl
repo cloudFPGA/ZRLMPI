@@ -449,7 +449,7 @@ set ipVendor  "xilinx.com"
 set ipLibrary "ip"
 set ipVersion "13.2"
 set ipCfgList [ list CONFIG.Performance_Options {First_Word_Fall_Through} CONFIG.Input_Data_Width {73} CONFIG.Output_Data_Width {73} \
-                CONFIG.Input_Depth {512} CONFIG.Output_Depth {512} \
+                CONFIG.Input_Depth {8192} CONFIG.Output_Depth {8192} \
               ]
 
 set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName} ${ipVersion} ${ipCfgList} ]
@@ -473,6 +473,7 @@ set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName
 
 if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
 
+
 #------------------------------------------------------------------------------  
 # VIVADO-IP : FIFO Generator
 #------------------------------------------------------------------------------
@@ -489,6 +490,41 @@ set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName
 
 if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
 
+
+#------------------------------------------------------------------------------  
+# VIVADO-IP : FIFO Generator
+#------------------------------------------------------------------------------
+set ipModName "AxiInterconnect_1M1S_A64_D512_D32"
+set ipName    "axi_interconnect"
+set ipVendor  "xilinx.com"
+set ipLibrary "ip"
+set ipVersion "1.7"
+set ipCfgList  [ list CONFIG.NUM_SLAVE_PORTS {1} \
+                      CONFIG.INTERCONNECT_DATA_WIDTH {512} \
+                      CONFIG.S00_AXI_DATA_WIDTH {32} \
+                      CONFIG.M00_AXI_DATA_WIDTH {512} \
+                      CONFIG.AXI_ADDR_WIDTH {64} \
+                      CONFIG.S00_AXI_WRITE_ACCEPTANCE {16} \
+                      CONFIG.S00_AXI_READ_ACCEPTANCE {16} \
+                      CONFIG.M00_AXI_READ_ISSUING {16} \
+                      CONFIG.M00_AXI_WRITE_ISSUING {16} \
+                      CONFIG.S00_AXI_WRITE_FIFO_DEPTH {512} \
+                      CONFIG.S00_AXI_READ_FIFO_DEPTH {512} \
+                      CONFIG.M00_AXI_WRITE_FIFO_DEPTH {512} \
+                      CONFIG.M00_AXI_READ_FIFO_DEPTH {512} \
+                ]
+                      # CONFIG.S01_AXI_DATA_WIDTH {64} 
+                      #CONFIG.M00_AXI_READ_FIFO_DELAY {0}
+                      #CONFIG.STRATEGY {2} # would mean -> focus on performance, but only available with 2.1
+                      #CONFIG.S00_AXI_WRITE_ACCEPTANCE {32} \
+                      #CONFIG.S00_AXI_READ_ACCEPTANCE {32} \
+                      #CONFIG.M00_AXI_READ_ISSUING {32} \
+                      #CONFIG.M00_AXI_WRITE_ISSUING {32} \
+                      
+
+set rc [ my_customize_ip ${ipModName} ${ipDir} ${ipVendor} ${ipLibrary} ${ipName} ${ipVersion} ${ipCfgList} ]
+
+if { ${rc} != ${::OK} } { set nrErrors [ expr { ${nrErrors} + 1 } ] }
 
 #------------------------------------------------------------------------------
 

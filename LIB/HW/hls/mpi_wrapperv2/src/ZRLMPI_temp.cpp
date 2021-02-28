@@ -221,6 +221,15 @@ void MPI_Send_DRAM(
           //go directly to write data is ok, since we've written TLAST before
           sendState = SEND_WRITE_DATA;
           send_i = 0;
+          address_copied = INTERNAL_BRAM_BUFFER_SIZE_WORDS;
+          max_copy_length = INTERNAL_BRAM_BUFFER_SIZE_WORDS * sizeof(int);
+          start_address = 0;
+          if(address_copied > word_count)
+          {
+            max_copy_length = word_count * sizeof(int);
+            address_copied = word_count;
+          }
+          memcpy(words, &data[start_address], max_copy_length);
         }
 
         //setMMIO_out(MMIO_out);
@@ -516,6 +525,9 @@ void MPI_Recv_DRAM(
           recvState = RECV_READ_DATA;
           recv_tlastOccured = false;
           recv_i = 0;
+          max_address_recv = INTERNAL_BRAM_BUFFER_SIZE_WORDS;
+          start_address = 0;
+          max_copy_length = INTERNAL_BRAM_BUFFER_SIZE_WORDS * sizeof(int);
         }
 
         //setMMIO_out(MMIO_out);
@@ -730,7 +742,7 @@ void mpi_wrapper(
     /* buffer declarations that end up in memory are insereted below
      * if they exist */
     //ZRLMPI_BUFFER_DECLS
-    // (empty line for the template)
+    // (this line will be replaced)
     )
 {
   //#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -817,7 +829,7 @@ void mpi_wrapper(
   {
     /* the call of app_main with correct buffers will be inserted by the Transpiler below */
     /* ZRLMPI_APP_MAIN_CALL -- ADD app_main_call here */
-    // (empty line for the template)
+    // (this line will be replaced)
   }
 
   // at the end
