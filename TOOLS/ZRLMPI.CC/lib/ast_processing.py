@@ -98,12 +98,12 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     ast_m_12 = ast_m_1
     replace_stmt_visitor1.visit(ast_m_12)
     # we are doing two rounds of constant folding
-    constant_folding_visitor12 = constant_visitor.MpiConstantFoldingVisitor()
-    constant_folding_visitor12.visit(ast_m_12)
-    constants_to_replace2 = constant_folding_visitor1.get_new_objects()
-    replace_stmt_visitor12 = replace_visitor.MpiStatementReplaceVisitor(constants_to_replace2)
+    #constant_folding_visitor12 = constant_visitor.MpiConstantFoldingVisitor()
+    #constant_folding_visitor12.visit(ast_m_12)
+    #constants_to_replace2 = constant_folding_visitor1.get_new_objects()
+    #replace_stmt_visitor12 = replace_visitor.MpiStatementReplaceVisitor(constants_to_replace2)
     ast_m_2 = ast_m_12
-    replace_stmt_visitor12.visit(ast_m_2)
+    #replace_stmt_visitor12.visit(ast_m_2)
     # 4. find rank names & find collective names
     find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor2.visit(ast_m_2)

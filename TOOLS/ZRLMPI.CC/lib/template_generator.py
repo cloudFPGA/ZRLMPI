@@ -1193,7 +1193,7 @@ def send_replacemet(send_call):
                                                      ,
                                  bitsize=None)
     loop_stmts.append(buffer_variable)
-    count_variable = c_ast.Decl(name=new_start_variable_name, quals=[], storage=[], funcspec=[],
+    count_variable = c_ast.Decl(name=new_count_variable_name, quals=[], storage=[], funcspec=[],
                                 type=c_ast.TypeDecl(new_count_variable_name, [], c_ast.IdentifierType(['int'])),
                                 init=c_ast.BinaryOp("-",orig_count,c_ast.ID(loop_variable_name)),
                                 #c_ast.Constant('int', str(__max_packet_length__)),
@@ -1265,7 +1265,7 @@ def recv_replacement(recv_call):
                                                      ,
                                  bitsize=None)
     loop_stmts.append(buffer_variable)
-    count_variable = c_ast.Decl(name=new_start_variable_name, quals=[], storage=[], funcspec=[],
+    count_variable = c_ast.Decl(name=new_count_variable_name, quals=[], storage=[], funcspec=[],
                                 type=c_ast.TypeDecl(new_count_variable_name, [], c_ast.IdentifierType(['int'])),
                                 init=c_ast.BinaryOp("-", orig_count, c_ast.ID(loop_variable_name)),
                                 bitsize=None)
