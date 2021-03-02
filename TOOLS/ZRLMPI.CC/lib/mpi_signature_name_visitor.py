@@ -228,6 +228,8 @@ class MpiSignatureNameSearcher(object):
                             obj_to_visit.append(el[0])
                         else:
                             obj_to_visit.append(el)
+                    elif type(current_obj) == c_ast.ArrayRef:
+                        obj_to_visit.append(current_obj.name)
                 if id_name == '':
                     print("[DEBUG] unable to find buffer name of MPI call.")
                 else:

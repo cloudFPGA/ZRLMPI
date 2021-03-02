@@ -17,9 +17,12 @@
 
 from pycparser import c_ast
 import ctypes
+import re
 
 __c_int_compare_operators__ = ["==", "<=", ">=", ">", "<", "!="]
-__root_context_hash__ = hash("ast_root_context")
+# __root_context_hash__ = hash("ast_root_context")
+__root_context_hash__ = "__ast_root_context__"
+__own_re_pattern__ = re.compile(r'\s+')
 
 
 def _equalize_node(n):
@@ -32,12 +35,13 @@ def _equalize_node(n):
 def _own_poor_ast_hash(n):
     # TODO: improve
     h = str(_equalize_node(n))
-    return h
+    hs = re.sub(__own_re_pattern__, '', h)
+    return hs
 
 
 __c_implicit_type_pyramide__ = ['bool', 'char', 'short int', 'int' , 'unsigned int', 'long', 'unsigned',
                                 'long long', 'float', 'double', 'long double']
-__functions_not_to_fold__ = ['MPI_Comm_rank', 'MPI_Comm_size']
+__functions_not_to_fold__ = ['MPI_Comm_rank', 'MPI_Comm_size', 'printf']
 __ids_not_to_replace__ = ['MPI_COMM_WORLD, MPI_INTEGER, MPI_FLOAT, MPI_SUM']
 
 
@@ -88,8 +92,8 @@ class MpiConstantFoldingVisitor(object):
         self.current_context_hash = __root_context_hash__
         self.context_stack = []
         self.do_not_touch_objects = []
-        self.do_replace_constant = True
-        self.Im_first_call = True
+        self.do_replace_constant = False
+        # self.Im_first_call = True
         self.init_of_for_loop = False
         self.body_of_loop = False
 
@@ -99,13 +103,15 @@ class MpiConstantFoldingVisitor(object):
     def get_context_based_obj_hash(self, n):
         # nhs = "{}_{}".format(self.current_context_hash, hash(_equalize_node(n)))
         nhs = "{}_{}".format(self.current_context_hash, _own_poor_ast_hash(n))
-        return hash(nhs)
+        # return hash(nhs)
+        return nhs
 
     def get_list_of_visible_obj_hashs(self, n):
         ret = []
         for c in self.context_stack:
             nhs = "{}_{}".format(c, _own_poor_ast_hash(n))
-            ret.append(hash(nhs))
+            # ret.append(hash(nhs))
+            ret.append(nhs)
         ret.append(self.get_context_based_obj_hash(n))
         return ret
 
@@ -122,15 +128,13 @@ class MpiConstantFoldingVisitor(object):
             visitor = getattr(self, method, self.generic_visit)
             self._method_cache[node.__class__.__name__] = visitor
 
-
         # if self.Im_first_call:
-        #    self.Im_first_call = False
+        #     self.Im_first_call = False
         #    visitor(node)
-        #    self.do_replace_constant = True
-        #    return visitor(node)
-        #else:
-        #    return visitor(node)
+        self.do_replace_constant = True
         return visitor(node)
+        # else:
+        #    return visitor(node)
 
     def generic_visit(self, node):
         """ Called if no explicit visitor function exists for a
@@ -166,6 +170,7 @@ class MpiConstantFoldingVisitor(object):
             result_value = eval(cmd)
             new_node = c_ast.Constant('int', str(result_value))
             new_entry = {'old': n, 'new': new_node}
+            # here, we can do it always
             self.new_objects_list.append(new_entry)
             lnh = self.get_list_of_visible_obj_hashs(n)
             for e in lnh:
@@ -185,16 +190,18 @@ class MpiConstantFoldingVisitor(object):
                             if ah in self.do_not_touch_objects:
                                 dont_continue = True
                                 break
-                        if type(a) is c_ast.ID and not dont_continue:
-                            if a.name not in __ids_not_to_replace__:
-                                for ah in ahl:
-                                    if ah in self.replaced_constant_cache:
-                                        constant = self.replaced_constant_cache[ah]
-                                        new_args.append(constant)
-                                        found_local = True
-                                        need_replace = True
-                                        # one is enough!
-                                        break
+                        if not dont_continue:
+                            if hasattr(a,'name'):
+                                if a.name in __ids_not_to_replace__:
+                                    continue
+                            for ah in ahl:
+                                if ah in self.replaced_constant_cache:
+                                    constant = self.replaced_constant_cache[ah]
+                                    new_args.append(constant)
+                                    found_local = True
+                                    need_replace = True
+                                    # one is enough!
+                                    break
                     if not found_local:
                         new_args.append(a)
                 if need_replace and self.do_replace_constant:
@@ -211,18 +218,18 @@ class MpiConstantFoldingVisitor(object):
             self.visit(n.lvalue)
         if type(n.rvalue) is not c_ast.ID:
             self.visit(n.rvalue)
-        #if type(n.lvalue) is c_ast.ID:
-        #    lhl = self.get_list_of_visible_obj_hashs(n.lvalue)
-        #    lhl.reverse()
-        #    for lh in lhl:
-        #        if lh in self.do_not_touch_objects:
-        #            return
+        if type(n.lvalue) is c_ast.ID:
+            lhl = self.get_list_of_visible_obj_hashs(n.lvalue)
+            lhl.reverse()
+            for l in lhl:
+                if l in self.do_not_touch_objects:
+                    return
         # rh = self.get_context_based_obj_hash(n.rvalue)
         rhl = self.get_list_of_visible_obj_hashs(n.rvalue)
         rhl.reverse()
-        # for r in rhl:
-        #     if r in self.do_not_touch_objects:
-        #         return
+        for r in rhl:
+            if r in self.do_not_touch_objects:
+                return
         # nh = self.get_context_based_obj_hash(n)
         if type(n.lvalue) is c_ast.ID:
             if type(n.rvalue) is c_ast.Constant:
@@ -240,12 +247,11 @@ class MpiConstantFoldingVisitor(object):
                 for rh in rhl:
                     if rh in self.replaced_constant_cache:
                         found_constant = True
-                        if not self.do_replace_constant:
-                            break
                         constant = self.replaced_constant_cache[rh]
                         new_node = c_ast.Assignment(op=n.op, lvalue=n.lvalue, rvalue=constant, coord=n.coord)
                         new_entry = {'old': n, 'new': new_node}
-                        self.new_objects_list.append(new_entry)
+                        if self.do_replace_constant:
+                            self.new_objects_list.append(new_entry)
                         # self.replaced_constant_cache[nh] = new_node
                         lnh = self.get_list_of_visible_obj_hashs(n)
                         for e in lnh:
@@ -259,14 +265,15 @@ class MpiConstantFoldingVisitor(object):
                         for e in lnh2:
                             self.replaced_constant_cache[e] = constant
                         break
-                if not found_constant and self.do_replace_constant:
+                if not found_constant:
                     # we have to remove it from all caches
                     decl_ID = c_ast.ID(n.lvalue.name)
                     lnh = self.get_list_of_visible_obj_hashs(decl_ID)
                     for e in lnh:
                         if e in self.replaced_constant_cache:
                             del self.replaced_constant_cache[e]
-                        # self.do_not_touch_objects.append(e)
+                        if e not in self.do_not_touch_objects:
+                            self.do_not_touch_objects.append(e)
         return
 
     # def visit_IdentifierType(self, n):
@@ -281,12 +288,13 @@ class MpiConstantFoldingVisitor(object):
     #         return self.visit(n)
 
     def visit_Decl(self, n):
-        #if self.init_of_for_loop or self.body_of_loop:
-        #    decl_ID = c_ast.ID(n.name)
-        #    lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
-        #    for e in lnh2:
-        #        self.do_not_touch_objects.append(e)
-        #    return
+        if self.init_of_for_loop or self.body_of_loop:
+            decl_ID = c_ast.ID(n.name)
+            lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
+            for e in lnh2:
+                if e not in self.do_not_touch_objects:
+                    self.do_not_touch_objects.append(e)
+            return
         if n.init:
             self.visit(n.init)
             if type(n.init) is c_ast.Constant:
@@ -304,12 +312,11 @@ class MpiConstantFoldingVisitor(object):
                 for ch in chl:
                     if ch in self.replaced_constant_cache:
                         found_constant = True
-                        if not self.do_replace_constant:
-                            break
                         new_node = c_ast.Decl(name=n.name, quals=n.quals, storage=n.storage, funcspec=n.funcspec, type=n.type,
                                           bitsize=n.bitsize, coord=n.coord, init=self.replaced_constant_cache[ch])
                         new_entry = {'old': n, 'new': new_node}
-                        self.new_objects_list.append(new_entry)
+                        if self.do_replace_constant:
+                            self.new_objects_list.append(new_entry)
                         # nh = self.get_context_based_obj_hash(n)
                         # self.replaced_constant_cache[nh] = new_node
                         lnh = self.get_list_of_visible_obj_hashs(n)
@@ -324,11 +331,12 @@ class MpiConstantFoldingVisitor(object):
                         for e in lnh2:
                             self.replaced_constant_cache[e] = self.replaced_constant_cache[ch]
                         break
-                # if not found_constant and self.do_replace_constant:
-                #     decl_ID = c_ast.ID(n.name)
-                #     lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
-                #     for e in lnh2:
-                #         self.do_not_touch_objects.append(e)
+                if not found_constant:
+                    decl_ID = c_ast.ID(n.name)
+                    lnh2 = self.get_list_of_visible_obj_hashs(decl_ID)
+                    for e in lnh2:
+                        if e not in self.do_not_touch_objects:
+                            self.do_not_touch_objects.append(e)
         if n.type:
             self.visit(n.type)
 
@@ -346,13 +354,14 @@ class MpiConstantFoldingVisitor(object):
             chl = self.get_list_of_visible_obj_hashs(n.dim)
             chl.reverse()
             for ch in chl:
-                if ch in self.replaced_constant_cache:
+                if ch in self.replaced_constant_cache and self.do_replace_constant:
                     constant = self.replaced_constant_cache[ch]
                     new_node = c_ast.ArrayDecl(type=n.type, dim_quals=n.dim_quals, coord=n.coord,
                                                dim=constant)
                     new_entry = {'old': n, 'new': new_node}
                     self.new_objects_list.append(new_entry)
                     # no entry in replaced_cache...since it is "just" the definition
+                    break
 
     # def visit_Typedef(self, n):
     #     s = ''
@@ -415,7 +424,8 @@ class MpiConstantFoldingVisitor(object):
 
     def visit_Compound(self, n):
         self.context_stack.append(self.current_context_hash)
-        self.current_context_hash = hash(n)
+        # self.current_context_hash = hash(n)
+        self.current_context_hash = _own_poor_ast_hash(n)
         if n.block_items:
             for stmt in n.block_items:
                 self.visit(stmt)
@@ -449,21 +459,23 @@ class MpiConstantFoldingVisitor(object):
             operand = n.expr
         elif type(n.expr) is c_ast.ID:
             self.visit(n.expr)
-            # here, we cannot decide wether an i++ is in a loop or not
-            # so, we stop
-            operand = None
-            # and we have to delete it from constant cache
-            snh = self.get_list_of_visible_obj_hashs(n.expr)
-            for e in snh:
-                if e in self.replaced_constant_cache:
-                    del self.replaced_constant_cache[e]
-                # self.do_not_touch_objects.append(e)
+            if n.op == 'p++':
+                # here, we cannot decide weather an i++ is in a loop or not
+                # so, we stop
+                operand = None
+                # and we have to delete it from constant cache
+                snh = self.get_list_of_visible_obj_hashs(n.expr)
+                for e in snh:
+                    if e in self.replaced_constant_cache:
+                        del self.replaced_constant_cache[e]
+                    if e not in self.do_not_touch_objects:
+                        self.do_not_touch_objects.append(e)
         else:
             self.visit(n.expr)
             nhl = self.get_list_of_visible_obj_hashs(n.expr)
             nhl.reverse()
             for nh in nhl:
-                if nh in self.replaced_constant_cache and self.do_replace_constant:
+                if nh in self.replaced_constant_cache:
                     operand = self.replaced_constant_cache[nh]
                     assert type(operand) is c_ast.Constant
                     # NO break, because we want the most inner match?
@@ -486,7 +498,8 @@ class MpiConstantFoldingVisitor(object):
             if cmd_exectued:
                 new_node = c_ast.Constant(operand.type, str(result_value))
                 new_entry = {'old': n, 'new': new_node}
-                self.new_objects_list.append(new_entry)
+                if self.do_replace_constant:
+                    self.new_objects_list.append(new_entry)
                 # nh = self.get_context_based_obj_hash(n)
                 # self.replaced_constant_cache[nh] = new_node
                 lnh = self.get_list_of_visible_obj_hashs(n)
@@ -507,7 +520,7 @@ class MpiConstantFoldingVisitor(object):
             left_operand = n.left
         else:
             for lh in lhs:
-                if lh in self.replaced_constant_cache and self.do_replace_constant:
+                if lh in self.replaced_constant_cache:
                     if lh in self.do_not_touch_objects:
                         left_operand = None
                         break
@@ -518,7 +531,7 @@ class MpiConstantFoldingVisitor(object):
             right_operand = n.right
         else:
             for rh in rhs:
-                if rh in self.replaced_constant_cache and self.do_replace_constant:
+                if rh in self.replaced_constant_cache:
                     if rh in self.do_not_touch_objects:
                         right_operand = None
                         break
@@ -545,7 +558,8 @@ class MpiConstantFoldingVisitor(object):
                     result_value = int(result_value)
             new_node = c_ast.Constant(result_type, str(result_value))
             new_entry = {'old': n, 'new': new_node}
-            self.new_objects_list.append(new_entry)
+            if self.do_replace_constant:
+                self.new_objects_list.append(new_entry)
             # nh = self.get_context_based_obj_hash(n)
             # self.replaced_constant_cache[nh] = new_node
             lnh = self.get_list_of_visible_obj_hashs(n)
@@ -570,10 +584,10 @@ class MpiConstantFoldingVisitor(object):
             compare = n.cond
         else:
             for nc in ncl:
-                if nc in self.replaced_constant_cache and self.do_replace_constant:
+                if nc in self.replaced_constant_cache:
                     compare = self.replaced_constant_cache[nc]
 
-        if compare is not None and self.do_replace_constant:
+        if compare is not None:
             result_node = None
             if compare.value == "True":
                 result_node = n.iftrue
@@ -583,7 +597,8 @@ class MpiConstantFoldingVisitor(object):
                 print("ERROR: TenaryOperation with constant result that is not a booolean varuable, skipping this node: {}".format(n))
                 return
             new_entry = {'old': n, 'new': result_node}
-            self.new_objects_list.append(new_entry)
+            if self.do_replace_constant:
+                self.new_objects_list.append(new_entry)
             if type(result_node) is c_ast.Constant:
                 # nh = self.get_context_based_obj_hash(n)
                 # self.replaced_constant_cache[nh] = result_node
@@ -612,11 +627,15 @@ class MpiConstantFoldingVisitor(object):
 
     def visit_For(self, n):
         # we better NOT visit n.init and n.cond, since we know there will rarely be constants
-        # self.init_of_for_loop = True
-        # self.visit(n.init)
-        # self.init_of_for_loop = False
+        self.init_of_for_loop = True
+        self.visit(n.init)
+        self.init_of_for_loop = False
         was_true = self.body_of_loop
         self.body_of_loop = True
+        self.do_replace_constant = False
+        # check if there is a change in the end of the body
+        self.visit(n.stmt)
+        self.do_replace_constant = True
         self.visit(n.stmt)
         if not was_true:
             self.body_of_loop = False
@@ -627,6 +646,10 @@ class MpiConstantFoldingVisitor(object):
         # we better NOT visit n.cond, since we know there will rarely be constants
         was_true = self.body_of_loop
         self.body_of_loop = True
+        self.do_replace_constant = False
+        # check if there is a change in the end of the body
+        self.visit(n.stmt)
+        self.do_replace_constant = True
         self.visit(n.stmt)
         if not was_true:
             self.body_of_loop = False
@@ -636,6 +659,10 @@ class MpiConstantFoldingVisitor(object):
         # we better NOT visit n.cond, since we know there will rarely be constants
         was_true = self.body_of_loop
         self.body_of_loop = True
+        self.do_replace_constant = False
+        # check if there is a change in the end of the body
+        self.visit(n.stmt)
+        self.do_replace_constant = True
         self.visit(n.stmt)
         if not was_true:
             self.body_of_loop = False

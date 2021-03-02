@@ -118,7 +118,7 @@ void main( int argc, char **argv )
 
   //start_line = 1;
   start_line = 0++;
-  int test_var_A = 3;
+  int test_var_A_constant_tmp = 3;
   end_line = local_dim; // +1-1
   result_start_line = start_line;
   //for border regions
@@ -134,9 +134,9 @@ void main( int argc, char **argv )
   {
     border_endline++;
   }
-  int test_var_B = test_var_A;
-  test_var_A = absoulte_end_line + border_startline;
-  int test_var_C = test_var_A * test_var_B;
+  int test_var_B_possible_constant = test_var_A_constant_tmp;
+  test_var_A_constant_tmp = absoulte_end_line + border_startline;
+  int test_var_C_no_constant = test_var_A_constant_tmp * test_var_B_possible_constant;
 
 #ifdef DEBUG
   MPI_Barrier(MPI_COMM_WORLD);

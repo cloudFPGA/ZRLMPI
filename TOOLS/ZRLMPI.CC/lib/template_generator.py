@@ -1159,6 +1159,8 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
 
 
 def send_replacemet(send_call):
+    print("ERROR: htis method is deprecated, do not use! (and no longer necessary)")
+    exit(-1)
     if type(send_call.args.exprs[1]) == c_ast.Constant:
         orig_count = int(send_call.args.exprs[1].value)
         if orig_count <= __max_packet_length__:
@@ -1236,6 +1238,8 @@ def send_replacemet(send_call):
 
 
 def recv_replacement(recv_call):
+    print("ERROR: htis method is deprecated, do not use! (and no longer necessary)")
+    exit(-1)
     if type(recv_call.args.exprs[1]) == c_ast.Constant:
         orig_count = int(recv_call.args.exprs[1].value)
         if orig_count <= __max_packet_length__:

@@ -33,7 +33,7 @@ __words_inlining_directive__ = "set_directive_interface -bundle boAPP_DRAM -offs
 
 
 def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_parsing, target_file_name, template_only=False,
-                replace_send_recv=False, optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False):
+                optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
@@ -95,15 +95,8 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     constant_folding_visitor1.visit(ast_m_1)
     constants_to_replace = constant_folding_visitor1.get_new_objects()
     replace_stmt_visitor1 = replace_visitor.MpiStatementReplaceVisitor(constants_to_replace)
-    ast_m_12 = ast_m_1
-    replace_stmt_visitor1.visit(ast_m_12)
-    # we are doing two rounds of constant folding
-    #constant_folding_visitor12 = constant_visitor.MpiConstantFoldingVisitor()
-    #constant_folding_visitor12.visit(ast_m_12)
-    #constants_to_replace2 = constant_folding_visitor1.get_new_objects()
-    #replace_stmt_visitor12 = replace_visitor.MpiStatementReplaceVisitor(constants_to_replace2)
-    ast_m_2 = ast_m_12
-    #replace_stmt_visitor12.visit(ast_m_2)
+    ast_m_2 = ast_m_1
+    replace_stmt_visitor1.visit(ast_m_2)
     # 4. find rank names & find collective names
     find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor2.visit(ast_m_2)
@@ -201,47 +194,12 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
                     # only in this case the tcl list
                     tcl_directives_lines.extend(tcl_list)
         collectives_new_obj.append(new_entry)
-    # replace send and recv if necessary
-    if replace_send_recv:
-        send_calls_obj = find_name_visitor.get_results_send()
-        recv_calls_obj = find_name_visitor.get_results_recv()
-        for e in send_calls_obj:
-            new_entry = {}
-            new_entry['old'] = e
-            new_entry['new'] = template_generator.send_replacemet(e)
-            collectives_new_obj.append(new_entry)
-        for e in recv_calls_obj:
-            new_entry = {}
-            new_entry['old'] = e
-            new_entry['new'] = template_generator.recv_replacement(e)
-            collectives_new_obj.append(new_entry)
     if available_optimization_buffer_list is not None:
         tcl_directives_lines.extend(available_optimization_buffer_list['tcls'])
     ast_m_3 = ast_m_2
     replace_stmt_visitor0 = replace_visitor.MpiStatementReplaceVisitor(collectives_new_obj)
     replace_stmt_visitor0.visit(ast_m_3)
-    # replace send and recv if necessary in generated templates
-    if replace_send_recv:
-        find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
-        find_name_visitor2.visit(ast_m_3)
-        send_calls_obj = find_name_visitor2.get_results_send()
-        recv_calls_obj = find_name_visitor2.get_results_recv()
-        send_recv_new_obj = []
-        for e in send_calls_obj:
-            new_entry = {}
-            new_entry['old'] = e
-            new_entry['new'] = template_generator.send_replacemet(e)
-            send_recv_new_obj.append(new_entry)
-        for e in recv_calls_obj:
-            new_entry = {}
-            new_entry['old'] = e
-            new_entry['new'] = template_generator.recv_replacement(e)
-            send_recv_new_obj.append(new_entry)
-        c_ast_tmpl = ast_m_3
-        replace_stmt_visitor3 = replace_visitor.MpiStatementReplaceVisitor(send_recv_new_obj)
-        replace_stmt_visitor3.visit(c_ast_tmpl)
-    else:
-        c_ast_tmpl = ast_m_3
+    c_ast_tmpl = ast_m_3
     # 6. another constant folding
     # maybe another visitor that finds "variables that are used as constants"
     # only those variables should be part of constant folding at their time of assignment
