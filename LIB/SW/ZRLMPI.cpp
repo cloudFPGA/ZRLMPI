@@ -104,6 +104,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
   uint32_t orig_header_size = 0x0;
 
+//#ifdef USE_PROTO_TIMEOUT
   struct timeval tv;
   if(with_timeout == true)
   {
@@ -117,6 +118,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   {
     perror("setsockopt SO_RCVTIMEO:");
   }
+//#endif
 
   while(true)
   {
@@ -180,9 +182,9 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       if(res == -1)
       {
         if(errno == EAGAIN || errno == EWOULDBLOCK)
-        {
+	{
 #ifdef DEBUG0
-          printf("[recvfrom] timeout occured!\n");
+	    printf("[recvfrom] timeout occured! While waiting for packet type %d from %d (packet cnt: %d)\n", expType, expSrcRank, recv_packets_cnt);
 #endif
           return RECVH_TIMEOUT_RETURN;
         }
@@ -472,12 +474,12 @@ void send_internal(
     int total_packets = 0;
     struct timespec sleep;
     sleep.tv_sec = 0;
-    //sleep.tv_nsec = 200; //0.2us, based on experiments...
-#ifdef ZC2_NETWORK
-    sleep.tv_nsec = 250000; //300us, based on experiments for ZC2!
-#else
-    sleep.tv_nsec = 2000; //2us, based on experiments with 10G links on schwand.
-#endif
+    //sleep.tv_nsec = 50000000; 
+//#ifdef ZC2_NETWORK
+//    sleep.tv_nsec = 250000; //300us, based on experiments for ZC2!
+//#else
+//    sleep.tv_nsec = 2000; //2us, based on experiments with 10G links on schwand.
+//#endif
 
     //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
     for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)
@@ -507,7 +509,7 @@ void send_internal(
         total_packets++;
       }
       //make sure they stay in order
-      nanosleep(&sleep, &sleep);
+      //nanosleep(&sleep, &sleep);
     }
     //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
     //std::cout << res << " bytes sent for DATA" <<std::endl;
