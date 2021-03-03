@@ -379,6 +379,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         loop_stmts_to_replace = []
         new_buffer_decls = []
         used_buffer_decls_names = []
+        replace_2nd_round = []
         for l in found_inner_loops:
             pAST, bd, bn = template_generator.loop_optimization_replacement(l, buffer_array_names, buffer_array_replace_names, found_array_dims)
             new_r = {}
@@ -390,17 +391,20 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
                     ni = bn.index(n)
                     new_buffer_decls.append(bd[ni])
             loop_stmts_to_replace.append(new_r)
-            loop_stmts_to_replace.extend(l['replace'])
+            replace_2nd_round.extend(l['replace'])
         replace_stmt_visitor7 = replace_visitor.MpiStatementReplaceVisitor(loop_stmts_to_replace)
-        new_ast_2 = new_ast_22
+        new_ast_23 = new_ast_22
         # add buffer decls at begin
         new_buffer_decls.reverse()
-        assert type(new_ast_2) is c_ast.FuncDef
-        assert hasattr(new_ast_2, 'body')
-        assert hasattr(new_ast_2.body, 'block_items')
+        assert type(new_ast_23) is c_ast.FuncDef
+        assert hasattr(new_ast_23, 'body')
+        assert hasattr(new_ast_23.body, 'block_items')
         for decl in new_buffer_decls:
-            new_ast_2.body.block_items.insert(0, decl)
-        replace_stmt_visitor7.visit(new_ast_2)
+            new_ast_23.body.block_items.insert(0, decl)
+        replace_stmt_visitor7.visit(new_ast_23)
+        replace_stmt_visitor8 = replace_visitor.MpiStatementReplaceVisitor(replace_2nd_round)
+        new_ast_2 = new_ast_23
+        replace_stmt_visitor8.visit(new_ast_2)
     else:
         new_ast_2 = new_ast_22
 

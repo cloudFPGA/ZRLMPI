@@ -422,14 +422,23 @@ class MpiSignatureNameSearcher(object):
                             found_local = True
                             replace_args = True
                             if type(a) is c_ast.ID:
-                                nn = c_ast.ID(name=self.dram_buffer_replace_names[ni])
+                                nn = c_ast.ID(name=c_ast.ID(self.dram_buffer_replace_names[ni]))
                                 new_args.append(nn)
                             elif type(a) is c_ast.ArrayRef:
-                                nn = c_ast.ArrayRef(name=self.dram_buffer_replace_names[ni], subscript=a.subscript)
+                                nn = c_ast.ArrayRef(name=c_ast.ID(self.dram_buffer_replace_names[ni]), subscript=a.subscript)
                                 new_args.append(nn)
                             elif type(a) is c_ast.UnaryOp:
-                                nn = c_ast.UnaryOp(a.op, expr=self.dram_buffer_replace_names[ni])
-                                new_args.append(nn)
+                                if type(a.expr) is c_ast.ID:
+                                    nn = c_ast.UnaryOp(a.op, expr=c_ast.ID(self.dram_buffer_replace_names[ni]))
+                                    new_args.append(nn)
+                                elif type(a.expr) is c_ast.ArrayRef:
+                                    nnn = c_ast.ArrayRef(name=c_ast.ID(self.dram_buffer_replace_names[ni]), subscript=a.expr.subscript)
+                                    nn = c_ast.UnaryOp(a.op, expr=nnn)
+                                    new_args.append(nn)
+                                else:
+                                    print('[WARNING] cannot replace unaryOp for buffer access in loop')
+                                    nn = c_ast.UnaryOp(a.op, expr=c_ast.ID(self.dram_buffer_replace_names[ni]))
+                                    new_args.append(nn)
                 if not found_local:
                     new_args.append(a)
             if replace_args:
@@ -528,7 +537,7 @@ class MpiSignatureNameSearcher(object):
                         if type(n.lvalue) is c_ast.ID:
                             new_l = c_ast.ID(name=self.dram_buffer_replace_names[ni])
                         elif type(n.lvalue) is c_ast.ArrayRef:
-                            new_l = c_ast.ArrayRef(name=self.dram_buffer_replace_names[ni], subscript=n.lvalue.subscript)
+                            new_l = c_ast.ArrayRef(name=c_ast.ID(self.dram_buffer_replace_names[ni]), subscript=n.lvalue.subscript)
                         if new_l is not None:
                             new_entry['new'] = c_ast.Assignment(n.op, new_l, n.rvalue)
                             self.tmp_buffer_calls_to_replace.append(new_entry)

@@ -1376,6 +1376,70 @@ def malloc_replacement(malloc_call, malloc_stmt):
     return pAST, tcl_directives, decl_to_search, nop_op, array_decl, array_name
 
 
+def __find_subscript_factor__(buffer_name, item_list, loop_var_to_replace):
+    obj_to_visit = []
+    for e in item_list:
+        for c in e:
+            obj_to_visit.append(c)
+            for cc in c:
+                obj_to_visit.append(cc)
+                for ccc in cc:
+                    obj_to_visit.append(ccc)
+                    for cccc in ccc:
+                        obj_to_visit.append(cccc)
+            # we go for levels...
+    cur_obj = obj_to_visit[0]
+    del obj_to_visit[0]
+    ret = c_ast.Constant('int', '1')
+    while cur_obj is not None:
+        name_found = False
+        if hasattr(cur_obj, 'name'):
+            if type(cur_obj.name) is c_ast.ID:
+                if cur_obj.name.name == buffer_name:
+                    name_found = True
+            elif type(cur_obj.name) is string:
+                if cur_obj.name == buffer_name:
+                    name_found = True
+            if name_found:
+                if type(cur_obj) is not c_ast.ArrayRef:
+                    return ret
+                if type(cur_obj.subscript) is c_ast.ID:
+                    if cur_obj.subscript.name == loop_var_to_replace:
+                        return ret
+                    else:
+                        return cur_obj.subscript
+                if type(cur_obj.subscript) is c_ast.BinaryOp:
+                    cur_local_obj = cur_obj.subscript
+                    new_op = c_ast.BinaryOp(op=cur_local_obj.op, left=None, right=None)
+                    while True:
+                        if type(cur_local_obj) is c_ast.BinaryOp:
+                            if type(cur_local_obj.left) is c_ast.ID and cur_local_obj.left.name == loop_var_to_replace:
+                                ret = cur_local_obj.right
+                                return ret
+                            if type(cur_local_obj.right) is c_ast.ID and cur_local_obj.right.name == loop_var_to_replace:
+                                ret = cur_local_obj.left
+                                return ret
+                            if type(cur_local_obj.left) is c_ast.Constant:
+                                new_op.left = cur_local_obj.left
+                                cur_local_obj = cur_local_obj.right
+                                continue
+                            if type(cur_local_obj.right) is c_ast.Constant:
+                                new_op.right = cur_local_obj.right
+                                cur_local_obj = cur_local_obj.left
+                                continue
+                        elif type(cur_local_obj) is c_ast.ID:
+                            if cur_local_obj.name == loop_var_to_replace:
+                                return ret
+                        else:
+                            return ret
+        if not name_found:
+            if len(obj_to_visit) > 0:
+                cur_obj = obj_to_visit[0]
+                del obj_to_visit[0]
+            else:
+                return ret
+
+
 def loop_optimization_replacement(inner_loop_entry, dram_buffer_names, dram_buffer_names_replace, found_array_dims):
     loop_call = inner_loop_entry['loop']
     new_outer_loop_stmts = []
@@ -1388,8 +1452,10 @@ def loop_optimization_replacement(inner_loop_entry, dram_buffer_names, dram_buff
     new_outer_loop_init = c_ast.DeclList([outer_loop_variable_decl])
     # TODO: what if condition is reversed?
     assert type(loop_call.cond) is c_ast.BinaryOp
+    assert type(loop_call.cond.left) is c_ast.ID
     new_outer_loop_cond = c_ast.BinaryOp(loop_call.cond.op, outer_loop_variable_id, loop_call.cond.right)
     new_outer_loop_next = c_ast.Assignment('+=', outer_loop_variable_id, __loop_split_size_constant__)
+    old_loop_var_name = loop_call.cond.left.name
     # take care of buffers
     new_buffer_decls = []
     used_buffer_decls_names = []
@@ -1409,8 +1475,13 @@ def loop_optimization_replacement(inner_loop_entry, dram_buffer_names, dram_buff
                                               bitsize=None)
         new_buffer_decls.append(b_decl)
         used_buffer_decls_names.append(nn)
+        factor = __find_subscript_factor__(b['name'], loop_call.stmt.block_items, old_loop_var_name)
+        # TODO: support other type of BinaryOp
+        subscript = c_ast.BinaryOp('*', outer_loop_variable_id, factor)
+        # b_id = c_ast.ArrayRef(name=nn, subscript=subscript)
         b_id = c_ast.ID(nn)
-        o_id = c_ast.ID(b['name'])
+        o_id = c_ast.ArrayRef(name=c_ast.ID(b['name']), subscript=subscript)
+        # o_id = c_ast.ID(b['name'])
         if b['write']:
             np = {}
             np['target'] = o_id
