@@ -37,6 +37,95 @@ __dram_func_name_extension__ = "_DRAM"
 
 __null_constant__ = c_ast.Constant(type='int', value='0')
 
+__buffer_write_ident__ = 'w'
+__buffer_read_ident__ = 'r'
+
+
+def _get_id_name_of_arg(arg_0, with_binary_op=True):
+    id_name = ''
+    obj_to_visit = [arg_0]
+    while len(obj_to_visit) > 0:
+        current_obj = obj_to_visit[0]
+        del obj_to_visit[0]
+        if type(current_obj) == c_ast.ID:
+            id_name = current_obj.name
+            break
+        elif type(current_obj) == c_ast.BinaryOp and with_binary_op:
+            obj_to_visit.append(current_obj.left)
+            obj_to_visit.append(current_obj.right)
+        elif type(current_obj) == c_ast.UnaryOp:
+            el = current_obj.expr
+            if type(el) is list:
+                obj_to_visit.append(el[0])
+            else:
+                obj_to_visit.append(el)
+        elif type(current_obj) == c_ast.ArrayRef:
+            obj_to_visit.append(current_obj.name)
+    return id_name
+
+
+def _merge_access_list(access_list):
+    covered_read_access = []
+    covered_write_access = []
+    final_access_list = []
+    names_covered_read = []
+    names_covered_write = []
+    names_covered_both = []
+    for e in access_list:
+        en = e['name']
+        ew = e['write']
+        er = e['read']
+        if ew and er:
+            if en in names_covered_both:
+                # nothing to do
+                continue
+            if en in names_covered_read:
+                ti = names_covered_read.index(en)
+                del covered_read_access[ti]
+                del names_covered_read[ti]
+            if en in names_covered_write:
+                ti = names_covered_write.index(en)
+                del covered_write_access[ti]
+                del names_covered_write[ti]
+            final_access_list.append(e)
+            names_covered_both.append(en)
+        elif ew:
+            if en not in names_covered_both \
+                    and en in names_covered_read:
+                new_entry = {}
+                new_entry['name'] = en
+                new_entry['write'] = True
+                new_entry['read'] = True
+                ti = names_covered_read.index(en)
+                del names_covered_read[ti]
+                del covered_read_access[ti]
+                names_covered_both.append(en)
+                final_access_list.append(en)
+            elif en not in names_covered_both \
+                    and en not in names_covered_write:
+                covered_write_access.append(e)
+                names_covered_write.append(en)
+        else:
+            if en not in names_covered_both \
+                    and en in names_covered_write:
+                new_entry = {}
+                new_entry['name'] = en
+                new_entry['write'] = True
+                new_entry['read'] = True
+                ti = names_covered_write.index(en)
+                del names_covered_write[ti]
+                del covered_write_access[ti]
+                names_covered_both.append(en)
+                final_access_list.append(en)
+            if en not in names_covered_both \
+                    and en not in names_covered_read:
+                covered_read_access.append(e)
+                names_covered_read.append(en)
+    # after for each
+    final_access_list.extend(covered_write_access)
+    final_access_list.extend(covered_read_access)
+    return final_access_list
+
 
 class MpiSignatureNameSearcher(object):
     """
@@ -68,7 +157,7 @@ class MpiSignatureNameSearcher(object):
 
     _method_cache = None
 
-    def __init__(self, search_for_decls=None, seach_for_dram=None):
+    def __init__(self, search_for_decls=None, seach_for_dram=None, search_for_loop=None, replace_names=None):
         # Statements start with indentation of self.indent_level spaces, using
         # the _make_indent method
         #
@@ -91,6 +180,18 @@ class MpiSignatureNameSearcher(object):
         self.found_if_obj = []
         self.search_for_dram = seach_for_dram
         self.found_dram_calls = []
+        self.search_for_loop = None
+        self.dram_buffer_replace_names = None
+        if search_for_loop is not None and seach_for_dram is not None and replace_names is not None:
+            self.search_for_loop = search_for_loop
+            self.dram_buffer_replace_names = replace_names
+        self.found_inner_loops = []
+        self.is_loop = False
+        self.current_inner_loop = None
+        self.buffer_access_in_loop = []
+        self.tmp_buffer_access_list = []
+        self.loop_buffer_calls_to_replace = []
+        self.tmp_buffer_calls_to_replace = []
 
     def get_results_buffers(self):
         return self.found_buffers_names, self.found_buffers_obj
@@ -138,6 +239,9 @@ class MpiSignatureNameSearcher(object):
     def get_found_dram_calls(self):
         return self.found_dram_calls
 
+    def get_found_inner_loops(self):
+        return self.found_inner_loops
+
     def visit(self, node):
         """ Visit a node.
         """
@@ -173,12 +277,33 @@ class MpiSignatureNameSearcher(object):
     #     return ret
 
     # def visit_ArrayRef(self, n):
-    #     arrref = self._parenthesize_unless_simple(n.name)
-    #     return arrref + '[' + self.visit(n.subscript) + ']'
+    #     if self.search_for_loop is not None and self.is_loop:
+    #         id_name = _get_id_name_of_arg(n.name, with_binary_op=False)
+    #         if id_name != '' and id_name in self.search_for_dram:
+    #             new_entry = {}
+    #             new_entry['name'] = id_name
+    #             # could be both, we don't know
+    #             # TODO: evaluate potential "const" etc.
+    #             new_entry['write'] = True
+    #             new_entry['read'] = True
+    #             self.tmp_buffer_access_list.append(new_entry)
+    #     else:
+    #         for c in n:
+    #             self.visit(c)
 
     # def visit_StructRef(self, n):
-    #     sref = self._parenthesize_unless_simple(n.name)
-    #     return sref + n.type + self.visit(n.field)
+    #     if self.search_for_loop is not None and self.is_loop:
+    #         id_name = _get_id_name_of_arg(n.name, with_binary_op=False)
+    #         if id_name != '' and id_name in self.search_for_dram:
+    #             new_entry = {}
+    #             new_entry['name'] = id_name
+    #             # could be both, we don't know
+    #             new_entry['write'] = True
+    #             new_entry['read'] = True
+    #             self.tmp_buffer_access_list.append(new_entry)
+    #     else:
+    #         for c in n:
+    #             self.visit(c)
 
     def visit_FuncCall(self, n):
         func_name = n.name.name
@@ -211,25 +336,7 @@ class MpiSignatureNameSearcher(object):
                 self.found_buffers_names.append(buffer_name)
                 self.found_buffers_obj.append(arg_0)
             if self.search_for_dram is not None:
-                id_name = ''
-                obj_to_visit = [arg_0]
-                while len(obj_to_visit) > 0:
-                    current_obj = obj_to_visit[0]
-                    del obj_to_visit[0]
-                    if type(current_obj) == c_ast.ID:
-                        id_name = current_obj.name
-                        break
-                    elif type(current_obj) == c_ast.BinaryOp:
-                        obj_to_visit.append(current_obj.left)
-                        obj_to_visit.append(current_obj.right)
-                    elif type(current_obj) == c_ast.UnaryOp:
-                        el = current_obj.expr
-                        if type(el) is list:
-                            obj_to_visit.append(el[0])
-                        else:
-                            obj_to_visit.append(el)
-                    elif type(current_obj) == c_ast.ArrayRef:
-                        obj_to_visit.append(current_obj.name)
+                id_name = _get_id_name_of_arg(arg_0)
                 if id_name == '':
                     print("[DEBUG] unable to find buffer name of MPI call.")
                 else:
@@ -293,33 +400,156 @@ class MpiSignatureNameSearcher(object):
             self.found_malloc_obj.append(n)
         elif func_name in __c_api_clib_signatures__:
             self.found_clib_obj.append(n)
+
+        if self.search_for_loop is not None and self.is_loop:
+            replace_args = False
+            new_args = []
+            for a in n.args.exprs:
+                # self.visit(a)
+                found_local = False
+                if type(a) is c_ast.ID or type(a) is c_ast.ArrayRef \
+                        or (type(a) is c_ast.UnaryOp and (a.op == '&' or a.op == '*')):
+                    id_name = _get_id_name_of_arg(a, with_binary_op=False)
+                    if id_name != '':
+                        if id_name in self.search_for_dram:
+                            new_entry = {}
+                            new_entry['name'] = id_name
+                            # pointer will be covered somewhere else --> false, we don't know it here
+                            new_entry['write'] = True
+                            new_entry['read'] = True
+                            self.tmp_buffer_access_list.append(new_entry)
+                            ni = self.search_for_dram.index(id_name)
+                            found_local = True
+                            replace_args = True
+                            if type(a) is c_ast.ID:
+                                nn = c_ast.ID(name=self.dram_buffer_replace_names[ni])
+                                new_args.append(nn)
+                            elif type(a) is c_ast.ArrayRef:
+                                nn = c_ast.ArrayRef(name=self.dram_buffer_replace_names[ni], subscript=a.subscript)
+                                new_args.append(nn)
+                            elif type(a) is c_ast.UnaryOp:
+                                nn = c_ast.UnaryOp(a.op, expr=self.dram_buffer_replace_names[ni])
+                                new_args.append(nn)
+                if not found_local:
+                    new_args.append(a)
+            if replace_args:
+                expr_list = c_ast.ExprList(new_args)
+                new_node = c_ast.FuncCall(n.name, expr_list)
+                new_entry = {'old': n, 'new': new_node}
+                self.tmp_buffer_calls_to_replace.append(new_entry)
         return
 
-    # def visit_UnaryOp(self, n):
-    #     operand = self._parenthesize_unless_simple(n.expr)
-    #     if n.op == 'p++':
-    #         return '%s++' % operand
-    #     elif n.op == 'p--':
-    #         return '%s--' % operand
-    #     elif n.op == 'sizeof':
-    #         # Always parenthesize the argument of sizeof since it can be
-    #         # a name.
-    #         return 'sizeof(%s)' % self.visit(n.expr)
-    #     else:
-    #         return '%s%s' % (n.op, operand)
-    #
-    # def visit_BinaryOp(self, n):
-    #     lval_str = self._parenthesize_if(n.left,
-    #                                      lambda d: not self._is_simple_node(d))
-    #     rval_str = self._parenthesize_if(n.right,
-    #                                      lambda d: not self._is_simple_node(d))
-    #     return '%s %s %s' % (lval_str, n.op, rval_str)
-    #
-    # def visit_Assignment(self, n):
-    #     rval_str = self._parenthesize_if(
-    #         n.rvalue,
-    #         lambda n: isinstance(n, c_ast.Assignment))
-    #     return '%s %s %s' % (self.visit(n.lvalue), n.op, rval_str)
+    def visit_UnaryOp(self, n):
+        if self.search_for_loop is not None and self.is_loop:
+            id_name = _get_id_name_of_arg(n.expr, with_binary_op=False)
+            if id_name == '':
+                print("[DEBUG] unable to find buffer of UnaryOp in loop.")
+            else:
+                if id_name in self.search_for_dram:
+                    new_entry = {}
+                    new_entry['name'] = id_name
+                    # could be pointer --> both
+                    new_entry['write'] = True
+                    new_entry['read'] = True
+                    self.tmp_buffer_access_list.append(new_entry)
+        else:
+            for c in n:
+                self.visit(c)
+
+    def visit_BinaryOp(self, n):
+        if self.search_for_loop is not None and self.is_loop:
+            # self.visit(n.op)
+            new_r = None
+            new_l = None
+            if type(n.left) is c_ast.ID:
+                id_name = _get_id_name_of_arg(n.left, with_binary_op=False)
+                if id_name == '':
+                    print("[DEBUG] unable to find buffer of BinaryOp in loop.")
+                else:
+                    if id_name in self.search_for_dram:
+                        new_entry = {}
+                        new_entry['name'] = id_name
+                        new_entry['write'] = False
+                        new_entry['read'] = True
+                        self.tmp_buffer_access_list.append(new_entry)
+                        ni = self.search_for_dram.index(id_name)
+                        new_l = c_ast.ID(name=self.dram_buffer_replace_names[ni])
+            else:
+                self.visit(n.left)
+            if type(n.right) is c_ast.ID:
+                id_name = _get_id_name_of_arg(n.right, with_binary_op=False)
+                if id_name == '':
+                    print("[DEBUG] unable to find buffer of BinaryOp in loop.")
+                else:
+                    if id_name in self.search_for_dram:
+                        new_entry = {}
+                        new_entry['name'] = id_name
+                        new_entry['write'] = False
+                        new_entry['read'] = True
+                        self.tmp_buffer_access_list.append(new_entry)
+                        ni = self.search_for_dram.index(id_name)
+                        new_r = c_ast.ID(name=self.dram_buffer_replace_names[ni])
+            if new_l is not None or new_r is not None:
+                new_entry = {}
+                new_entry['old'] = n
+                nr = n.right
+                nl = n.left
+                if new_r is not None:
+                    nr = new_r
+                if new_l is not None:
+                    nl = new_l
+                new_entry['new'] = c_ast.BinaryOp(n.op,nl,nr)
+                self.tmp_buffer_access_list.append(new_entry)
+            else:
+                self.visit(n.right)
+        else:
+            for c in n:
+                self.visit(c)
+
+    def visit_Assignment(self, n):
+        if self.search_for_loop is not None and self.is_loop and n.op == '=':
+            access_list = []
+            if type(n.lvalue) is c_ast.ID or type(n.lvalue) is c_ast.ArrayRef:
+                id_name = _get_id_name_of_arg(n.lvalue)
+                if id_name == '':
+                    print("[DEBUG] unable to find buffer name of assignment in loop.")
+                else:
+                    if id_name in self.search_for_dram:
+                        new_entry = {}
+                        new_entry['name'] = id_name
+                        # new_entry['access'] = __buffer_write_ident__
+                        new_entry['write'] = True
+                        new_entry['read'] = False
+                        access_list.append(new_entry)
+                        ni = self.search_for_dram.index(id_name)
+                        new_entry = {}
+                        new_entry['old'] = n
+                        new_l = None
+                        if type(n.lvalue) is c_ast.ID:
+                            new_l = c_ast.ID(name=self.dram_buffer_replace_names[ni])
+                        elif type(n.lvalue) is c_ast.ArrayRef:
+                            new_l = c_ast.ArrayRef(name=self.dram_buffer_replace_names[ni], subscript=n.lvalue.subscript)
+                        if new_l is not None:
+                            new_entry['new'] = c_ast.Assignment(n.op, new_l, n.rvalue)
+                            self.tmp_buffer_calls_to_replace.append(new_entry)
+            nested = True
+            prev_access_list = self.tmp_buffer_access_list
+            if len(self.tmp_buffer_access_list) == 0:
+                nested = False
+            self.tmp_buffer_access_list = []
+            self.visit(n.rvalue)
+            if nested:
+                self.tmp_buffer_access_list.extend(prev_access_list)
+                self.tmp_buffer_access_list.extend(access_list)
+                # done for now
+            elif len(self.tmp_buffer_access_list) > 0:
+                self.tmp_buffer_access_list.extend(access_list)
+                final_access_list = _merge_access_list(self.tmp_buffer_access_list)
+                self.buffer_access_in_loop.extend(final_access_list)
+                self.tmp_buffer_access_list = []
+        else:
+            for c in n:
+                self.visit(c)
     #
     # def visit_IdentifierType(self, n):
     #     return ' '.join(n.names)
@@ -336,6 +566,23 @@ class MpiSignatureNameSearcher(object):
         if self.search_for_decls is not None:
             if n.name in self.search_for_decls:
                 self.found_decl_obj.append(n)
+        if self.search_for_loop is not None and self.is_loop and n.init is not None:
+            nested = True
+            prev_access_list = self.tmp_buffer_access_list
+            if len(self.tmp_buffer_access_list) == 0:
+                nested = False
+            self.tmp_buffer_access_list = []
+            self.visit(n.init)
+            if nested:
+                self.tmp_buffer_access_list.extend(prev_access_list)
+                # done for now
+            elif len(self.tmp_buffer_access_list) > 0:
+                final_access_list = _merge_access_list(self.tmp_buffer_access_list)
+                self.buffer_access_in_loop.extend(final_access_list)
+                self.tmp_buffer_access_list = []
+        else:
+            for c in n:
+                self.visit(c)
 
     # def visit_DeclList(self, n):
     #     s = self.visit(n.decls[0])
@@ -344,9 +591,9 @@ class MpiSignatureNameSearcher(object):
     #                               for decl in n.decls[1:])
     #     return s
     #
-    def visit_Typedef(self, n):
-        for c in n:
-            self.visit(c)
+    # def visit_Typedef(self, n):
+    #     for c in n:
+    #         self.visit(c)
     #
     # def visit_Cast(self, n):
     #     s = '(' + self._generate_type(n.to_type) + ')'
@@ -469,32 +716,96 @@ class MpiSignatureNameSearcher(object):
             for c in n:
                 self.visit(c)
 
-    # def visit_For(self, n):
-    #     s = 'for ('
-    #     if n.init: s += self.visit(n.init)
-    #     s += ';'
-    #     if n.cond: s += ' ' + self.visit(n.cond)
-    #     s += ';'
-    #     if n.next: s += ' ' + self.visit(n.next)
-    #     s += ')\n'
-    #     s += self._generate_stmt(n.stmt, add_indent=True)
-    #     return s
-    #
-    # def visit_While(self, n):
-    #     s = 'while ('
-    #     if n.cond: s += self.visit(n.cond)
-    #     s += ')\n'
-    #     s += self._generate_stmt(n.stmt, add_indent=True)
-    #     return s
-    #
-    # def visit_DoWhile(self, n):
-    #     s = 'do\n'
-    #     s += self._generate_stmt(n.stmt, add_indent=True)
-    #     s += self._make_indent() + 'while ('
-    #     if n.cond: s += self.visit(n.cond)
-    #     s += ');'
-    #     return s
-    #
+    def visit_For(self, n):
+        if self.search_for_loop is not None:
+            prev_loop = self.is_loop
+            self.is_loop = False  # for init etc.
+            self.visit(n.init)
+            self.visit(n.cond)
+            self.visit(n.next)
+            self.is_loop = True
+            self.current_inner_loop = n
+            prev_buffer_access = self.buffer_access_in_loop
+            prev_buffer_calls = self.tmp_buffer_calls_to_replace
+            self.buffer_access_in_loop = []
+            self.tmp_buffer_calls_to_replace = []
+            prev_tmp_access = self.tmp_buffer_access_list
+            self.tmp_buffer_access_list = []
+            self.visit(n.stmt)
+            if self.current_inner_loop == n and len(self.buffer_access_in_loop) > 0:
+                # I'm a inner loop
+                new_entry = {}
+                new_entry['loop'] = n
+                new_entry['buffers'] = self.buffer_access_in_loop
+                new_entry['replace'] = self.tmp_buffer_calls_to_replace
+                self.found_inner_loops.append(new_entry)
+            self.is_loop = prev_loop
+            self.buffer_access_in_loop = prev_buffer_access
+            self.tmp_buffer_access_list = prev_tmp_access
+            self.tmp_buffer_calls_to_replace = prev_buffer_calls
+        else:
+            for c in n:
+                self.visit(c)
+
+    def visit_While(self, n):
+        if self.search_for_loop is not None:
+            prev_loop = self.is_loop
+            self.is_loop = False  # for init etc.
+            self.visit(n.cond)
+            self.is_loop = True
+            self.current_inner_loop = n
+            prev_buffer_access = self.buffer_access_in_loop
+            prev_buffer_calls = self.tmp_buffer_calls_to_replace
+            self.tmp_buffer_calls_to_replace = []
+            self.buffer_access_in_loop = []
+            prev_tmp_access = self.tmp_buffer_access_list
+            self.tmp_buffer_access_list = []
+            self.visit(n.stmt)
+            if self.current_inner_loop == n and len(self.buffer_access_in_loop) > 0:
+                # I'm a inner loop
+                new_entry = {}
+                new_entry['loop'] = n
+                new_entry['buffers'] = self.buffer_access_in_loop
+                new_entry['replace'] = self.tmp_buffer_calls_to_replace
+                self.found_inner_loops.append(new_entry)
+            self.is_loop = prev_loop
+            self.buffer_access_in_loop = prev_buffer_access
+            self.tmp_buffer_access_list = prev_tmp_access
+            self.tmp_buffer_calls_to_replace = prev_buffer_calls
+        else:
+            for c in n:
+                self.visit(c)
+
+    def visit_DoWhile(self, n):
+        if self.search_for_loop is not None:
+            prev_loop = self.is_loop
+            self.is_loop = True
+            self.current_inner_loop = n
+            prev_buffer_access = self.buffer_access_in_loop
+            self.buffer_access_in_loop = []
+            prev_tmp_access = self.tmp_buffer_access_list
+            self.tmp_buffer_access_list = []
+            prev_buffer_calls = self.tmp_buffer_calls_to_replace
+            self.tmp_buffer_calls_to_replace = []
+            self.visit(n.stmt)
+            if self.current_inner_loop == n and len(self.buffer_access_in_loop) > 0:
+                # I'm a inner loop
+                new_entry = {}
+                new_entry['loop'] = n
+                new_entry['buffers'] = self.buffer_access_in_loop
+                new_entry['replace'] = self.tmp_buffer_calls_to_replace
+                self.found_inner_loops.append(new_entry)
+            # cond after stmt here
+            self.is_loop = False  # for init etc.
+            self.visit(n.cond)
+            self.is_loop = prev_loop
+            self.buffer_access_in_loop = prev_buffer_access
+            self.tmp_buffer_access_list = prev_tmp_access
+            self.tmp_buffer_calls_to_replace = prev_buffer_calls
+        else:
+            for c in n:
+                self.visit(c)
+
     # def visit_Switch(self, n):
     #     s = 'switch (' + self.visit(n.cond) + ')\n'
     #     s += self._generate_stmt(n.stmt, add_indent=True)

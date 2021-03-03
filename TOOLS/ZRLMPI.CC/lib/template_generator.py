@@ -45,6 +45,9 @@ __NO_OPTIMIZATION_MSG__ = "NO-Optimization-Possible"
 
 __mpi_op_defines__ = {'0': 'MPI_SUM'}
 
+__loop_optim_split_size__ = 2000
+__loop_split_size_constant__ = c_ast.Constant('int', str(__loop_optim_split_size__))
+
 
 def get_type_string_from_int(datatype_int):
     if datatype_int == 0:
@@ -71,6 +74,11 @@ def get_random_name_extension():
     alphabet = string.ascii_lowercase + string.ascii_uppercase
     ret = ''.join(random.choice(alphabet) for i in range(__random_name_suffix_length__))
     return ret
+
+
+def get_local_copy_buffer_name(orig_name):
+    new_buffer_name = "local_copy_{}_{}_L".format(orig_name, get_random_name_extension())
+    return new_buffer_name
 
 
 def scatter_replacement(scatter_call, cluster_size_constant, rank_obj):
@@ -1367,4 +1375,81 @@ def malloc_replacement(malloc_call, malloc_stmt):
     pAST = nop_op
     return pAST, tcl_directives, decl_to_search, nop_op, array_decl, array_name
 
+
+def loop_optimization_replacement(inner_loop_entry, dram_buffer_names, dram_buffer_names_replace, found_array_dims):
+    loop_call = inner_loop_entry['loop']
+    new_outer_loop_stmts = []
+    outer_loop_variable_name = "{}_{}_10".format(__loop_variable__name__, get_random_name_extension())
+    outer_loop_variable_decl = c_ast.Decl(name=outer_loop_variable_name, quals=[], storage=[], funcspec=[],
+                               type=c_ast.TypeDecl(outer_loop_variable_name, [], c_ast.IdentifierType(['int'])),
+                               init=c_ast.Constant('int', '0'), bitsize=None)
+                                # TODO: cover other init values?
+    outer_loop_variable_id = c_ast.ID(name=outer_loop_variable_name)
+    new_outer_loop_init = c_ast.DeclList([outer_loop_variable_decl])
+    # TODO: what if condition is reversed?
+    assert type(loop_call.cond) is c_ast.BinaryOp
+    new_outer_loop_cond = c_ast.BinaryOp(loop_call.cond.op, outer_loop_variable_id, loop_call.cond.right)
+    new_outer_loop_next = c_ast.Assignment('+=', outer_loop_variable_id, __loop_split_size_constant__)
+    # take care of buffers
+    new_buffer_decls = []
+    used_buffer_decls_names = []
+    buffer_id_read_pairs = []
+    buffer_id_write_pairs = []
+    for b in inner_loop_entry['buffers']:
+        ni = dram_buffer_names.index(b['name'])
+        nn = dram_buffer_names_replace[ni]
+        b_decl = c_ast.Decl(name=nn, quals=[], storage=[], funcspec=[], # type="{}*".format(datatype_string),
+                                              type=c_ast.ArrayDecl(type=c_ast.TypeDecl(nn, [],
+                                                                                       c_ast.IdentifierType(['int'])), dim_quals=[],
+                                                                   # TODO: support other types
+                                                                   #dim=c_ast.Constant('int', str(all_inter_buffer_size))
+                                                                   dim=__loop_split_size_constant__
+                                                                   ),
+                                              init=None,
+                                              bitsize=None)
+        new_buffer_decls.append(b_decl)
+        used_buffer_decls_names.append(nn)
+        b_id = c_ast.ID(nn)
+        o_id = c_ast.ID(b['name'])
+        if b['write']:
+            np = {}
+            np['target'] = o_id
+            np['source'] = b_id
+            buffer_id_write_pairs.append(np)
+        if b['read']:
+            np = {}
+            np['target'] = b_id
+            np['source'] = o_id
+            buffer_id_read_pairs.append(np)
+    # TODO: add different size handling
+    # add memcpy for reading
+    for p in buffer_id_read_pairs:
+        memcpy_args = []
+        memcpy_args.append(p['target'])
+        memcpy_args.append(p['source'])
+        sizeof_args = []
+        sizeof_args.append(c_ast.Constant('string', 'int'))
+        # TODO: support other datatypes
+        memcpy_args.append(c_ast.BinaryOp("*", __loop_split_size_constant__, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
+        new_outer_loop_stmts.append(memcpy)
+    # handle inner loop
+    new_inner_loop_cond = c_ast.BinaryOp(loop_call.cond.op, loop_call.cond.left, __loop_split_size_constant__)
+    new_inner_loop = c_ast.For(init=loop_call.init, cond=new_inner_loop_cond, next=loop_call.next, stmt=loop_call.stmt)
+    new_outer_loop_stmts.append(new_inner_loop)
+    # add memcpy for writing
+    for p in buffer_id_write_pairs:
+        memcpy_args = []
+        memcpy_args.append(p['target'])
+        memcpy_args.append(p['source'])
+        sizeof_args = []
+        sizeof_args.append(c_ast.Constant('string', 'int'))
+        # TODO: support other datatypes
+        memcpy_args.append(c_ast.BinaryOp("*", __loop_split_size_constant__, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
+        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
+        new_outer_loop_stmts.append(memcpy)
+    # assemble new loop
+    pAST = c_ast.For(init=new_outer_loop_init, cond=new_outer_loop_cond, next=new_outer_loop_next,
+                     stmt=c_ast.Compound(new_outer_loop_stmts))
+    return pAST, new_buffer_decls, used_buffer_decls_names
 

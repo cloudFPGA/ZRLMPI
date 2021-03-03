@@ -26,6 +26,7 @@ from lib.util import get_line_number_of_occurence
 from lib.util import delete_marked_lines
 from lib.util import get_buffer_decl_lines
 
+
 __fallback_max_buffer_size__ = 1500  # we have to find one
 __size_of_c_type__ = {'char': 1, 'short': 2, 'int': 4, 'float': 4, 'double': 8}
 # __words_inlining_directive__ = "set_directive_array_map -instance boFdram -mode horizontal mpi_wrapper words"
@@ -33,7 +34,7 @@ __words_inlining_directive__ = "set_directive_interface -bundle boAPP_DRAM -offs
 
 
 def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_parsing, target_file_name, template_only=False,
-                optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False):
+                optimize_scatter_gather=True, replicator_nodes=None, reuse_interim_buffers=False, optimize_dram_loops=False):
     # 0. process cluster description
     max_rank = 0
     total_size = 0
@@ -56,9 +57,13 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
                 if opt_val >= 1:
                     optimize_scatter_gather = True
                     print("enabled Collective Tree Optimizations")
+                # 2 -> was send/recv replacement (no longer used/deprecated)
                 if opt_val >= 3:
                     reuse_interim_buffers = True
                     print("enabled buffer reuse")
+                if opt_val >= 4:
+                    optimize_dram_loops = True
+                    print("enabled dram loop optimization (FPGA only)")
     if template_only:
         reuse_interim_buffers = False
     # print("Maximum rank in cluster: {}\n".format(max_rank))
@@ -351,13 +356,53 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
     else:
         new_ast_21.decl.type.args.params = memory_array_decls
 
-    # 10b: modify MPI calls with dram
-    find_name_visitor6 = name_visitor.MpiSignatureNameSearcher(seach_for_dram=buffer_array_names)
+    # 10b: modify MPI calls with DRAM
+    buffer_array_replace_names = []
+    if optimize_dram_loops:
+        for n in buffer_array_names:
+            buffer_array_replace_names.append(template_generator.get_local_copy_buffer_name(n))
+        find_name_visitor6 = name_visitor.MpiSignatureNameSearcher(seach_for_dram=buffer_array_names, search_for_loop=True, replace_names=buffer_array_replace_names)
+    else:
+        find_name_visitor6 = name_visitor.MpiSignatureNameSearcher(seach_for_dram=buffer_array_names)
     find_name_visitor6.visit(new_ast_21)
     mpi_calls_to_replace = find_name_visitor6.get_found_dram_calls()
+    found_inner_loops = find_name_visitor6.get_found_inner_loops()
     replace_stmt_visitor6 = replace_visitor.MpiStatementReplaceVisitor(mpi_calls_to_replace)
-    new_ast_2 = new_ast_21
-    replace_stmt_visitor6.visit(new_ast_2)
+    new_ast_22 = new_ast_21
+    replace_stmt_visitor6.visit(new_ast_22)
+
+    # 10c: find loops to optimize
+    if optimize_dram_loops:
+        get_value_visitor3 = value_visitor.MpiVariableValueSearcher(buffer_array_names, [])
+        get_value_visitor3.visit(new_ast_22)
+        found_array_dims = get_value_visitor3.get_results_buffers()
+        loop_stmts_to_replace = []
+        new_buffer_decls = []
+        used_buffer_decls_names = []
+        for l in found_inner_loops:
+            pAST, bd, bn = template_generator.loop_optimization_replacement(l, buffer_array_names, buffer_array_replace_names, found_array_dims)
+            new_r = {}
+            new_r['old'] = l['loop']
+            new_r['new'] = pAST
+            for n in bn:
+                if n not in used_buffer_decls_names:
+                    used_buffer_decls_names.append(n)
+                    ni = bn.index(n)
+                    new_buffer_decls.append(bd[ni])
+            loop_stmts_to_replace.append(new_r)
+            loop_stmts_to_replace.extend(l['replace'])
+        replace_stmt_visitor7 = replace_visitor.MpiStatementReplaceVisitor(loop_stmts_to_replace)
+        new_ast_2 = new_ast_22
+        # add buffer decls at begin
+        new_buffer_decls.reverse()
+        assert type(new_ast_2) is c_ast.FuncDef
+        assert hasattr(new_ast_2, 'body')
+        assert hasattr(new_ast_2.body, 'block_items')
+        for decl in new_buffer_decls:
+            new_ast_2.body.block_items.insert(0, decl)
+        replace_stmt_visitor7.visit(new_ast_2)
+    else:
+        new_ast_2 = new_ast_22
 
     # TODO: detect unused variables?
     # 11. determine buffer size (and return them) AFTER the AST has been modified

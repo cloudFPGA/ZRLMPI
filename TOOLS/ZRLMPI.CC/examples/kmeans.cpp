@@ -326,7 +326,7 @@ int main(int argc, char** argv)
       int cluster = assign_vector(&vectors[i*VECTOR_DIM], centroids, k);
       // Record the assignment of the site to the cluster.
       counts[cluster]++;
-      add_vector(&vectors[i], &sums[cluster]);
+      add_vector(&vectors[i*VECTOR_DIM], &sums[cluster*VECTOR_DIM]);
     }
 
 #ifdef PRINTALL
