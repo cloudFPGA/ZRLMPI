@@ -410,6 +410,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
 
     # TODO: detect unused variables?
     # 11. determine buffer size (and return them) AFTER the AST has been modified
+    # here, we have already replaced the DRAM methods...so this buffer size will be BRAM, as it should
     # TODO: also replace buffers of void type with dynamic type?
     find_name_visitor2 = name_visitor.MpiSignatureNameSearcher()
     find_name_visitor2.visit(new_ast_2)
@@ -432,7 +433,7 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         max_dimension_bytes = __fallback_max_buffer_size__
     else:
         max_dimension_bytes = max(list_of_dims)
-    print("Found max MPI buffer size: {} bytes.".format(max_dimension_bytes))
+    print("Found max MPI buffer size (BRAM): {} bytes.".format(max_dimension_bytes))
 
     # if max dimension above limit, inline words
     # TODO: necessary?
