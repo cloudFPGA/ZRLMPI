@@ -1431,7 +1431,7 @@ def loop_optimization_replacement(inner_loop_entry, dram_buffer_names, dram_buff
         sizeof_args.append(c_ast.Constant('string', 'int'))
         # TODO: support other datatypes
         memcpy_args.append(c_ast.BinaryOp("*", __loop_split_size_constant__, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
-        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
+        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
         new_outer_loop_stmts.append(memcpy)
     # handle inner loop
     new_inner_loop_cond = c_ast.BinaryOp(loop_call.cond.op, loop_call.cond.left, __loop_split_size_constant__)
@@ -1446,7 +1446,7 @@ def loop_optimization_replacement(inner_loop_entry, dram_buffer_names, dram_buff
         sizeof_args.append(c_ast.Constant('string', 'int'))
         # TODO: support other datatypes
         memcpy_args.append(c_ast.BinaryOp("*", __loop_split_size_constant__, c_ast.FuncCall(c_ast.ID('sizeof'), c_ast.ExprList(sizeof_args))))
-        memcpy = c_ast.FuncCall(c_ast.ID('my_memcpy'), c_ast.ExprList(memcpy_args))
+        memcpy = c_ast.FuncCall(c_ast.ID('memcpy'), c_ast.ExprList(memcpy_args))
         new_outer_loop_stmts.append(memcpy)
     # assemble new loop
     pAST = c_ast.For(init=new_outer_loop_init, cond=new_outer_loop_cond, next=new_outer_loop_next,
