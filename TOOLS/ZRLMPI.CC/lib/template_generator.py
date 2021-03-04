@@ -1120,6 +1120,8 @@ def optimized_reduce_replacement(reduce_call, replicator_nodes, rank_obj, availa
         last_processed_rn = rr
     # 3. take care of root node
     root_stmts = []
+    if template_only:
+        root_stmts.append(all_buffer_variable_decl)
     memcpy_args2 = []
     memcpy_args2.append(target_buffer)
     memcpy_args2.append(source_buffer)
