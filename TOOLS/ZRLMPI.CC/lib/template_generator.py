@@ -1480,7 +1480,7 @@ def loop_optimization_replacement(inner_loop_entry, dram_buffer_names, dram_buff
         subscript = c_ast.BinaryOp('*', outer_loop_variable_id, factor)
         # b_id = c_ast.ArrayRef(name=nn, subscript=subscript)
         b_id = c_ast.ID(nn)
-        o_id = c_ast.ArrayRef(name=c_ast.ID(b['name']), subscript=subscript)
+        o_id = c_ast.UnaryOp('&', c_ast.ArrayRef(name=c_ast.ID(b['name']), subscript=subscript))
         # o_id = c_ast.ID(b['name'])
         if b['write']:
             np = {}
