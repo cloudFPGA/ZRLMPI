@@ -238,6 +238,34 @@ architecture Flash of Role_Themisto is
   signal sMPE_Fifo_MPIFeB_full       : std_ulogic;
   signal sMPE_Fifo_MPIFeB_write      : std_ulogic;
 
+
+  signal  bAPP32_cast_AWADDR        :  STD_LOGIC_VECTOR(63 DOWNTO 0);
+  signal  bAPP32_cast_AWLEN         :  STD_LOGIC_VECTOR(7 DOWNTO 0);
+  signal  bAPP32_cast_AWSIZE        :  STD_LOGIC_VECTOR(2 DOWNTO 0);
+  signal  bAPP32_cast_AWBURST       :  STD_LOGIC_VECTOR(1 DOWNTO 0);
+  signal  bAPP32_cast_AWVALID       :  STD_LOGIC;
+  signal  bAPP32_cast_AWREADY       :  STD_LOGIC;
+  signal  bAPP32_cast_WDATA         :  STD_LOGIC_VECTOR(31 DOWNTO 0);
+  signal  bAPP32_cast_WSTRB         :  STD_LOGIC_VECTOR(3  DOWNTO 0);
+  signal  bAPP32_cast_WLAST         :  STD_LOGIC;
+  signal  bAPP32_cast_WVALID        :  STD_LOGIC;
+  signal  bAPP32_cast_WREADY        :  STD_LOGIC;
+  signal  bAPP32_cast_BRESP         :  STD_LOGIC_VECTOR(1 DOWNTO 0);
+  signal  bAPP32_cast_BVALID        :  STD_LOGIC;
+  signal  bAPP32_cast_BREADY        :  STD_LOGIC;
+  signal  bAPP32_cast_ARADDR        :  STD_LOGIC_VECTOR(63 DOWNTO 0);
+  signal  bAPP32_cast_ARLEN         :  STD_LOGIC_VECTOR(7 DOWNTO 0);
+  signal  bAPP32_cast_ARSIZE        :  STD_LOGIC_VECTOR(2 DOWNTO 0);
+  signal  bAPP32_cast_ARBURST       :  STD_LOGIC_VECTOR(1 DOWNTO 0);
+  signal  bAPP32_cast_ARVALID       :  STD_LOGIC;
+  signal  bAPP32_cast_ARREADY       :  STD_LOGIC;
+  signal  bAPP32_cast_RDATA         :  STD_LOGIC_VECTOR(31 DOWNTO 0);
+  signal  bAPP32_cast_RRESP         :  STD_LOGIC_VECTOR(1 DOWNTO 0);
+  signal  bAPP32_cast_RLAST         :  STD_LOGIC;
+  signal  bAPP32_cast_RVALID        :  STD_LOGIC;
+  signal  bAPP32_cast_RREADY        :  STD_LOGIC;
+
+
   signal active_low_reset  : std_logic;
 
   signal sAPP_Debug : std_logic_vector(15 downto 0);
@@ -411,8 +439,8 @@ architecture Flash of Role_Themisto is
            m_axi_boAPP_DRAM_AWQOS : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
            m_axi_boAPP_DRAM_AWVALID : OUT STD_LOGIC;
            m_axi_boAPP_DRAM_AWREADY : IN STD_LOGIC;
-           m_axi_boAPP_DRAM_WDATA : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
-           m_axi_boAPP_DRAM_WSTRB : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+           m_axi_boAPP_DRAM_WDATA : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+           m_axi_boAPP_DRAM_WSTRB : OUT STD_LOGIC_VECTOR(3  DOWNTO 0);
            m_axi_boAPP_DRAM_WLAST : OUT STD_LOGIC;
            m_axi_boAPP_DRAM_WVALID : OUT STD_LOGIC;
            m_axi_boAPP_DRAM_WREADY : IN STD_LOGIC;
@@ -430,12 +458,12 @@ architecture Flash of Role_Themisto is
            m_axi_boAPP_DRAM_ARQOS : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
            m_axi_boAPP_DRAM_ARVALID : OUT STD_LOGIC;
            m_axi_boAPP_DRAM_ARREADY : IN STD_LOGIC;
-           m_axi_boAPP_DRAM_RDATA : IN STD_LOGIC_VECTOR(511 DOWNTO 0);
+           m_axi_boAPP_DRAM_RDATA : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
            m_axi_boAPP_DRAM_RRESP : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
            m_axi_boAPP_DRAM_RLAST : IN STD_LOGIC;
            m_axi_boAPP_DRAM_RVALID : IN STD_LOGIC;
            m_axi_boAPP_DRAM_RREADY : OUT STD_LOGIC;
-    boFdram_V : IN STD_LOGIC_VECTOR (63 downto 0)
+           boFdram : IN STD_LOGIC_VECTOR (63 downto 0)
     -- ZRLMPI_COMPONENT_INSERT below
     -- this line will be replaced
          );
@@ -521,6 +549,82 @@ architecture Flash of Role_Themisto is
            dout   : out std_logic_vector(7 downto 0);
            empty  : out std_logic;
            rd_en  : in std_logic );
+  end component;
+
+  component AxiInterconnect_1M1S_A64_D512_D32 is
+    port (
+      INTERCONNECT_ACLK                 : in std_logic;
+      INTERCONNECT_ARESETN              : in std_logic;
+      M00_AXI_ACLK                  : in std_logic;
+      M00_AXI_AWID                  : out   std_ulogic_vector(3 downto 0);
+      M00_AXI_AWADDR                : out   std_ulogic_vector(63 downto 0);
+      M00_AXI_AWLEN                 : out   std_ulogic_vector(7 downto 0);
+      M00_AXI_AWSIZE                : out   std_ulogic_vector(2 downto 0);
+      M00_AXI_AWBURST               : out   std_ulogic_vector(1 downto 0);
+      M00_AXI_AWVALID               : out   std_ulogic;
+      M00_AXI_AWREADY               : in    std_ulogic;
+      M00_AXI_WDATA                 : out   std_ulogic_vector(511 downto 0);
+      M00_AXI_WSTRB                 : out   std_ulogic_vector(63 downto 0);
+      M00_AXI_WLAST                 : out   std_ulogic;
+      M00_AXI_WVALID                : out   std_ulogic;
+      M00_AXI_WREADY                : in    std_ulogic;
+      M00_AXI_BID                   : in    std_ulogic_vector(3 downto 0);
+      M00_AXI_BRESP                 : in    std_ulogic_vector(1 downto 0);
+      M00_AXI_BVALID                : in    std_ulogic;
+      M00_AXI_BREADY                : out   std_ulogic;
+      M00_AXI_ARID                  : out   std_ulogic_vector(3 downto 0);
+      M00_AXI_ARADDR                : out   std_ulogic_vector(63 downto 0);
+      M00_AXI_ARLEN                 : out   std_ulogic_vector(7 downto 0);
+      M00_AXI_ARSIZE                : out   std_ulogic_vector(2 downto 0);
+      M00_AXI_ARBURST               : out   std_ulogic_vector(1 downto 0);
+      M00_AXI_ARVALID               : out   std_ulogic;
+      M00_AXI_ARREADY               : in    std_ulogic;
+      M00_AXI_RID                   : in    std_ulogic_vector(3 downto 0);
+      M00_AXI_RDATA                 : in    std_ulogic_vector(511 downto 0);
+      M00_AXI_RRESP                 : in    std_ulogic_vector(1 downto 0);
+      M00_AXI_RLAST                 : in    std_ulogic;
+      M00_AXI_RVALID                : in    std_ulogic;
+      M00_AXI_RREADY                : out   std_ulogic;
+      S00_AXI_ACLK                  : in std_logic;
+      S00_AXI_AWADDR                : in   std_ulogic_vector(63 downto 0);
+      S00_AXI_AWLEN                 : in   std_ulogic_vector(7 downto 0);
+      S00_AXI_AWSIZE                : in   std_ulogic_vector(2 downto 0);
+      S00_AXI_AWBURST               : in   std_ulogic_vector(1 downto 0);
+      S00_AXI_AWVALID               : in   std_ulogic;
+      S00_AXI_AWREADY               : out    std_ulogic;
+      S00_AXI_WDATA                 : in   std_ulogic_vector(31 downto 0);
+      S00_AXI_WSTRB                 : in   std_ulogic_vector(3 downto 0);
+      S00_AXI_WLAST                 : in   std_ulogic;
+      S00_AXI_WVALID                : in   std_ulogic;
+      S00_AXI_WREADY                : out    std_ulogic;
+      --S00_AXI_BID                   : out    std_ulogic_vector(3 downto 0);
+      S00_AXI_BRESP                 : out    std_ulogic_vector(1 downto 0);
+      S00_AXI_BVALID                : out    std_ulogic;
+      S00_AXI_BREADY                : in   std_ulogic;
+      S00_AXI_ARADDR                : in   std_ulogic_vector(63 downto 0);
+      S00_AXI_ARLEN                 : in   std_ulogic_vector(7 downto 0);
+      S00_AXI_ARSIZE                : in   std_ulogic_vector(2 downto 0);
+      S00_AXI_ARBURST               : in   std_ulogic_vector(1 downto 0);
+      S00_AXI_ARVALID               : in   std_ulogic;
+      S00_AXI_ARREADY               : out    std_ulogic;
+      --S00_AXI_RID                   : out    std_ulogic_vector(3 downto 0);
+      S00_AXI_RDATA                 : out    std_ulogic_vector(31 downto 0);
+      S00_AXI_RRESP                 : out    std_ulogic_vector(1 downto 0);
+      S00_AXI_RLAST                 : out    std_ulogic;
+      S00_AXI_RVALID                : out    std_ulogic;
+      S00_AXI_RREADY                : in   std_ulogic;
+    -- below, map to 0
+      S00_AXI_AWID                  : in   std_ulogic_vector(0 downto 0);
+      S00_AXI_AWLOCK                : in   std_ulogic;
+      S00_AXI_AWCACHE               : in   std_ulogic_vector(3 downto 0);
+      S00_AXI_AWPROT                : in   std_ulogic_vector(2 downto 0);
+      S00_AXI_AWQOS                 : in   std_ulogic_vector(3 downto 0);
+      S00_AXI_ARID                  : in   std_ulogic_vector(0 downto 0);
+      S00_AXI_ARLOCK                : in   std_ulogic;
+      S00_AXI_ARCACHE               : in   std_ulogic_vector(3 downto 0);
+      S00_AXI_ARPROT                : in   std_ulogic_vector(2 downto 0);
+      S00_AXI_ARQOS                 : in   std_ulogic_vector(3 downto 0)
+         );
   end component;
 
   --===========================================================================
@@ -616,44 +720,122 @@ begin
              siMPI_data_V_empty_n         => sFifo_APP_MPIdata_empty_n ,
              siMPI_data_V_read            => sFifo_APP_MPIdata_read    ,
          -- m_axi_boAPP_DRAM_AWID        => moMEM_Mp1_AWID      ,
-             m_axi_boAPP_DRAM_AWADDR      => sDramAWADDR_64bit   ,
-             m_axi_boAPP_DRAM_AWLEN       => moMEM_Mp1_AWLEN     ,
-             m_axi_boAPP_DRAM_AWSIZE      => moMEM_Mp1_AWSIZE    ,
-             m_axi_boAPP_DRAM_AWBURST     => moMEM_Mp1_AWBURST   ,
          --m_axi_boAPP_DRAM_AWLOCK, AWREGION, AWCACHE, AWPROT, AWQOS
-             m_axi_boAPP_DRAM_AWVALID     => moMEM_Mp1_AWVALID   ,
-             m_axi_boAPP_DRAM_AWREADY     => moMEM_Mp1_AWREADY   ,
-             m_axi_boAPP_DRAM_WDATA       => moMEM_Mp1_WDATA     ,
-             m_axi_boAPP_DRAM_WSTRB       => moMEM_Mp1_WSTRB     ,
-             m_axi_boAPP_DRAM_WLAST       => moMEM_Mp1_WLAST     ,
-             m_axi_boAPP_DRAM_WVALID      => moMEM_Mp1_WVALID    ,
-             m_axi_boAPP_DRAM_WREADY      => moMEM_Mp1_WREADY    ,
          --m_axi_boAPP_DRAM_BID         => moMEM_Mp1_BID       ,
-             m_axi_boAPP_DRAM_BRESP       => moMEM_Mp1_BRESP     ,
-             m_axi_boAPP_DRAM_BVALID      => moMEM_Mp1_BVALID    ,
-             m_axi_boAPP_DRAM_BREADY      => moMEM_Mp1_BREADY    ,
          --m_axi_boAPP_DRAM_ARID        => moMEM_Mp1_ARID      ,
-             m_axi_boAPP_DRAM_ARADDR      => sDramARADDR_64bit   ,
-             m_axi_boAPP_DRAM_ARLEN       => moMEM_Mp1_ARLEN     ,
-             m_axi_boAPP_DRAM_ARSIZE      => moMEM_Mp1_ARSIZE    ,
-             m_axi_boAPP_DRAM_ARBURST     => moMEM_Mp1_ARBURST   ,
          --ARLOCK, ARREGION, ARCACHE,A ARROT, ARQOS
-             m_axi_boAPP_DRAM_ARVALID     => moMEM_Mp1_ARVALID   ,
-             m_axi_boAPP_DRAM_ARREADY     => moMEM_Mp1_ARREADY   ,
          -- m_axi_boAPP_DRAM_RID         => moMEM_Mp1_RID       ,
-             m_axi_boAPP_DRAM_RDATA       => moMEM_Mp1_RDATA     ,
-             m_axi_boAPP_DRAM_RRESP       => moMEM_Mp1_RRESP     ,
-             m_axi_boAPP_DRAM_RLAST       => moMEM_Mp1_RLAST     ,
-             m_axi_boAPP_DRAM_RVALID      => moMEM_Mp1_RVALID    ,
-             m_axi_boAPP_DRAM_RREADY      => moMEM_Mp1_RREADY    ,
-             boFdram_V                    => x"0000000000000000" 
+             m_axi_boAPP_DRAM_AWADDR      =>  bAPP32_cast_AWADDR    ,
+             m_axi_boAPP_DRAM_AWLEN       =>  bAPP32_cast_AWLEN     ,
+             m_axi_boAPP_DRAM_AWSIZE      =>  bAPP32_cast_AWSIZE    ,
+             m_axi_boAPP_DRAM_AWBURST     =>  bAPP32_cast_AWBURST   ,
+             m_axi_boAPP_DRAM_AWVALID     =>  bAPP32_cast_AWVALID   ,
+             m_axi_boAPP_DRAM_AWREADY     =>  bAPP32_cast_AWREADY   ,
+             m_axi_boAPP_DRAM_WDATA       =>  bAPP32_cast_WDATA     ,
+             m_axi_boAPP_DRAM_WSTRB       =>  bAPP32_cast_WSTRB     ,
+             m_axi_boAPP_DRAM_WLAST       =>  bAPP32_cast_WLAST     ,
+             m_axi_boAPP_DRAM_WVALID      =>  bAPP32_cast_WVALID    ,
+             m_axi_boAPP_DRAM_WREADY      =>  bAPP32_cast_WREADY    ,
+             m_axi_boAPP_DRAM_BRESP       =>  bAPP32_cast_BRESP     ,
+             m_axi_boAPP_DRAM_BVALID      =>  bAPP32_cast_BVALID    ,
+             m_axi_boAPP_DRAM_BREADY      =>  bAPP32_cast_BREADY    ,
+             m_axi_boAPP_DRAM_ARADDR      =>  bAPP32_cast_ARADDR    ,
+             m_axi_boAPP_DRAM_ARLEN       =>  bAPP32_cast_ARLEN     ,
+             m_axi_boAPP_DRAM_ARSIZE      =>  bAPP32_cast_ARSIZE    ,
+             m_axi_boAPP_DRAM_ARBURST     =>  bAPP32_cast_ARBURST   ,
+             m_axi_boAPP_DRAM_ARVALID     =>  bAPP32_cast_ARVALID   ,
+             m_axi_boAPP_DRAM_ARREADY     =>  bAPP32_cast_ARREADY   ,
+             m_axi_boAPP_DRAM_RDATA       =>  bAPP32_cast_RDATA     ,
+             m_axi_boAPP_DRAM_RRESP       =>  bAPP32_cast_RRESP     ,
+             m_axi_boAPP_DRAM_RLAST       =>  bAPP32_cast_RLAST     ,
+             m_axi_boAPP_DRAM_RVALID      =>  bAPP32_cast_RVALID    ,
+             m_axi_boAPP_DRAM_RREADY      =>  bAPP32_cast_RREADY    ,
+             boFdram                      => x"0000000000000000" 
              -- ZRLMPI_PORT_MAP_INSERT below
              -- this line will be replaced
            );
 
+    DRAM_CAST: AxiInterconnect_1M1S_A64_D512_D32
+    port map (
+      INTERCONNECT_ACLK             =>  piSHL_156_25Clk  ,
+      INTERCONNECT_ARESETN          =>  active_low_reset ,
+      M00_AXI_ACLK                  =>  piSHL_156_25Clk  ,
+      M00_AXI_AWID                  =>   moMEM_Mp1_AWID       ,
+      M00_AXI_AWADDR                =>   sDramAWADDR_64bit  ,
+      M00_AXI_AWLEN                 =>   moMEM_Mp1_AWLEN      ,
+      M00_AXI_AWSIZE                =>   moMEM_Mp1_AWSIZE     ,
+      M00_AXI_AWBURST               =>   moMEM_Mp1_AWBURST    ,
+      M00_AXI_AWVALID               =>   moMEM_Mp1_AWVALID    ,
+      M00_AXI_AWREADY               =>   moMEM_Mp1_AWREADY    ,
+      M00_AXI_WDATA                 =>   moMEM_Mp1_WDATA      ,
+      M00_AXI_WSTRB                 =>   moMEM_Mp1_WSTRB      ,
+      M00_AXI_WLAST                 =>   moMEM_Mp1_WLAST      ,
+      M00_AXI_WVALID                =>   moMEM_Mp1_WVALID     ,
+      M00_AXI_WREADY                =>   moMEM_Mp1_WREADY     ,
+      M00_AXI_BID                   =>   moMEM_Mp1_BID        ,
+      M00_AXI_BRESP                 =>   moMEM_Mp1_BRESP      ,
+      M00_AXI_BVALID                =>   moMEM_Mp1_BVALID     ,
+      M00_AXI_BREADY                =>   moMEM_Mp1_BREADY     ,
+      M00_AXI_ARID                  =>   moMEM_Mp1_ARID       ,
+      M00_AXI_ARADDR                =>   sDramARADDR_64bit   ,
+      M00_AXI_ARLEN                 =>   moMEM_Mp1_ARLEN      ,
+      M00_AXI_ARSIZE                =>   moMEM_Mp1_ARSIZE     ,
+      M00_AXI_ARBURST               =>   moMEM_Mp1_ARBURST    ,
+      M00_AXI_ARVALID               =>   moMEM_Mp1_ARVALID    ,
+      M00_AXI_ARREADY               =>   moMEM_Mp1_ARREADY    ,
+      M00_AXI_RID                   =>   moMEM_Mp1_RID        ,
+      M00_AXI_RDATA                 =>   moMEM_Mp1_RDATA      ,
+      M00_AXI_RRESP                 =>   moMEM_Mp1_RRESP      ,
+      M00_AXI_RLAST                 =>   moMEM_Mp1_RLAST      ,
+      M00_AXI_RVALID                =>   moMEM_Mp1_RVALID     ,
+      M00_AXI_RREADY                =>   moMEM_Mp1_RREADY     ,
+      --S00_AXI_AWID                  =>    ,
+      --S00_AXI_ARID                  =>    ,
+      --S00_AXI_RID                   =>    ,
+      --S00_AXI_BID                   =>    ,
+      S00_AXI_ACLK                  =>  piSHL_156_25Clk  ,
+      S00_AXI_AWADDR                =>   bAPP32_cast_AWADDR   ,
+      S00_AXI_AWLEN                 =>   bAPP32_cast_AWLEN    ,
+      S00_AXI_AWSIZE                =>   bAPP32_cast_AWSIZE   ,
+      S00_AXI_AWBURST               =>   bAPP32_cast_AWBURST  ,
+      S00_AXI_AWVALID               =>   bAPP32_cast_AWVALID  ,
+      S00_AXI_AWREADY               =>   bAPP32_cast_AWREADY  ,
+      S00_AXI_WDATA                 =>   bAPP32_cast_WDATA    ,
+      S00_AXI_WSTRB                 =>   bAPP32_cast_WSTRB    ,
+      S00_AXI_WLAST                 =>   bAPP32_cast_WLAST    ,
+      S00_AXI_WVALID                =>   bAPP32_cast_WVALID   ,
+      S00_AXI_WREADY                =>   bAPP32_cast_WREADY   ,
+      S00_AXI_BRESP                 =>   bAPP32_cast_BRESP    ,
+      S00_AXI_BVALID                =>   bAPP32_cast_BVALID   ,
+      S00_AXI_BREADY                =>   bAPP32_cast_BREADY   ,
+      S00_AXI_ARADDR                =>   bAPP32_cast_ARADDR   ,
+      S00_AXI_ARLEN                 =>   bAPP32_cast_ARLEN    ,
+      S00_AXI_ARSIZE                =>   bAPP32_cast_ARSIZE   ,
+      S00_AXI_ARBURST               =>   bAPP32_cast_ARBURST  ,
+      S00_AXI_ARVALID               =>   bAPP32_cast_ARVALID  ,
+      S00_AXI_ARREADY               =>   bAPP32_cast_ARREADY  ,
+      S00_AXI_RDATA                 =>   bAPP32_cast_RDATA    ,
+      S00_AXI_RRESP                 =>   bAPP32_cast_RRESP    ,
+      S00_AXI_RLAST                 =>   bAPP32_cast_RLAST    ,
+      S00_AXI_RVALID                =>   bAPP32_cast_RVALID   ,
+      S00_AXI_RREADY                =>   bAPP32_cast_RREADY   ,
+    -- below, map to 0
+      S00_AXI_AWID                  => (others => '0') ,
+      S00_AXI_AWLOCK                => '0'  ,
+      S00_AXI_AWCACHE               => (others => '0')   ,
+      S00_AXI_AWPROT                => (others => '0')   ,
+      S00_AXI_AWQOS                 => (others => '0')   ,
+      S00_AXI_ARID                  => (others => '0')   ,
+      S00_AXI_ARLOCK                => '0'  ,
+      S00_AXI_ARCACHE               => (others => '0')   ,
+      S00_AXI_ARPROT                => (others => '0')   ,
+      S00_AXI_ARQOS                 => (others => '0')   
+         );
+
+
   FIFO_IF_APP_MPE: FifoMpiInfo
   port map (
-             clk     => piSHL_156_25Clk,
+             clk     => piSHL_156_25Clk,  
              srst    => piMMIO_Ly7_Rst,
              din     => sAPP_Fifo_MPIif_din    ,
              full    => sAPP_Fifo_MPIif_full   ,
@@ -834,4 +1016,3 @@ begin
 
 
 end architecture Flash;
-

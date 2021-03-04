@@ -7,10 +7,11 @@
 
 void MPI_SUM_INTEGER(int32_t *accum, int32_t *source, uint16_t length)
 {
-#pragma HLS pipeline
 #pragma HLS INLINE
   for(uint16_t i = 0; i < length; i++)
   {
+//#pragma HLS pipeline
+//#pragma HLS unroll factor=16
     accum[i] += source[i];
   }
 }
@@ -19,20 +20,22 @@ void MPI_SUM_INTEGER(int32_t *accum, int32_t *source, uint16_t length)
 void MPI_SUM_FLOAT(float *accum, float *source, uint16_t length)
 {
 #pragma HLS INLINE
-#pragma HLS pipeline
   for(uint16_t i = 0; i < length; i++)
   {
+//#pragma HLS pipeline
+//#pragma HLS unroll factor=16
     accum[i] += source[i];
   }
 }
 
 
-void my_memcpy(int * dst, int* src, uint16_t length)
+void my_memcpy(int * dst, int* src, uint32_t length)
 {
 #pragma HLS inline
-#pragma HLS pipeline
-  for(uint16_t i = 0; i < (length/sizeof(int)); i++)
+  for(uint32_t i = 0; i < (length/sizeof(int)); i++)
   {
+//#pragma HLS pipeline
+//#pragma HLS unroll factor=16
     dst[i] = src[i];
   }
 }

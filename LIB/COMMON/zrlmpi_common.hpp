@@ -23,11 +23,13 @@
 
 #define ZRLMPI_DEFAULT_PORT 2718
 
-#define ZRLMPI_PROTOCOL_TIMEOUT_MS 999
 //#define ZRLMPI_PROTOCOL_TIMEOUT_MS 10
 //#define ZRLMPI_PROTOCOL_TIMEOUT_CYCLES 1562500  //10ms, with cycle=6.4ns, 20bit
-//#define ZRLMPI_PROTOCOL_TIMEOUT_MS 100
-//#define ZRLMPI_PROTOCOL_TIMEOUT_CYCLES 15625000  //100ms, with cycle=6.4ns, 23bit
+#define ZRLMPI_PROTOCOL_TIMEOUT_MS 100
+#define ZRLMPI_PROTOCOL_TIMEOUT_CYCLES 15625000  //100ms, with cycle=6.4ns, 23bit
+
+#define ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR 10
+#define ZRLMPI_PROTOCOL_MAX_INC 2
 
 //to disable debug printfs
 #define DEBUG0
@@ -84,7 +86,7 @@ void MPI_SUM_FLOAT(float *accum, float *source, uint16_t length);
 /*
  * Utility functions
  */
-void my_memcpy(int *dst, int *src, uint16_t length);
+void my_memcpy(int *dst, int *src, uint32_t length);
 
 //UINT32 littleEndianToInteger(UINT8 *buffer, int lsb);
 UINT32 bigEndianToInteger(UINT8 *buffer, int lsb);
