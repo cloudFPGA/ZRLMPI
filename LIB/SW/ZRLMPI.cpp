@@ -464,11 +464,15 @@ void send_internal(
     header.call = call_type;
     header.type = DATA;
 
-    uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH];
+    uint8_t buffer[(ZRLMPI_MAX_MESSAGE_SIZE_BYTES+400)*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH];
 
     headerToBytes(header, buffer);
-    //TODO generic
-    memcpy(&buffer[MPIF_HEADER_LENGTH], data, count*4);
+    uint32_t copy_start_length = count * typewidth * sizeof(uint32_t);
+    if(copy_start_length > max_udp_payload_bytes)
+    {
+      copy_start_length = max_udp_payload_bytes;
+    }
+    memcpy(&buffer[MPIF_HEADER_LENGTH], data, copy_start_length);
     uint32_t byte_length = count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH;
     int total_send = 0;
     int total_packets = 0;
@@ -489,10 +493,14 @@ void send_internal(
       {
         count_of_this_message = max_udp_payload_bytes;
       }
+      if(i != 0)
+      {
+	memcpy(&buffer, &data[i], count_of_this_message*typewidth*sizeof(uint32_t));
+      }
 #ifdef DEBUG
       printf("sending %d bytes from address %d as data junk...\n",count_of_this_message, i);
 #endif
-      ret = sendto(udp_sock, &buffer[i], count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+      ret = sendto(udp_sock, &buffer, count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
 #ifdef KVM_CORRECTION
       if(total_packets == 0)
       {
@@ -583,7 +591,8 @@ void recv_internal(
   printf("Got SEND_REQUEST\n");
 #endif
 
-  uint8_t buffer[count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
+  //uint8_t buffer[(ZRLMPI_MAX_MESSAGE_SIZE_BYTES+400)*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
+  uint8_t *buffer = (uint8_t*) malloc(count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32);
   int res;
   MPI_Header header = MPI_Header(); 
 
