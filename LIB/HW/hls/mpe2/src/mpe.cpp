@@ -44,34 +44,34 @@ uint8_t extractByteCnt(Axis<64> currWord)
 }
 
 
-uint16_t get_next_cache_line(
-    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
-    bool header_cache_valid[HEADER_CACHE_LENGTH],
-    uint16_t start_value,
-    ap_uint<256> &next_cache_line
-    )
-{
-#pragma HLS inline off
-//#pragma HLS pipeline II=1
-
-  uint16_t ret = INVALID_CACHE_LINE_NUMBER;
-  for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
-    //for(uint16_t i = start_value; i < HEADER_CACHE_LENGTH; i++)
-  {
-#pragma HLS unroll
-    if(i < start_value)
-    {
-      continue;
-    }
-    if(header_cache_valid[i])
-    {
-      next_cache_line = header_cache[i];
-      ret = i;
-      break;
-    }
-  }
-  return ret;
-}
+//uint16_t get_next_cache_line(
+//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
+//    bool header_cache_valid[HEADER_CACHE_LENGTH],
+//    uint16_t start_value,
+//    ap_uint<256> &next_cache_line
+//    )
+//{
+//#pragma HLS inline off
+////#pragma HLS pipeline II=1
+//
+//  uint16_t ret = INVALID_CACHE_LINE_NUMBER;
+//  for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
+//    //for(uint16_t i = start_value; i < HEADER_CACHE_LENGTH; i++)
+//  {
+//#pragma HLS unroll
+//    if(i < start_value)
+//    {
+//      continue;
+//    }
+//    if(header_cache_valid[i])
+//    {
+//      next_cache_line = header_cache[i];
+//      ret = i;
+//      break;
+//    }
+//  }
+//  return ret;
+//}
 
 //returns the ZERO-based bit position (so 0 for LSB)
 //0xFE for no bit
@@ -200,22 +200,40 @@ uint16_t get_next_cache_line(
 //
 //}
 
+//void add_cache_line(
+//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
+//    bool header_cache_valid[HEADER_CACHE_LENGTH],
+//    ap_uint<256> &new_cache_line
+//    )
+//{
+//#pragma HLS inline off
+//  for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
+//  {
+//#pragma HLS unroll
+//    if(!header_cache_valid[i])
+//    {
+//      header_cache[i] = new_cache_line;
+//      header_cache_valid[i] = true;
+//      break;
+//    }
+//  }
+//
+//}
+
+
 void add_cache_line(
     ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
     bool header_cache_valid[HEADER_CACHE_LENGTH],
-    ap_uint<256> &new_cache_line
+    ap_uint<256> &new_cache_line,
+    uint16_t remote_rank
     )
 {
-#pragma HLS inline off
-  for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
+#pragma HLS inline
+  if(remote_rank < HEADER_CACHE_LENGTH)
   {
-#pragma HLS unroll
-    if(!header_cache_valid[i])
-    {
-      header_cache[i] = new_cache_line;
-      header_cache_valid[i] = true;
-      break;
-    }
+    header_cache[remote_rank] = new_cache_line;
+    header_cache_valid[remote_rank] = true;
+    printf("\tadding line to cache @ %d\n", remote_rank);
   }
 
 }
@@ -226,7 +244,7 @@ void delete_cache_line(
     uint16_t index_to_delete
     )
 {
-#pragma HLS inline off
+#pragma HLS inline
   if(index_to_delete < HEADER_CACHE_LENGTH)
   {
     header_cache_valid[index_to_delete] = false;
@@ -238,7 +256,7 @@ void delete_cache_line(
 uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, NetworkMeta &metaSrc,
     packetType expected_type, mpiCall expected_call, bool skip_meta, uint32_t expected_src_rank)
 {
-#pragma HLS inline off
+#pragma HLS inline //off
 #pragma HLS pipeline II=1
 
   int ret = bytesToHeader(bytes, header);
@@ -283,8 +301,62 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
   return 0;
 }
 
-mpeState checkCache(
-    uint16_t    &last_checked_cache_line,
+//mpeState checkCache(
+//    uint16_t    &last_checked_cache_line,
+//    ap_uint<256>  header_cache[HEADER_CACHE_LENGTH],
+//    bool      header_cache_valid[HEADER_CACHE_LENGTH],
+//    ap_uint<8>    bytes[MPIF_HEADER_LENGTH],
+//    MPI_Header    &header,
+//    NetworkMeta   &metaSrc,
+//    packetType      expected_type,
+//    mpiCall         expected_call,
+//    uint32_t        expected_src_rank,
+//    const mpeState  found_state,
+//    const mpeState  miss_state,
+//    const mpeState  stay_state
+//    )
+//{
+//#pragma HLS inline off
+////#pragma HLS pipeline II=1
+//
+//
+//  ap_uint<256> next_cache_line = 0x0;
+//  uint16_t next_cache_line_number = INVALID_CACHE_LINE_NUMBER;
+//  uint8_t ret = 255;
+//  mpeState ret_val = IDLE;
+//
+//  next_cache_line_number = get_next_cache_line(header_cache, header_cache_valid,
+//      last_checked_cache_line, next_cache_line);
+//  if(next_cache_line_number != INVALID_CACHE_LINE_NUMBER)
+//  {
+//    printf("check cache line %d\n", (uint16_t) next_cache_line_number);
+//    last_checked_cache_line = next_cache_line_number;
+//    printf("check cache entry: ");
+//    for(int j = 0; j < MPIF_HEADER_LENGTH; j++)
+//    {
+//#pragma HLS unroll
+//      bytes[j] = (uint8_t) (next_cache_line >> (31-j)*8);
+//      printf("%02x", (int) bytes[j]);
+//    }
+//    printf("\n");
+//    ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+//    if(ret == 0)
+//    {//found desired header
+//      printf("Cache HIT\n");
+//      ret_val = found_state;
+//      delete_cache_line(header_cache, header_cache_valid, last_checked_cache_line);
+//    } else {
+//      //else, we continue
+//      ret_val = stay_state;
+//    }
+//    last_checked_cache_line++;
+//  } else {
+//    ret_val = miss_state;
+//  }
+//  return ret_val;
+//}
+
+bool getCache(
     ap_uint<256>  header_cache[HEADER_CACHE_LENGTH],
     bool      header_cache_valid[HEADER_CACHE_LENGTH],
     ap_uint<8>    bytes[MPIF_HEADER_LENGTH],
@@ -292,61 +364,67 @@ mpeState checkCache(
     NetworkMeta   &metaSrc,
     packetType      expected_type,
     mpiCall         expected_call,
-    uint32_t        expected_src_rank,
-    const mpeState  found_state,
-    const mpeState  miss_state,
-    const mpeState  stay_state
+    uint32_t        expected_src_rank//,
+    //const mpeState  found_state,
+    //const mpeState  miss_state//,
+    //const mpeState  stay_state
     )
 {
-#pragma HLS inline off
-//#pragma HLS pipeline II=1
+#pragma HLS inline
+#pragma HLS pipeline II=1
 
-
-  ap_uint<256> next_cache_line = 0x0;
-  uint16_t next_cache_line_number = INVALID_CACHE_LINE_NUMBER;
-  uint8_t ret = 255;
-  mpeState ret_val = IDLE;
-
-  next_cache_line_number = get_next_cache_line(header_cache, header_cache_valid,
-      last_checked_cache_line, next_cache_line);
-  if(next_cache_line_number != INVALID_CACHE_LINE_NUMBER)
+  if(expected_src_rank < HEADER_CACHE_LENGTH)
   {
-    printf("check cache line %d\n", (uint16_t) next_cache_line_number);
-    last_checked_cache_line = next_cache_line_number;
-    printf("check cache entry: ");
-    for(int j = 0; j < MPIF_HEADER_LENGTH; j++)
+    if(header_cache_valid[expected_src_rank])
     {
+      ap_uint<256> check_cache_line = header_cache[expected_src_rank];
+      uint8_t ret = 255;
+      printf("check cache entry: ");
+      for(int j = 0; j < MPIF_HEADER_LENGTH; j++)
+      {
 #pragma HLS unroll
-      bytes[j] = (uint8_t) (next_cache_line >> (31-j)*8);
-      printf("%02x", (int) bytes[j]);
-    }
-    printf("\n");
-    ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
-    if(ret == 0)
-    {//found desired header
-      printf("Cache HIT\n");
-      ret_val = found_state;
-      delete_cache_line(header_cache, header_cache_valid, last_checked_cache_line);
+        bytes[j] = (uint8_t) (check_cache_line >> (31-j)*8);
+        printf("%02x", (int) bytes[j]);
+      }
+      printf("\n");
+      //ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+      //if(ret == 0)
+      //{//found desired header
+      //  printf("Cache HIT\n");
+      //  //delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+      //  //return found_state;
+      //  return true;
+      //} else {
+      //  printf("\tCache MISS (wrong type)\n");
+      //  //else, we haven't found it
+      //  //thanks to BSP, there is no other place where it could be
+      //  //return miss_state;
+      //  return false;
+      //}
+      printf("Cache FOUND\n");
+      return true;
     } else {
-      //else, we continue
-      ret_val = stay_state;
+      printf("\tCache MISS (no entry @ %d)\n", expected_src_rank);
+      //return miss_state;
+      return false;
     }
-    last_checked_cache_line++;
-  } else {
-    ret_val = miss_state;
   }
-  return ret_val;
+  printf("INVALID SRC RANK!\n");
+  //return miss_state;
+  return false;
 }
 
 
 void add_cache_bytes(
     ap_uint<256>  header_cache[HEADER_CACHE_LENGTH],
     bool      header_cache_valid[HEADER_CACHE_LENGTH],
-    ap_uint<8>    bytes[MPIF_HEADER_LENGTH]
+    ap_uint<8>    bytes[MPIF_HEADER_LENGTH],
+    uint32_t remote_rank
     )
 {
-#pragma HLS inline off
-  //#pragma HLS pipeline II=1
+#pragma HLS inline //off
+#pragma HLS pipeline II=1
+
   ap_uint<256> cache_tmp = 0x0;
   printf("[pMpeGlobal] adding data to cache:\n\t");
   for(int j = 0; j<MPIF_HEADER_LENGTH; j++)
@@ -356,7 +434,7 @@ void add_cache_bytes(
     printf("%02x", (int) bytes[j]);
   }
   printf("\n");
-  add_cache_line(header_cache, header_cache_valid, cache_tmp);
+  add_cache_line(header_cache, header_cache_valid, cache_tmp, remote_rank);
 }
 
 
@@ -545,7 +623,7 @@ void pMpeGlobal(
 {
   //-- DIRECTIVES FOR THIS PROCESS ------------------------------------------
 #pragma HLS INLINE off
-//#pragma HLS pipeline II=1
+#pragma HLS pipeline II=1
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static mpeState fsmMpeState = MPE_RESET;
   static bool cache_invalidated = false;
@@ -561,7 +639,7 @@ void pMpeGlobal(
 
   static ap_uint<256> header_cache[HEADER_CACHE_LENGTH];
   static bool header_cache_valid[HEADER_CACHE_LENGTH];
-  static uint16_t last_checked_cache_line = 0;
+  //static uint16_t last_checked_cache_line = 0;
 
 
   static MPI_Interface currentInfo = MPI_Interface();
@@ -569,7 +647,9 @@ void pMpeGlobal(
   //static int handshakeLinesCnt = 0;
 
   static uint8_t header_i_cnt = 0;
-  static ap_uint<8> bytes[MPIF_HEADER_LENGTH];
+  static ap_uint<8> bytes_send[MPIF_HEADER_LENGTH];
+  static ap_uint<8> bytes_recv[MPIF_HEADER_LENGTH];
+  static ap_uint<8> bytes_send_2[MPIF_HEADER_LENGTH];
 
   static mpiCall expected_call = 0;
   static packetType expected_type = 0;
@@ -595,10 +675,12 @@ void pMpeGlobal(
 
   // #pragma HLS STREAM variable=sFifoHeaderCache depth=64
   //#pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
-#pragma HLS array_partition variable=bytes complete dim=0
+#pragma HLS array_partition variable=bytes_send complete dim=0
+#pragma HLS array_partition variable=bytes_send_2 complete dim=0
+#pragma HLS array_partition variable=bytes_recv complete dim=0
   //#pragma HLS array_partition variable=header_cache cyclic factor=32 dim=0
   //#pragma HLS array_partition variable=header_cache_valid cyclic factor=32 dim=0
-//#pragma HLS array_partition variable=header_cache_valid complete dim=0
+#pragma HLS array_partition variable=header_cache_valid complete dim=0
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
@@ -674,7 +756,7 @@ void pMpeGlobal(
 
         expected_src_rank = header.dst_rank;
 
-        headerToBytes(header, bytes);
+        headerToBytes(header, bytes_send);
 
 
         sDeqSendDestId.write((NodeId) header.dst_rank);
@@ -688,7 +770,7 @@ void pMpeGlobal(
         {
 #pragma HLS unroll
           //tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << (3-j)*8;
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_send[header_i_cnt*8+j]) << j*8;
         }
         //printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
         printf("tdata64: %#0llx\n",(uint64_t) tmp.tdata);
@@ -711,7 +793,7 @@ void pMpeGlobal(
         {
 #pragma HLS unroll
           //tmp.tdata |= ((ap_uint<32>) bytes[i*4+j]) << (3-j)*8;
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_send[header_i_cnt*8+j]) << j*8;
         }
         printf("tdata64: %#0llx\n",(uint64_t) tmp.tdata);
         tmp.tlast = 0;
@@ -729,8 +811,8 @@ void pMpeGlobal(
       {
         if(sDeqSendDone.read())
         {
-          fsmMpeState = WAIT4CLEAR_CACHE;
-          last_checked_cache_line = 0;
+          fsmMpeState = WAIT4CLEAR_CACHE_LOOKUP;
+          //last_checked_cache_line = 0;
           header = MPI_Header();
           expected_call = MPI_RECV_INT;
           if(currentDataType == MPI_FLOAT)
@@ -741,12 +823,31 @@ void pMpeGlobal(
         }
       }
       break;
-    case WAIT4CLEAR_CACHE:
+
+    case WAIT4CLEAR_CACHE_LOOKUP:
       //check cache first
-      fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
-          bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
-          SEND_DATA_START, WAIT4CLEAR, WAIT4CLEAR_CACHE);
-      protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+      if(getCache(header_cache, header_cache_valid, 
+            bytes_send, header, metaSrc, expected_type, expected_call, expected_src_rank))
+      {
+        fsmMpeState = WAIT4CLEAR_CACHE;
+      } else {
+        fsmMpeState = WAIT4CLEAR;
+      }
+      break;
+
+    case WAIT4CLEAR_CACHE:
+      ret = checkHeader(bytes_send, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+      if(ret == 0)
+      {//found desired header
+        printf("Cache HIT\n");
+        //delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+        fsmMpeState = SEND_DATA_START;
+      } else {
+        printf("\tCache MISS (wrong type)\n");
+        //else, we haven't found it
+        //thanks to BSP, there is no other place where it could be
+        fsmMpeState = WAIT4CLEAR;
+      }
       break;
     case WAIT4CLEAR:
       if( !siTcp_data.empty() && !siTcp_meta.empty()
@@ -762,7 +863,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+          bytes_send[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt = 1;
@@ -786,14 +887,14 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+          bytes_send[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt++;
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH+7)/8)
         {
-          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+          ret = checkHeader(bytes_send, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
           if(ret == 0)
           {//got CLEAR_TO_SEND 
             printf("Got CLEAR to SEND\n");
@@ -801,7 +902,7 @@ void pMpeGlobal(
           } else {
             //else, we continue to wait
             //and add it to the cache
-            add_cache_bytes(header_cache, header_cache_valid, bytes);
+            add_cache_bytes(header_cache, header_cache_valid, bytes_send, header.src_rank);
             fsmMpeState = WAIT4CLEAR;
             //no timeout reset
           }
@@ -825,7 +926,7 @@ void pMpeGlobal(
 
         expected_src_rank = header.dst_rank;
 
-        headerToBytes(header, bytes);
+        headerToBytes(header, bytes_send);
 
 
         header_i_cnt = 0;
@@ -836,7 +937,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_send[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0; //in this case, always
         sFifoDataTX.write(tmp);
@@ -849,6 +950,8 @@ void pMpeGlobal(
         send_total_cnt = 0;
 
         fsmMpeState = SEND_DATA_START_1;
+        //we can delete the cache in all cases
+        delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
       }
       break;
     case SEND_DATA_START_1:
@@ -860,7 +963,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_send[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0; //in this case, always
         sFifoDataTX.write(tmp);
@@ -899,9 +1002,9 @@ void pMpeGlobal(
       {
         if(sDeqSendDone.read())
         {
-          fsmMpeState = WAIT4ACK_CACHE;
+          fsmMpeState = WAIT4ACK_CACHE_LOOKUP;
           header = MPI_Header();
-          last_checked_cache_line = 0;
+          //last_checked_cache_line = 0;
           expected_call = MPI_RECV_INT;
           if(currentDataType == MPI_FLOAT)
           {
@@ -911,14 +1014,39 @@ void pMpeGlobal(
         }
       }
       break;
-    case WAIT4ACK_CACHE:
-      //check cache first
-      fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
-          bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
-          IDLE, WAIT4ACK, WAIT4ACK_CACHE);
-      protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
 
+    case WAIT4ACK_CACHE_LOOKUP:
+      //check cache first
+      if(getCache(header_cache, header_cache_valid, 
+            bytes_send_2, header, metaSrc, expected_type, expected_call, expected_src_rank))
+      {
+        fsmMpeState = WAIT4ACK_CACHE;
+      } else {
+        fsmMpeState = WAIT4ACK;
+      }
       break;
+
+    case WAIT4ACK_CACHE:
+      ret = checkHeader(bytes_send_2, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+      if(ret == 0)
+      {//found desired header
+        printf("Cache HIT\n");
+        //delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+        fsmMpeState = WAIT4ACK_CACHE_2;
+      } else {
+        printf("\tCache MISS (wrong type)\n");
+        //else, we haven't found it
+        //thanks to BSP, there is no other place where it could be
+        fsmMpeState = WAIT4ACK;
+      }
+      break;
+
+    case WAIT4ACK_CACHE_2:
+      //we can delete the cache in all cases
+      delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+      fsmMpeState = IDLE;
+      break;
+
     case WAIT4ACK:
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
       {
@@ -929,7 +1057,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+          bytes_send[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt = 1;
@@ -957,14 +1085,14 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+          bytes_send_2[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt++;
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH+7)/8)
         {
-          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+          ret = checkHeader(bytes_send_2, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
           if(ret == 0)
           {
             printf("ACK received.\n");
@@ -973,7 +1101,7 @@ void pMpeGlobal(
           } else {
             //else, we continue to wait
             //and add it to the cache
-            add_cache_bytes(header_cache, header_cache_valid, bytes);
+            add_cache_bytes(header_cache, header_cache_valid, bytes_send, header.src_rank);
             fsmMpeState = WAIT4ACK;
             //no timeout reset
           }
@@ -982,21 +1110,40 @@ void pMpeGlobal(
       break;
     case START_RECV:
       header = MPI_Header();
-      last_checked_cache_line = 0;
+      //last_checked_cache_line = 0;
       expected_call = MPI_SEND_INT;
       if(currentDataType == MPI_FLOAT)
       {
         expected_call = MPI_SEND_FLOAT;
       }
       expected_type = SEND_REQUEST;
-      fsmMpeState = WAIT4REQ_CACHE;
+      fsmMpeState = WAIT4REQ_CACHE_LOOKUP;
       break;
-    case WAIT4REQ_CACHE:
+    
+    case WAIT4REQ_CACHE_LOOKUP:
       //check cache first
-      fsmMpeState = checkCache(last_checked_cache_line, header_cache, header_cache_valid,
-          bytes, header, metaSrc, expected_type, expected_call, expected_src_rank,
-          ASSEMBLE_CLEAR, WAIT4REQ, WAIT4REQ_CACHE);
-      //no timeout handling
+      if(getCache(header_cache, header_cache_valid, 
+            bytes_recv, header, metaSrc, expected_type, expected_call, expected_src_rank))
+      {
+        fsmMpeState = WAIT4REQ_CACHE;
+      } else {
+        fsmMpeState = WAIT4REQ;
+      }
+      break;
+   
+    case WAIT4REQ_CACHE:
+      ret = checkHeader(bytes_recv, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
+      if(ret == 0)
+      {//found desired header
+        printf("Cache HIT\n");
+        //delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+        fsmMpeState = ASSEMBLE_CLEAR;
+      } else {
+        printf("\tCache MISS (wrong type)\n");
+        //else, we haven't found it
+        //thanks to BSP, there is no other place where it could be
+        fsmMpeState = WAIT4ACK;
+      }
       break;
     case WAIT4REQ:
       if( !siTcp_data.empty() && !siTcp_meta.empty() )
@@ -1007,7 +1154,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+          bytes_recv[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7 -j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt = 1;
@@ -1023,14 +1170,14 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+          bytes_recv[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7 -j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt++;
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH+7)/8)
         {
-          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+          ret = checkHeader(bytes_recv, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
           if(ret == 0)
           {
             //got SEND_REQUEST 
@@ -1040,7 +1187,7 @@ void pMpeGlobal(
             //else, we wait...
             //and add it to the cache
             ap_uint<256> cache_tmp = 0x0;
-            add_cache_bytes(header_cache, header_cache_valid, bytes);
+            add_cache_bytes(header_cache, header_cache_valid, bytes_recv, header.src_rank);
             fsmMpeState = WAIT4REQ;
           }
         }
@@ -1061,7 +1208,7 @@ void pMpeGlobal(
 
         expected_src_rank = header.dst_rank;
 
-        headerToBytes(header, bytes);
+        headerToBytes(header, bytes_recv);
 
         sDeqSendDestId.write((NodeId) header.dst_rank);
 
@@ -1074,13 +1221,15 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_recv[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0;
         sFifoDataTX.write(tmp);
         header_i_cnt = 1;
 
         fsmMpeState = ASSEMBLE_CLEAR_1;
+        //we can delete the cache in all cases
+        delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
       }
       break;
     case ASSEMBLE_CLEAR_1:
@@ -1092,7 +1241,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_recv[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0;
         if ( header_i_cnt >= (MPIF_HEADER_LENGTH/8) - 1)
@@ -1166,7 +1315,7 @@ void pMpeGlobal(
           for(int j = 0; j<8; j++)
           {
 #pragma HLS unroll
-            bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+            bytes_recv[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
             //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           }
           header_i_cnt = 1;
@@ -1206,14 +1355,14 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          bytes[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
+          bytes_recv[header_i_cnt*8 + j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
           //bytes[i*8 + 7-j] = (ap_uint<8>) ( tmp.tdata >> j*8) ;
         }
         header_i_cnt++;
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH+7)/8)
         {
-          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+          ret = checkHeader(bytes_recv, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
           if(ret == 0
               && !expect_more_data) //we don't start a new data packet here
           {
@@ -1237,7 +1386,7 @@ void pMpeGlobal(
           } else {
             //we received another header and add it to the cache
             ap_uint<256> cache_tmp = 0x0;
-            add_cache_bytes(header_cache, header_cache_valid, bytes);
+            add_cache_bytes(header_cache, header_cache_valid, bytes_recv, header.src_rank);
             fsmMpeState = RECV_DATA_START;
           }
         }
@@ -1297,7 +1446,7 @@ void pMpeGlobal(
         header.call = static_cast<mpiCall>((int) currentInfo.mpi_call);
         header.type = ACK;
 
-        headerToBytes(header, bytes);
+        headerToBytes(header, bytes_recv);
 
         sDeqSendDestId.write(header.dst_rank);
 
@@ -1309,7 +1458,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_recv[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0;
         sFifoDataTX.write(tmp);
@@ -1328,7 +1477,7 @@ void pMpeGlobal(
         for(int j = 0; j<8; j++)
         {
 #pragma HLS unroll
-          tmp.tdata |= ((ap_uint<64>) bytes[header_i_cnt*8+j]) << j*8;
+          tmp.tdata |= ((ap_uint<64>) bytes_recv[header_i_cnt*8+j]) << j*8;
         }
         tmp.tlast = 0;
         header_i_cnt++;

@@ -737,7 +737,6 @@ void mpi_wrapper(
     stream<Axis<64> > *soMPI_data,
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
-  //  ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
     int32_t boFdram[BOFDRAM_LINE_RESERVATION]
     /* buffer declarations that end up in memory are insereted below
      * if they exist */

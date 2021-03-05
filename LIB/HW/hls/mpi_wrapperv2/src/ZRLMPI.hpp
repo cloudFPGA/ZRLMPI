@@ -164,7 +164,9 @@ void mpi_wrapper(
     stream<Axis<64> > *soMPI_data,
     stream<Axis<64> > *siMPI_data,
     // ----- DRAM -----
-    ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]
+    //ap_uint<512> boFdram[ZRLMPI_DRAM_SIZE_LINES]   (to map directly to 512 isn't working with HLS...)
+    int32_t boFdram[BOFDRAM_LINE_RESERVATION]
+    //maybe additional lines below...
     );
 
 
