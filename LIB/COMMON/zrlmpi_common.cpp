@@ -102,6 +102,8 @@ void integerToBigEndian(UINT32 n, UINT8 *bytes)
 int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
 {
 #pragma HLS INLINE
+#pragma HLS latency max=1
+
   int ret = 0;
   //check validity
   for(int i = 0; i< 4; i++)
@@ -179,6 +181,8 @@ int bytesToHeader(UINT8 bytes[MPIF_HEADER_LENGTH], MPI_Header &header)
 void headerToBytes(MPI_Header header, UINT8 bytes[MPIF_HEADER_LENGTH])
 {
 #pragma HLS INLINE
+#pragma HLS latency max=1
+
   for(int i = 0; i< 4; i++)
   {
     bytes[i] = 0x96;

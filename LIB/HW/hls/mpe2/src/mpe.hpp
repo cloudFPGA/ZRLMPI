@@ -55,11 +55,12 @@ enum mpeState {MPE_RESET = 0, IDLE, START_SEND, START_SEND_1, SEND_REQ,
 
 enum mpiType {MPI_INT = 0, MPI_FLOAT};
 
-enum deqState {DEQ_IDLE = 0, DEQ_WRITE, DEQ_DONE};
+enum deqState {DEQ_IDLE = 0, DEQ_START, DEQ_WRITE, DEQ_WRITE_2, DEQ_DONE};
 
 
 #define HEADER_CACHE_LENGTH 64 //similar to max cluster size
 #define INVALID_CACHE_LINE_NUMBER 0xFEF //must be bigger than 64
+#define BPL 16
 
 void mpe_main(
     // ----- NAL Interface -----

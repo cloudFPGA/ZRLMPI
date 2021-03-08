@@ -110,14 +110,14 @@ int main(){
       tmp64_2.tdata |= ((ap_uint<64>) msg[i*8+k]) << (7-k)*8;
       //printf("tdata construction: %#0llx\n", (uint64_t) tmp64_2.tdata);
     }
-    if(i == (17+7/8)-1)
+    if(i >= ((17+7)/8)-1)
     {
       tmp64_2.tlast = 1;
     } else {
       tmp64_2.tlast = 0;
     }
     tmp64_2.tkeep = 0xFF;
-    printf("TB: write MPI data: %#0llx\n", (uint64_t) tmp64_2.tdata);
+    printf("TB: write MPI data: %#0llx (last %d)\n", (uint64_t) tmp64_2.tdata, (int) tmp64_2.tlast);
     MPI_data_in.write(tmp64_2);
 
     stepDut();
@@ -128,7 +128,7 @@ int main(){
 
 
   stepDut();
-  //SEND_REQUEST expected 
+  //SEND_REQUEST expected
   NetworkMeta out_meta = soTcp_meta.read().tdata;
   printf("Dst node id: %d\n", (unsigned int) out_meta.dst_rank);
   assert(out_meta.dst_rank == 2);
@@ -255,9 +255,14 @@ int main(){
   assert(out_meta.dst_rank == 2);
 
   ap_uint<1> last_tlast = 0;
-  while(!soTcp_data.empty())
+  //while(!soTcp_data.empty())
+  for(int i = 0; i < 10; i++)
   {
     stepDut();
+    if(soTcp_data.empty())
+    {
+      continue;
+    }
     tmp64 = soTcp_data.read();
     printf("MPE out: %#016llx\n", (unsigned long long) tmp64.tdata);
     last_tlast = tmp64.tlast;
