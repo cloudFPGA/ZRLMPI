@@ -1863,8 +1863,8 @@ void mpe_main(
 #pragma HLS STREAM variable=sExpectedLength depth=2
 #pragma HLS STREAM variable=sDeqRecvDone    depth=2
 
-#pragma HLS STREAM variable=sFifoTcpIn      depth=16
-#pragma HLS STREAM variable=sFifoMpiDataIn  depth=16
+#pragma HLS STREAM variable=sFifoTcpIn      depth=32
+#pragma HLS STREAM variable=sFifoMpiDataIn  depth=32
 
   //===========================================================
   // Assign Debug Port
@@ -1885,14 +1885,6 @@ void mpe_main(
   pEnqTcpIn(siTcp_data, sFifoTcpIn);
 
   //===========================================================
-  // MPE GLOBAL STATE
-
-  pMpeGlobal(po_rx_ports, siMPIif, soMPIFeB, own_rank, sFifoDataTX,
-      sDeqSendDestId, sDeqSendDone, sFifoTcpIn, siTcp_meta,
-      sFifoMpiDataIn, sFifoDataRX,
-      sExpectedLength, sDeqRecvDone);
-
-  //===========================================================
   // DEQUEUE FSM SEND
 
   pDeqSend(sFifoDataTX, soTcp_data, soTcp_meta, own_rank, sDeqSendDestId,
@@ -1902,6 +1894,15 @@ void mpe_main(
   // DEQUEUE FSM RECV
 
   pDeqRecv(sFifoDataRX, soMPI_data, sExpectedLength, sDeqRecvDone);
+  
+  //===========================================================
+  // MPE GLOBAL STATE
+  // (put the slow process last...)
+
+  pMpeGlobal(po_rx_ports, siMPIif, soMPIFeB, own_rank, sFifoDataTX,
+      sDeqSendDestId, sDeqSendDone, sFifoTcpIn, siTcp_meta,
+      sFifoMpiDataIn, sFifoDataRX,
+      sExpectedLength, sDeqRecvDone);
 
 }
 

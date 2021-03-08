@@ -106,7 +106,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
   uint32_t orig_header_size = 0x0;
 
-  //#ifdef USE_PROTO_TIMEOUT
+  #ifdef USE_PROTO_TIMEOUT
   struct timeval tv;
   if(with_timeout == true && timeout_inc < ZRLMPI_PROTOCOL_MAX_INC)
   {
@@ -120,7 +120,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   {
     perror("setsockopt SO_RCVTIMEO:");
   }
-  //#endif
+  #endif
 
   while(true)
   {
@@ -501,12 +501,15 @@ void send_internal(
     int total_packets = 0;
     struct timespec sleep;
     sleep.tv_sec = 0;
-    //sleep.tv_nsec = 50000000; 
-    //#ifdef ZC2_NETWORK
-    //    sleep.tv_nsec = 250000; //300us, based on experiments for ZC2!
-    //#else
-    //    sleep.tv_nsec = 2000; //2us, based on experiments with 10G links on schwand.
-    //#endif
+    // usually, it takes 177 cycles ~ 1133ns to process one packet in the FPGA
+    // with DRAM, it could be a little bit slower (it takes 2300ns to write it to DRAM)
+    // so, in case of large packets, we slow down a little bit...(helps also CPUs)
+    sleep.tv_nsec = 1100;
+    bool large_packet = false;
+    if(count > DRAM_TRANSMISSION_THRESHOLD_WORDS)
+    {
+      large_packet = true;
+    }
 
     //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
     for(uint32_t i = 0; i < byte_length; i+=max_udp_payload_bytes)
@@ -539,8 +542,13 @@ void send_internal(
         total_send += ret;
         total_packets++;
       }
-      //make sure they stay in order
-      //nanosleep(&sleep, &sleep);
+#ifdef USE_DRAM_AWARE_TRANSMISSION
+      //allow DRAM to process
+      if(large_packet)
+      {
+        nanosleep(&sleep, &sleep);
+      }
+#endif
     }
     //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
     //std::cout << res << " bytes sent for DATA" <<std::endl;

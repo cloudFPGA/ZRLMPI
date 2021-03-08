@@ -29,7 +29,7 @@
 #define ZRLMPI_PROTOCOL_TIMEOUT_CYCLES 15625000  //100ms, with cycle=6.4ns, 23bit
 
 #define ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR 10
-#define ZRLMPI_PROTOCOL_MAX_INC 2
+#define ZRLMPI_PROTOCOL_MAX_INC 3
 
 //to disable debug printfs
 #define DEBUG0

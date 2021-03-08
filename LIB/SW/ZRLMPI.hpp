@@ -65,8 +65,11 @@ void MPI_Finalize();
 #define KVM_CORRECTION_US 200
 #define KVM_NETWORK_LOSS 80000 //so probability is 1/KVM_NETWORK_LOSS
 
-//#define ZC2_NETWORK
 #define USE_PROTO_TIMEOUT
+
+#define USE_DRAM_AWARE_TRANSMISSION
+#define DRAM_TRANSMISSION_THRESHOLD_WORDS 32768
+
 
 //forward declaration
 #ifndef _ZRLMPI_APP_INCLUDED_
