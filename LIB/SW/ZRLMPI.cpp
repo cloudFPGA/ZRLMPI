@@ -44,7 +44,7 @@ bool use_udp = false;
 bool use_tcp = false; //TODO
 
 MPI_Header header_recv_cache[MPI_CLUSTER_SIZE_MAX];
-int cache_iter = 0;
+//int cache_iter = 0;
 int cache_num = 0;
 bool skip_cache_entry[MPI_CLUSTER_SIZE_MAX];
 uint32_t max_udp_payload_bytes = 0;
@@ -60,7 +60,7 @@ bool packet_was_lost()
   int rnum = (rand() % (KVM_NETWORK_LOSS));
   if(rnum <= 0)
   {
-     return true;
+    return true;
   }
   return false;
 }
@@ -71,7 +71,7 @@ bool packet_was_lost()
 
 //returns the size IN BYTES!
 //on timeout RECVH_TIMEOUT_RETURN is returned
-int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer, bool with_timeout)
+int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, uint32_t expSrcRank, int payload_length, uint8_t *buffer, bool with_timeout, uint32_t timeout_inc)
 {
   uint8_t bytes[MPIF_HEADER_LENGTH];
   struct sockaddr_in src_addr;
@@ -104,11 +104,11 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
   uint32_t orig_header_size = 0x0;
 
-//#ifdef USE_PROTO_TIMEOUT
+  //#ifdef USE_PROTO_TIMEOUT
   struct timeval tv;
-  if(with_timeout == true)
+  if(with_timeout == true && timeout_inc < ZRLMPI_PROTOCOL_MAX_INC)
   {
-    tv.tv_sec = 0;
+    tv.tv_sec = timeout_inc; //so we use already factor 10, no further ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR
     tv.tv_usec = ZRLMPI_PROTOCOL_TIMEOUT_MS * 1000;
   } else {
     tv.tv_sec = 0;
@@ -118,7 +118,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   {
     perror("setsockopt SO_RCVTIMEO:");
   }
-//#endif
+  //#endif
 
   while(true)
   {
@@ -127,9 +127,15 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     //but not for data
     if(!checkedCache && !is_data_packet)
     {
+      //thanks to BSP, we have only one possible position
+      if(expSrcRank < MPI_CLUSTER_SIZE_MAX)
+      {
+        cache_i = expSrcRank;
+      }
 
       //if(cache_i >= MPI_CLUSTER_SIZE_MAX || cache_num == 0)
-      if(cache_i >= cache_iter || cache_num == 0)
+      //if(cache_i >= cache_iter || cache_num == 0)
+      if(cache_num == 0)
       {
         checkedCache = true;
         continue;
@@ -142,11 +148,19 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 #ifdef DEBUG2
         printf("\tskipping entry.\n");
 #endif
-        cache_i++;
+        //  cache_i++;
+        if(expSrcRank < MPI_CLUSTER_SIZE_MAX)
+        {
+          checkedCache = true;
+        }
         continue;
       }
       header = header_recv_cache[cache_i];
-      cache_i++;
+      //cache_i++;
+      if(expSrcRank < MPI_CLUSTER_SIZE_MAX)
+      {
+        checkedCache = true;
+      }
 
     } else {
 
@@ -182,9 +196,9 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       if(res == -1)
       {
         if(errno == EAGAIN || errno == EWOULDBLOCK)
-	{
+        {
 #ifdef DEBUG0
-	    printf("[recvfrom] timeout occured! While waiting for packet type %d from %d (packet cnt: %d)\n", expType, expSrcRank, recv_packets_cnt);
+          printf("[recvfrom] timeout occured! While waiting for packet type %d from %d (packet cnt: %d)\n", expType, expSrcRank, recv_packets_cnt);
 #endif
           return RECVH_TIMEOUT_RETURN;
         }
@@ -197,7 +211,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       }
       if(packet_was_lost() && with_timeout)
       {
-          return RECVH_TIMEOUT_RETURN;
+        return RECVH_TIMEOUT_RETURN;
       }
 #endif
 
@@ -295,21 +309,25 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       copyToCache = true;
     }
 
-    if(copyToCache && checkedCache)
+    if(copyToCache && checkedCache
+       && expSrcRank < MPI_CLUSTER_SIZE_MAX
+      )
     {
-      header_recv_cache[cache_iter] = header;
-      skip_cache_entry[cache_iter] = false;
-      cache_iter++;
-      if (cache_iter >= MPI_CLUSTER_SIZE_MAX)
-      {
-        //some type of clean 
-        //TODO
-        cache_iter = 0;
-        for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
-        {
-          skip_cache_entry[i] = false;
-        }
-      }
+      //header_recv_cache[cache_iter] = header;
+      //skip_cache_entry[cache_iter] = false;
+      //cache_iter++;
+      header_recv_cache[expSrcRank] = header;
+      skip_cache_entry[expSrcRank] = false;
+      //if (cache_iter >= MPI_CLUSTER_SIZE_MAX)
+      //{
+      //  //some type of clean 
+      //  //TODO
+      //  cache_iter = 0;
+      //  for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
+      //  {
+      //    skip_cache_entry[i] = false;
+      //  }
+      //}
 #ifdef DEBUG
       printf("put header to cache\n");
 #endif
@@ -326,10 +344,10 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     }
     if(!copyToCache)
     {//we got what we wanted
-        received_length += res;
-        recv_packets_cnt++;
+      received_length += res;
+      recv_packets_cnt++;
 #ifdef DEBUG2
-        printf("we've got what we wanted: received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
+      printf("we've got what we wanted: received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
 #endif
       if(!multiple_packet_mode 
           || (received_length >= expected_length)
@@ -359,12 +377,12 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
 bool array_contains(const std::string &v, const std::vector<std::string> &array)
 {
-    return std::find(array.begin(), array.end(), v) != array.end();
+  return std::find(array.begin(), array.end(), v) != array.end();
 }
 
 int array_count(const std::string &v, const std::vector<std::string> &array)
 {
-    return count(array.begin(), array.end(), v);
+  return count(array.begin(), array.end(), v);
 }
 
 
@@ -379,7 +397,7 @@ void MPI_Init()
 
 void MPI_Init(int* argc, char*** argv)
 {
- MPI_Init();
+  MPI_Init();
 }
 
 
@@ -411,6 +429,7 @@ void send_internal(
 
   MPI_Header header = MPI_Header();
   int res, ret;
+  uint32_t timeout_inc = 0;
 
   while(true)
   {
@@ -440,9 +459,10 @@ void send_internal(
 #endif
     ret = 0;
 
-    ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, corresponding_call_type, destination, 0, 0, true);
+    ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), CLEAR_TO_SEND, corresponding_call_type, destination, 0, 0, true, timeout_inc);
     if(ret == RECVH_TIMEOUT_RETURN)
     {
+      timeout_inc++;
       continue;
     } else {
       break;
@@ -479,11 +499,11 @@ void send_internal(
     struct timespec sleep;
     sleep.tv_sec = 0;
     //sleep.tv_nsec = 50000000; 
-//#ifdef ZC2_NETWORK
-//    sleep.tv_nsec = 250000; //300us, based on experiments for ZC2!
-//#else
-//    sleep.tv_nsec = 2000; //2us, based on experiments with 10G links on schwand.
-//#endif
+    //#ifdef ZC2_NETWORK
+    //    sleep.tv_nsec = 250000; //300us, based on experiments for ZC2!
+    //#else
+    //    sleep.tv_nsec = 2000; //2us, based on experiments with 10G links on schwand.
+    //#endif
 
     //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
     for(int i = 0; i < byte_length; i+=max_udp_payload_bytes)
@@ -495,7 +515,7 @@ void send_internal(
       }
       if(i != 0)
       {
-	memcpy(&buffer, &data[i], count_of_this_message*typewidth*sizeof(uint32_t));
+        memcpy(&buffer, &data[i], count_of_this_message*typewidth*sizeof(uint32_t));
       }
 #ifdef DEBUG
       printf("sending %d bytes from address %d as data junk...\n",count_of_this_message, i);
@@ -526,9 +546,10 @@ void send_internal(
     std::cout << total_send << " bytes sent for DATA (in " << total_packets << " packets) " <<std::endl;
 #endif
 
-    ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, corresponding_call_type, destination, 0, 0, true);
+    ret = receiveHeader(ntohl(rank_socks[destination].sin_addr.s_addr), ACK, corresponding_call_type, destination, 0, 0, true, timeout_inc);
     if(ret == RECVH_TIMEOUT_RETURN)
     {
+      timeout_inc++;
       continue;
     } else {
       break;
@@ -583,8 +604,9 @@ void recv_internal(
   int typewidth = 1; //meassured in SIZEOF(UINT32_T)!
   int corresponding_call_type = MPI_SEND_INT;
   int call_type = MPI_RECV_INT;
-  
-  int ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), SEND_REQUEST, corresponding_call_type, source, 0, 0, false);
+  uint32_t timeout_inc = 0;
+
+  int ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), SEND_REQUEST, corresponding_call_type, source, 0, 0, false, 0);
   //no timeout handling
 
 #ifdef DEBUG
@@ -628,9 +650,10 @@ void recv_internal(
     printf("Receiving DATA ...\n");
 #endif
 
-    ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth*sizeof(uint32_t), buffer, true);
+    ret = receiveHeader(ntohl(rank_socks[source].sin_addr.s_addr), DATA, corresponding_call_type, source, count*typewidth*sizeof(uint32_t), buffer, true, timeout_inc);
     if(ret == RECVH_TIMEOUT_RETURN)
     {
+      timeout_inc++;
       continue;
     } else {
       break;
@@ -778,7 +801,7 @@ int main(int argc, char **argv)
   {
     printf("using tcp...\n");
     use_tcp = true;
-    
+
     printf("   NOT YET IMPLEMENTED   ");
     exit(EXIT_FAILURE);
   } else {
@@ -798,8 +821,8 @@ int main(int argc, char **argv)
   {
     argv_mpi_app[a] = argv[cluster_size + 4];
   } 
-  
- 
+
+
 
 
   int result = 0;
@@ -878,7 +901,7 @@ int main(int argc, char **argv)
     std::cerr << "bind: " << errno << std::endl;
     exit(1);
   }
-  
+
   //get MTU
   //1. get if name of ip addr https://man7.org/linux/man-pages/man3/getifaddrs.3.html
   //if we get the mtu automatically, all nodes have to agree on one...--> header?
@@ -895,7 +918,7 @@ int main(int argc, char **argv)
 
   //printf("MTU is %d.\n", ifr.ifr_mtu);
   //max_udp_payload_bytes = ifr.ifr_mtu - UDP_HEADER_SIZE_BYTES;
-  
+
   //max_udp_payload_bytes = CUSTOM_MTU - UDP_HEADER_SIZE_BYTES;
   //if(max_udp_payload_bytes > ZRLMPI_MAX_MESSAGE_SIZE_BYTES)
   //{
@@ -906,11 +929,11 @@ int main(int argc, char **argv)
 #ifdef DEBUG2
   printf("ZRLMPI max payload bytes: %d.\n", max_udp_payload_bytes);
 #endif
-  
+
   //increase buffer size
   int recvBufSize = 0x1000000;
   int err = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &recvBufSize, sizeof(recvBufSize));
-  
+
   if(err != 0)
   {
     std::cerr <<" error socket buffer: " << err << std::endl;
@@ -932,7 +955,7 @@ int main(int argc, char **argv)
   //init cache
   for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
   {
-    skip_cache_entry[i] = false;
+    skip_cache_entry[i] = true;
   }
 
   //to correct kvm "network cards"
