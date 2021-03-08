@@ -890,10 +890,12 @@ void pMpeGlobal(
   static mpeState fsmMpeState = MPE_RESET;
   static bool cache_invalidated = false;
   static uint32_t protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+  static uint32_t protocol_timeout_inc = 0;
 
 #pragma HLS reset variable=fsmMpeState
 #pragma HLS reset variable=cache_invalidated
 #pragma HLS reset variable=protocol_timeout_cnt
+#pragma HLS reset variable=protocol_timeout_inc
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   //static stream<ap_uint<128> > sFifoHeaderCache("sFifoHeaderCache");
   static uint32_t expected_src_rank = 0;
@@ -973,6 +975,7 @@ void pMpeGlobal(
       break;
     case IDLE:
       expected_src_rank = 0xFFF;
+      protocol_timeout_inc = 0;
       if ( !siMPIif.empty() )
       {
         currentInfo = siMPIif.read();
@@ -1079,6 +1082,7 @@ void pMpeGlobal(
           //last_checked_cache_line = 0;
           header = MPI_Header();
           expected_call = MPI_RECV_INT;
+          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
           if(currentDataType == MPI_FLOAT)
           {
             expected_call = MPI_RECV_FLOAT;
@@ -1134,10 +1138,12 @@ void pMpeGlobal(
         header_i_cnt = 1;
       } else {
         protocol_timeout_cnt--;
-        if(protocol_timeout_cnt == 0)
+        if(protocol_timeout_cnt == 0 && protocol_timeout_inc < ZRLMPI_PROTOCOL_MAX_INC)
         {
           fsmMpeState = START_SEND;
+          protocol_timeout_inc++;
         }
+        //else, we wait
       }
       break;
 
@@ -1273,6 +1279,7 @@ void pMpeGlobal(
           header = MPI_Header();
           //last_checked_cache_line = 0;
           expected_call = MPI_RECV_INT;
+          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
           if(currentDataType == MPI_FLOAT)
           {
             expected_call = MPI_RECV_FLOAT;
@@ -1336,10 +1343,11 @@ void pMpeGlobal(
         if( !soMPIFeB.full() )
         {
           protocol_timeout_cnt--;
-          if(protocol_timeout_cnt == 0)
+          if(protocol_timeout_cnt == 0 && protocol_timeout_inc < ZRLMPI_PROTOCOL_MAX_INC)
           {
             soMPIFeB.write(ZRLMPI_FEEDBACK_FAIL);
             fsmMpeState = SEND_DATA_START;
+            protocol_timeout_inc++;
           }
         }
       }
@@ -1543,7 +1551,7 @@ void pMpeGlobal(
         if(sDeqSendDone.read())
         {
           fsmMpeState = RECV_DATA_START;
-          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
           receive_right_data_started = false;
           expect_more_data = false;
           current_data_src_node_id = 0xFFF;
@@ -1598,8 +1606,9 @@ void pMpeGlobal(
         if(!soMPIFeB.full())
         {
           protocol_timeout_cnt--;
-          if(protocol_timeout_cnt == 0)
+          if(protocol_timeout_cnt == 0 && protocol_timeout_inc < ZRLMPI_PROTOCOL_MAX_INC)
           {
+            protocol_timeout_inc++;
             if(receive_right_data_started)
             {
               //re-start receive completely
@@ -1686,7 +1695,7 @@ void pMpeGlobal(
           if(enqueue_recv_total_cnt < exp_recv_count_enqueue) //not <=
           {//we expect more
             fsmMpeState = RECV_DATA_START;
-            protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+            protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
             receive_right_data_started = true;
             //so timeout also for multiple packets
             expect_more_data = true;
