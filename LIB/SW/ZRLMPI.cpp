@@ -87,6 +87,8 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   uint32_t recv_packets_cnt = 0;
   uint32_t expected_length = MPIF_HEADER_LENGTH + payload_length;
   uint32_t expected_packet_cnt = 0;
+  uint32_t actual_header_rank = MPI_CLUSTER_SIZE_MAX+5;
+
   if(expected_length > max_udp_payload_bytes)
   {
 #ifdef DEBUG
@@ -310,14 +312,15 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     }
 
     if(copyToCache && checkedCache
-       && expSrcRank < MPI_CLUSTER_SIZE_MAX
+        && expSrcRank < MPI_CLUSTER_SIZE_MAX
       )
     {
       //header_recv_cache[cache_iter] = header;
       //skip_cache_entry[cache_iter] = false;
       //cache_iter++;
-      header_recv_cache[expSrcRank] = header;
-      skip_cache_entry[expSrcRank] = false;
+      actual_header_rank = header.src_rank;
+      header_recv_cache[actual_header_rank] = header;
+      skip_cache_entry[actual_header_rank] = false;
       //if (cache_iter >= MPI_CLUSTER_SIZE_MAX)
       //{
       //  //some type of clean 
@@ -515,7 +518,7 @@ void send_internal(
       }
       if(i != 0)
       {
-	memcpy(&buffer, &data[i/sizeof(int)], count_of_this_message);
+        memcpy(&buffer, &data[i/sizeof(int)], count_of_this_message);
       }
 #ifdef DEBUG
       printf("sending %d bytes from address %d as data junk...(%d to go)\n",count_of_this_message, i, byte_length - i);
