@@ -179,13 +179,13 @@ int main(){
     }
     // printf("tdata32: %#08x\n",(uint32_t) tmp.tdata);
     tmp.tlast = 0;
-    if ( i == MPIF_HEADER_LENGTH - 1)
+    if ( i == (MPIF_HEADER_LENGTH/8) - 1)
     {
       tmp.tlast = 1;
     }
     //tmp64Stream.write(tmp);
     siTcp_data.write(tmp);
-    printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
+    printf("Write Tcp word: %#016llx (last %d)\n", (unsigned long long) tmp.tdata, (int) tmp.tlast);
   }
   //  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   //  {
@@ -227,12 +227,12 @@ int main(){
       tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
     }
     tmp.tlast = 0;
-    if ( i == MPIF_HEADER_LENGTH - 1)
+    if ( i == (MPIF_HEADER_LENGTH/8) - 1)
     {
       tmp.tlast = 1;
     }
     siTcp_data.write(tmp);
-    printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
+    printf("Write Tcp word: %#016llx (last %d)\n", (unsigned long long) tmp.tdata, (int) tmp.tlast);
   }
   //  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   //  {
@@ -292,12 +292,12 @@ int main(){
       tmp.tdata |= ((ap_uint<64>) bytes[i*8+j]) << j*8;
     }
     tmp.tlast = 0;
-    if ( i == MPIF_HEADER_LENGTH - 1)
+    if ( i == (MPIF_HEADER_LENGTH/8) - 1)
     {
       tmp.tlast = 1;
     }
     siTcp_data.write(tmp);
-    printf("Write Tcp word: %#016llx\n", (unsigned long long) tmp.tdata);
+    printf("Write Tcp word: %#016llx (last %d)\n", (unsigned long long) tmp.tdata, (int) tmp.tlast);
   }
   //  for(int i = 0; i<MPIF_HEADER_LENGTH/8; i++)
   //  {

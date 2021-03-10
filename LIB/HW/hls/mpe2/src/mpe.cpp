@@ -252,7 +252,7 @@ void delete_cache_line(
 }
 
 
-//returns: 0 ok, 1 not ok
+//returns: 0 ok, 1 not ok, 2 invalid
 uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, NetworkMeta &metaSrc,
     packetType expected_type, mpiCall expected_call, bool skip_meta, uint32_t expected_src_rank)
 {
@@ -263,10 +263,11 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
   int ret = bytesToHeader(bytes, header);
   bool unexpected_header = false;
 
-  if(ret != 0)
+  if(ret != 0 || header.src_rank >= ZRLMPI_MAX_CLUSTER_SIZE)
   {
     printf("invalid header.\n");
-    unexpected_header = true;
+    //unexpected_header = true;
+    return 2;
   }
   else if(!skip_meta && (header.src_rank != metaSrc.src_rank))
   {
@@ -500,14 +501,16 @@ void pEnqMpiData(
 
 void pEnqTcpIn(
     stream<NetworkWord> &siTcp_data,
-    stream<Axis<128> >  &sFifoTcpIn
+    stream<NetworkMetaStream>      &siTcp_meta,
+    stream<Axis<128> >  &sFifoTcpIn,
+    stream<NetworkMetaStream>      &sFifoTcpMetaIn
     )
 {
   //-- DIRECTIVES FOR THIS PROCESS ------------------------------------------
 #pragma HLS INLINE off
 #pragma HLS pipeline II=1
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
-  static deqState enqTcpDataFsm = DEQ_WRITE;
+  static deqState enqTcpDataFsm = DEQ_START;
   //TODO: add state to drain FIFO after reset?
 #pragma HLS reset variable=enqTcpDataFsm
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
@@ -517,6 +520,32 @@ void pEnqTcpIn(
   switch(enqTcpDataFsm)
   {
     default:
+    case DEQ_START:
+      if(!siTcp_data.empty() && !sFifoTcpIn.full()
+          && !siTcp_meta.empty() && !sFifoTcpMetaIn.full()
+          )
+      {
+        Axis<128> tmp = Axis<128>();
+        NetworkWord inWord = siTcp_data.read();
+        NetworkMetaStream meta_tmp = siTcp_meta.read();
+        sFifoTcpMetaIn.write(meta_tmp);
+
+        if(inWord.tlast == 1)
+        {
+          tmp.tdata = 0;
+          tmp.tdata |= (ap_uint<128>) inWord.tdata;
+          tmp.tkeep = 0xFF;
+          tmp.tlast = 1;
+          printf("[pEnqTcpIn] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
+          sFifoTcpIn.write(tmp);
+          //stay here
+        } else {
+          first_line = inWord.tdata;
+          enqTcpDataFsm = DEQ_WRITE_2;
+        }
+      }
+      break;
+
     case DEQ_WRITE:
       if(!siTcp_data.empty() && !sFifoTcpIn.full())
       {
@@ -528,9 +557,9 @@ void pEnqTcpIn(
           tmp.tdata |= (ap_uint<128>) inWord.tdata;
           tmp.tkeep = 0xFF;
           tmp.tlast = 1;
-        printf("[pEnqTcpIn] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
+          printf("[pEnqTcpIn] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
           sFifoTcpIn.write(tmp);
-          //stay here
+          enqTcpDataFsm = DEQ_START;
         } else {
           first_line = inWord.tdata;
           enqTcpDataFsm = DEQ_WRITE_2;
@@ -549,7 +578,12 @@ void pEnqTcpIn(
         tmp.tlast = inWord.tlast;
         printf("[pEnqTcpIn] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.tkeep, (unsigned long long) tmp.tdata, (int) tmp.tlast);
         sFifoTcpIn.write(tmp);
-        enqTcpDataFsm = DEQ_WRITE;
+        if(inWord.tlast == 1)
+        {
+          enqTcpDataFsm = DEQ_START;
+        } else {
+          enqTcpDataFsm = DEQ_WRITE;
+        }
       }
       break;
   }
@@ -889,7 +923,7 @@ void pMpeGlobal(
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static mpeState fsmMpeState = MPE_RESET;
   static bool cache_invalidated = false;
-  static uint32_t protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+  static uint64_t protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
   static uint32_t protocol_timeout_inc = 0;
 
 #pragma HLS reset variable=fsmMpeState
@@ -938,6 +972,8 @@ void pMpeGlobal(
 
   static bool receive_right_data_started = false;
 
+  static mpeState after_drain_recovery_state = MPE_RESET;
+
   // #pragma HLS STREAM variable=sFifoHeaderCache depth=64
   //#pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
 #pragma HLS array_partition variable=bytes complete dim=0
@@ -976,6 +1012,7 @@ void pMpeGlobal(
     case IDLE:
       expected_src_rank = 0xFFF;
       protocol_timeout_inc = 0;
+      after_drain_recovery_state = MPE_RESET;
       if ( !siMPIif.empty() )
       {
         currentInfo = siMPIif.read();
@@ -1166,17 +1203,26 @@ void pMpeGlobal(
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH + (BPL-1))/BPL)
         {
-          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
-          if(ret == 0)
-          {//got CLEAR_TO_SEND 
-            printf("Got CLEAR to SEND\n");
-            fsmMpeState = SEND_DATA_START;
+          if(tmp.tlast != 1)
+          {
+            fsmMpeState = MPE_DRAIN_DATA_STREAM;
+            after_drain_recovery_state = WAIT4CLEAR;
           } else {
-            //else, we continue to wait
-            //and add it to the cache
-            add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
-            fsmMpeState = WAIT4CLEAR;
-            //no timeout reset
+            ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+            if(ret == 0)
+            {//got CLEAR_TO_SEND 
+              printf("Got CLEAR to SEND\n");
+              fsmMpeState = SEND_DATA_START;
+            } else {
+              //else, we continue to wait
+              //and add it to the cache
+              if(ret == 1)
+              {
+                add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
+              }
+              fsmMpeState = WAIT4CLEAR;
+              //no timeout reset
+            }
           }
         }
       }
@@ -1279,7 +1325,7 @@ void pMpeGlobal(
           header = MPI_Header();
           //last_checked_cache_line = 0;
           expected_call = MPI_RECV_INT;
-          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
+          protocol_timeout_cnt = PROTOCOL_ACK_DELAY_FACTOR * ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
           if(currentDataType == MPI_FLOAT)
           {
             expected_call = MPI_RECV_FLOAT;
@@ -1369,18 +1415,27 @@ void pMpeGlobal(
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH + (BPL-1))/BPL)
         {
-          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
-          if(ret == 0)
+          if(tmp.tlast != 1)
           {
-            printf("ACK received.\n");
-            soMPIFeB.write(ZRLMPI_FEEDBACK_OK);
-            fsmMpeState = IDLE;
+            fsmMpeState = MPE_DRAIN_DATA_STREAM;
+            after_drain_recovery_state = WAIT4ACK;
           } else {
-            //else, we continue to wait
-            //and add it to the cache
-            add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
-            fsmMpeState = WAIT4ACK;
-            //no timeout reset
+            ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+            if(ret == 0)
+            {
+              printf("ACK received.\n");
+              soMPIFeB.write(ZRLMPI_FEEDBACK_OK);
+              fsmMpeState = IDLE;
+            } else {
+              //else, we continue to wait
+              //and add it to the cache
+              if(ret == 1)
+              {
+                add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
+              }
+              fsmMpeState = WAIT4ACK;
+              //no timeout reset
+            }
           }
         }
       }
@@ -1457,18 +1512,26 @@ void pMpeGlobal(
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH + (BPL-1))/BPL)
         {
-          ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
-          if(ret == 0)
+          if(tmp.tlast != 1)
           {
-            //got SEND_REQUEST 
-            printf("Got SEND REQUEST\n");
-            fsmMpeState = ASSEMBLE_CLEAR;
+            fsmMpeState = MPE_DRAIN_DATA_STREAM;
+            after_drain_recovery_state = WAIT4REQ;
           } else {
-            //else, we wait...
-            //and add it to the cache
-            ap_uint<256> cache_tmp = 0x0;
-            add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
-            fsmMpeState = WAIT4REQ;
+            ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
+            if(ret == 0)
+            {
+              //got SEND_REQUEST 
+              printf("Got SEND REQUEST\n");
+              fsmMpeState = ASSEMBLE_CLEAR;
+            } else {
+              //else, we wait...
+              //and add it to the cache
+              if(ret == 1)
+              {
+                add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
+              }
+              fsmMpeState = WAIT4REQ;
+            }
           }
         }
       }
@@ -1645,6 +1708,7 @@ void pMpeGlobal(
 
         if(header_i_cnt >= (MPIF_HEADER_LENGTH + (BPL-1))/BPL)
         {
+          //here, NO TLAST check!
           ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
           if(ret == 0
               && !expect_more_data) //we don't start a new data packet here
@@ -1668,8 +1732,10 @@ void pMpeGlobal(
             //read_timeout_cnt = 0;
           } else {
             //we received another header and add it to the cache
-            ap_uint<256> cache_tmp = 0x0;
-            add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
+            if(ret == 1)
+            {
+              add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
+            }
             fsmMpeState = RECV_DATA_START;
           }
         }
@@ -1677,7 +1743,7 @@ void pMpeGlobal(
       break;
 
     case RECV_DATA_RD:
-      if( !siTcp_data.empty() && !sFifoDataRX.full() 
+      if( !siTcp_data.empty() && !sFifoDataRX.full()
         )
       {
         //NetworkWord word = siTcp_data.read();
@@ -1786,6 +1852,19 @@ void pMpeGlobal(
         }
       }
       break;
+    case MPE_DRAIN_DATA_STREAM:
+      if( !siTcp_data.empty() )
+      {
+        //NetworkWord word = siTcp_data.read();
+        Axis<128> word = siTcp_data.read();
+        printf("\t[pMpeGlobal] DROP: tkeep %#03x, tdata %#032llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
+        if(word.tlast == 1)
+        {
+          fsmMpeState = after_drain_recovery_state;
+          after_drain_recovery_state = MPE_RESET;
+        }
+      }
+      break;
   }
   printf("fsmMpeState after FSM: %d\n", fsmMpeState);
 
@@ -1853,6 +1932,7 @@ void mpe_main(
   static stream<bool>        sDeqRecvDone("sDeqRecvDone");
   static stream<Axis<128> > sFifoTcpIn("sFifoTcpIn");
   static stream<Axis<128> > sFifoMpiDataIn("sFifoMpiDataIn");
+  static stream<NetworkMetaStream> sFifoTcpMetaIn("sFifoTcpMetaIn");
 
 //#pragma HLS STREAM variable=sFifoDataTX     depth=128
 //#pragma HLS STREAM variable=sFifoDataRX     depth=128
@@ -1865,6 +1945,7 @@ void mpe_main(
 
 #pragma HLS STREAM variable=sFifoTcpIn      depth=32
 #pragma HLS STREAM variable=sFifoMpiDataIn  depth=32
+#pragma HLS STREAM variable=sFifoTcpMetaIn  depth=8
 
   //===========================================================
   // Assign Debug Port
@@ -1882,7 +1963,7 @@ void mpe_main(
 
   pEnqMpiData(siMPI_data, sFifoMpiDataIn);
 
-  pEnqTcpIn(siTcp_data, sFifoTcpIn);
+  pEnqTcpIn(siTcp_data, siTcp_meta, sFifoTcpIn, sFifoTcpMetaIn);
 
   //===========================================================
   // DEQUEUE FSM SEND
@@ -1900,7 +1981,7 @@ void mpe_main(
   // (put the slow process last...)
 
   pMpeGlobal(po_rx_ports, siMPIif, soMPIFeB, own_rank, sFifoDataTX,
-      sDeqSendDestId, sDeqSendDone, sFifoTcpIn, siTcp_meta,
+      sDeqSendDestId, sDeqSendDone, sFifoTcpIn, sFifoTcpMetaIn,
       sFifoMpiDataIn, sFifoDataRX,
       sExpectedLength, sDeqRecvDone);
 
