@@ -4,6 +4,7 @@
     "fpga" : [1, 2, 3, 4]
   },
   "config": {
-    "optimization": 4
+    "com_opt": 0,
+    "mem_opt": 1
   }
 }

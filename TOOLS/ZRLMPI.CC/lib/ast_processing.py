@@ -47,12 +47,12 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
         if e > max_rank:
             max_rank = e
     if 'config' in cluster_description:
-        if 'optimization' in cluster_description['config']:
-            opt_val = cluster_description['config']['optimization']
+        if 'com_opt' in cluster_description['config']:
+            opt_val = cluster_description['config']['com_opt']
             if opt_val == 0:
                 optimize_scatter_gather = False
                 reuse_interim_buffers = False
-                print("disabled optimizations as configured")
+                print("disabled communication optimizations as configured")
             else:
                 if opt_val >= 1:
                     optimize_scatter_gather = True
@@ -61,7 +61,13 @@ def process_ast(c_ast_orig, cluster_description, cFp_description, hw_file_pre_pa
                 if opt_val >= 3:
                     reuse_interim_buffers = True
                     print("enabled buffer reuse")
-                if opt_val >= 4:
+        if 'mem_opt' in cluster_description['config']:
+            opt_val = cluster_description['config']['mem_opt']
+            if opt_val == 0:
+                optimize_dram_loops = False
+                print("disabled memory optimizations as configured")
+            else:
+                if opt_val >= 1:
                     optimize_dram_loops = True
                     print("enabled dram loop optimization (FPGA only)")
     if template_only:
