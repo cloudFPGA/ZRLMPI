@@ -69,6 +69,8 @@ void MPI_Finalize();
 
 #define USE_DRAM_AWARE_TRANSMISSION
 #define DRAM_TRANSMISSION_THRESHOLD_WORDS 32768
+//#define DRAM_TRANSMISSION_PAUSE 1100
+#define DRAM_TRANSMISSION_PAUSE 45000  //~750 cycles
 
 
 //forward declaration

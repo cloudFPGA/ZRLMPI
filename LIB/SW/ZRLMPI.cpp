@@ -504,7 +504,7 @@ void send_internal(
     // usually, it takes 177 cycles ~ 1133ns to process one packet in the FPGA
     // with DRAM, it could be a little bit slower (it takes 2300ns to write it to DRAM)
     // so, in case of large packets, we slow down a little bit...(helps also CPUs)
-    sleep.tv_nsec = 1100;
+    sleep.tv_nsec = DRAM_TRANSMISSION_PAUSE;
     bool large_packet = false;
     if(count > DRAM_TRANSMISSION_THRESHOLD_WORDS)
     {
