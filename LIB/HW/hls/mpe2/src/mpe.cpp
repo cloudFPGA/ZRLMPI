@@ -1858,13 +1858,13 @@ void mpe_main(
 //#pragma HLS STREAM variable=sFifoDataRX     depth=128
 #pragma HLS STREAM variable=sFifoDataTX     depth=256
 #pragma HLS STREAM variable=sFifoDataRX     depth=256
-#pragma HLS STREAM variable=sDeqSendDestId  depth=2
-#pragma HLS STREAM variable=sDeqSendDone    depth=2
-#pragma HLS STREAM variable=sExpectedLength depth=2
-#pragma HLS STREAM variable=sDeqRecvDone    depth=2
+#pragma HLS STREAM variable=sDeqSendDestId  depth=4
+#pragma HLS STREAM variable=sDeqSendDone    depth=4
+#pragma HLS STREAM variable=sExpectedLength depth=4
+#pragma HLS STREAM variable=sDeqRecvDone    depth=4
 
-#pragma HLS STREAM variable=sFifoTcpIn      depth=32
-#pragma HLS STREAM variable=sFifoMpiDataIn  depth=32
+#pragma HLS STREAM variable=sFifoTcpIn      depth=256
+#pragma HLS STREAM variable=sFifoMpiDataIn  depth=256
 
   //===========================================================
   // Assign Debug Port
