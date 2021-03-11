@@ -62,7 +62,10 @@ enum deqState {DEQ_IDLE = 0, DEQ_START, DEQ_WRITE, DEQ_WRITE_2, DEQ_DONE};
 //#define HEADER_CACHE_LENGTH 64 //similar to max cluster size
 #define HEADER_CACHE_LENGTH (ZRLMPI_MAX_CLUSTER_SIZE)
 #define INVALID_CACHE_LINE_NUMBER 0xFEF //must be bigger than 64
-#define BPL 16
+#define BPL 16  //bytes per line
+#define WPL 4   //words per line
+
+
 
 void mpe_main(
     // ----- NAL Interface -----
@@ -82,6 +85,8 @@ void mpe_main(
     stream<Axis<64> > &siMPI_data,
     stream<Axis<64> > &soMPI_data
     );
+
+
 
 
 #endif

@@ -440,6 +440,29 @@ void add_cache_bytes(
   add_cache_line(header_cache, header_cache_valid, cache_tmp, remote_rank);
 }
 
+
+uint8_t getWordCntfromTKeep(ap_uint<16> tkeep)
+{
+#pragma HLS inline
+#pragma HLS latency max=1
+  if(tkeep > 0 && tkeep <= 0xF)
+  {
+    return 1;
+  } else if(tkeep <= 0xFF)
+  {
+    return 2;
+  } else if(tkeep <= 0xFFF)
+  {
+    return 3;
+  } else if(tkeep <= 0xFFFF)
+  {
+    return 4;
+  } else {
+    return 0;
+  }
+}
+
+
 void pEnqMpiData(
     stream<Axis<64> >  &siMPI_data,
     stream<Axis<128> > &sFifoMpiDataIn
@@ -496,6 +519,7 @@ void pEnqMpiData(
       break;
   }
 
+  printf("pEnqMpiDat after FSM: %d\n", enqMpiDataFsm);
 
 }
 
@@ -588,13 +612,15 @@ void pEnqTcpIn(
       break;
   }
 
+  printf("pEnqTcpIn after FSM: %d\n", enqTcpDataFsm);
+
 }
 
 
 void pDeqRecv(
     stream<Axis<128> > &sFifoDataRX,
     stream<Axis<64> > &soMPI_data,
-    stream<uint32_t>  &sExpectedLength, //in LINES!
+    stream<uint32_t>  &sExpectedLength, //in LINES! (original network lines, so 8 bytes per line)
     stream<bool>      &sDeqRecvDone
     )
 {
@@ -641,7 +667,7 @@ void pDeqRecv(
 
         recv_total_cnt++; //we are counting LINES!
         //if(tmp.tlast == 1)
-        if(recv_total_cnt >= (expected_recv_count))
+        if(recv_total_cnt >= expected_recv_count)
         {
           printf("[pDeqRecv] [MPI_Recv] expected byte count reached.\n");
           //word_tlast_occured = true;
@@ -669,7 +695,7 @@ void pDeqRecv(
 
         recv_total_cnt++; //we are counting LINES!
         //if(tmp.tlast == 1)
-        if(recv_total_cnt >= (expected_recv_count))
+        if(recv_total_cnt >= expected_recv_count)
         {
           printf("[pDeqRecv] [MPI_Recv] expected byte count reached.\n");
           //word_tlast_occured = true;
@@ -772,12 +798,7 @@ void pDeqSend(
           printf("[pDeqSend] started new DATA part packet\n");
         //}
 
-        if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
-        {//last one in this packet
-          word.tlast = 1;
-          current_packet_line_cnt = 0;
-          //stay here
-        } else if (go_to_done) 
+        if(go_to_done)
         {
           if(inWord.tkeep > 0xFF)
           {
@@ -786,6 +807,11 @@ void pDeqSend(
           } else {
             sendDeqFsm = DEQ_DONE;
           }
+        } else if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
+        {//last one in this packet
+          word.tlast = 1;
+          current_packet_line_cnt = 0;
+          //stay here
         } else {
           current_packet_line_cnt++;
           sendDeqFsm = DEQ_WRITE_2;
@@ -826,12 +852,7 @@ void pDeqSend(
           go_to_done = false;
         }
 
-        if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
-        {//last one in this packet
-          word.tlast = 1;
-          current_packet_line_cnt = 0;
-          sendDeqFsm = DEQ_START;
-        } else if (go_to_done) 
+        if (go_to_done)
         {
           if(inWord.tkeep > 0xFF)
           {
@@ -840,6 +861,11 @@ void pDeqSend(
           } else {
             sendDeqFsm = DEQ_DONE;
           }
+        } else if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
+        {//last one in this packet
+          word.tlast = 1;
+          current_packet_line_cnt = 0;
+          sendDeqFsm = DEQ_START;
         } else {
           current_packet_line_cnt++;
           sendDeqFsm = DEQ_WRITE_2;
@@ -863,15 +889,15 @@ void pDeqSend(
         word.tkeep = 0xFF;
         word.tlast = 0;
 
-        if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
+        if(go_to_done)
+        {
+          sendDeqFsm = DEQ_DONE;
+          word.tlast = 1;
+        } else if(current_packet_line_cnt >= (ZRLMPI_MAX_MESSAGE_SIZE_LINES - 1))
         {//last one in this packet
           word.tlast = 1;
           current_packet_line_cnt = 0;
           sendDeqFsm = DEQ_START;
-        } else if (go_to_done)
-        {
-          sendDeqFsm = DEQ_DONE;
-          word.tlast = 1;
         } else {
           current_packet_line_cnt++;
           sendDeqFsm = DEQ_WRITE;
@@ -1300,17 +1326,25 @@ void pMpeGlobal(
         current_read_word = siMPI_data.read();
         //send_total_cnt += 8; //we read EIGHT BYTES per line
         //send_total_cnt += 2; //two WORDS ber line
-        send_total_cnt += 4; //four WORDS ber line
+        //send_total_cnt += WPL; //four WORDS ber line
+        //since this comes from the app, this should always be true...
+        //anyways, just to be sure
+        send_total_cnt += getWordCntfromTKeep(current_read_word.tkeep);
+
         if(send_total_cnt >= (expected_send_count))
-        {// to be sure...
+        {
           current_read_word.tlast = 1;
+          fsmMpeState = SEND_DATA_WRD;
+          printf("\t[pMpeGlobal] predicet length reached.\n");
+        } else {
+          current_read_word.tlast = 0;
         }
 
-        if(current_read_word.tlast == 1)
-        {
-          fsmMpeState = SEND_DATA_WRD;
-          printf("\t[pMpeGlobal] tlast Occured.\n");
-        }
+        //if(current_read_word.tlast == 1)
+        //{
+        //  fsmMpeState = SEND_DATA_WRD;
+        //  printf("\t[pMpeGlobal] tlast Occured.\n");
+        //}
         sFifoDataTX.write(current_read_word);
         printf("\t[pMpeGlobal] MPI read data: %#08x, tkeep: %d, tlast %d\n", (unsigned long long) current_read_word.tdata, (int) current_read_word.tkeep, (int) current_read_word.tlast);
       }
@@ -1717,6 +1751,9 @@ void pMpeGlobal(
             //expected_recv_count = header.size;
             //uint16_t expected_length_in_lines = (header.size+7)/8;
             uint32_t expected_length_in_lines = (uint32_t) (header.size+1)/2;
+            //uint32_t expected_length_in_lines = (uint32_t) (header.size+(WPL-1))/WPL;
+            //here, we count the original networklines -> so 2 is correct
+
             printf("[pMpeGlobal] expect %d LINES of data.\n", expected_length_in_lines);
             sExpectedLength.write(expected_length_in_lines);
 
@@ -1754,7 +1791,8 @@ void pMpeGlobal(
         sFifoDataRX.write(word);
         //enqueue_recv_total_cnt++;
         //enqueue_recv_total_cnt += 2; //two WORDS per line
-        enqueue_recv_total_cnt += 4; //four WORDS per line
+        //enqueue_recv_total_cnt += WPL; //four WORDS per line NO, not always!!
+        enqueue_recv_total_cnt += getWordCntfromTKeep(word.tkeep);
         //check if we have to receive a new packet meta
         if(word.tlast == 1)
         {

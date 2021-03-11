@@ -433,7 +433,7 @@ int main(){
       uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> (7-k)*8);
       //uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> k*8);
       printf("cur byte: %02x\n", cur_byte);
-      printf("should be: %02x\n", (uint8_t) msg[i*4+k]);
+      printf("should be: %02x\n", (uint8_t) msg[i*8+k]);
       assert(cur_byte == msg[i*8+k]);
     }
   }
