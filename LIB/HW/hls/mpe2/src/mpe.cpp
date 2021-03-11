@@ -746,6 +746,7 @@ void pDeqSend(
   static NodeId current_send_dst_id = 0xFFF;
   static uint64_t second_line = 0;
   static bool go_to_done = false;
+  static bool start_with_second_line = false;
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
   switch(sendDeqFsm)
@@ -757,6 +758,7 @@ void pDeqSend(
         current_send_dst_id = sDeqSendDestId.read();
         current_packet_line_cnt = 0;
         sendDeqFsm = DEQ_START;
+        start_with_second_line = false;
       }
       break;
 
@@ -771,13 +773,23 @@ void pDeqSend(
 
         //Axis<64> tmpl1 = Axis<64>();
         //tmpl1 = sFifoDataTX.read();
-        Axis<128> inWord = sFifoDataTX.read();
+        Axis<128> inWord = Axis<128>();
+        inWord.tdata = 0x0;
+        inWord.tkeep = 0x0;
+        inWord.tlast = 0x0;
+        if(!start_with_second_line)
+        {
+          inWord = sFifoDataTX.read();
 
-        uint64_t new_data = (uint64_t) (inWord.tdata);
-        second_line = (uint64_t) (inWord.tdata >> 64);
-        word.tdata = new_data;
+          uint64_t new_data = (uint64_t) (inWord.tdata);
+          second_line = (uint64_t) (inWord.tdata >> 64);
+          word.tdata = new_data;
+          word.tlast = inWord.tlast;
+        } else {
+          word.tdata = second_line;
+          word.tlast = 0;
+        }
         word.tkeep = 0xFF;
-        word.tlast = inWord.tlast;
 
         //check before we split in parts
         if(word.tlast == 1)
@@ -800,7 +812,9 @@ void pDeqSend(
 
         if(go_to_done)
         {
-          if(inWord.tkeep > 0xFF)
+          if(!start_with_second_line
+              && inWord.tkeep > 0xFF
+            )
           {
             sendDeqFsm = DEQ_WRITE_2;
             word.tlast = 0;
@@ -814,8 +828,14 @@ void pDeqSend(
           //stay here
         } else {
           current_packet_line_cnt++;
-          sendDeqFsm = DEQ_WRITE_2;
+          if(!start_with_second_line)
+          {
+            sendDeqFsm = DEQ_WRITE_2;
+          } else {
+            sendDeqFsm = DEQ_WRITE;
+          }
         }
+        start_with_second_line = false;
 
         printf("[pDeqSend] tkeep %#03x, tdata %#016llx, tlast %d\n",(int) word.tkeep, (unsigned long long) word.tdata, (int) word.tlast);
         soTcp_data.write(word);
@@ -866,6 +886,12 @@ void pDeqSend(
           word.tlast = 1;
           current_packet_line_cnt = 0;
           sendDeqFsm = DEQ_START;
+          if(inWord.tkeep > 0xFF)
+          {
+            start_with_second_line = true;
+          } else {
+            start_with_second_line = false;
+          }
         } else {
           current_packet_line_cnt++;
           sendDeqFsm = DEQ_WRITE_2;
@@ -898,6 +924,7 @@ void pDeqSend(
           word.tlast = 1;
           current_packet_line_cnt = 0;
           sendDeqFsm = DEQ_START;
+          start_with_second_line = false;
         } else {
           current_packet_line_cnt++;
           sendDeqFsm = DEQ_WRITE;
@@ -1013,8 +1040,6 @@ void pMpeGlobal(
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
   uint8_t ret;
-  Axis<128> current_read_word = Axis<128>();
-
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -1323,7 +1348,7 @@ void pMpeGlobal(
     case SEND_DATA_RD:
       if(!sFifoDataTX.full() && !siMPI_data.empty())
       {
-        current_read_word = siMPI_data.read();
+        Axis<128> current_read_word = siMPI_data.read();
         //send_total_cnt += 8; //we read EIGHT BYTES per line
         //send_total_cnt += 2; //two WORDS ber line
         //send_total_cnt += WPL; //four WORDS ber line
@@ -1331,11 +1356,11 @@ void pMpeGlobal(
         //anyways, just to be sure
         send_total_cnt += getWordCntfromTKeep(current_read_word.tkeep);
 
-        if(send_total_cnt >= (expected_send_count))
+        if(send_total_cnt >= expected_send_count)
         {
           current_read_word.tlast = 1;
           fsmMpeState = SEND_DATA_WRD;
-          printf("\t[pMpeGlobal] predicet length reached.\n");
+          printf("\t[pMpeGlobal] given length reached.\n");
         } else {
           current_read_word.tlast = 0;
         }
