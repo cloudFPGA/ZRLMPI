@@ -363,9 +363,9 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     received_length -= MPIF_HEADER_LENGTH;
     if(received_length != orig_header_size*sizeof(uint32_t))
     {
-#ifdef DEBUG2
+//#ifdef DEBUG2
       printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, orig_header_size);
-#endif
+//#endif
     }
     return received_length;
   }
@@ -486,12 +486,12 @@ void send_internal(
 
     headerToBytes(header, buffer);
     uint32_t copy_start_length = count * typewidth * sizeof(uint32_t);
-    if(copy_start_length > max_udp_payload_bytes)
+    if(copy_start_length > (max_udp_payload_bytes - MPIF_HEADER_LENGTH))
     {
-      copy_start_length = max_udp_payload_bytes;
+      copy_start_length = (max_udp_payload_bytes - MPIF_HEADER_LENGTH);
     }
     memcpy(&buffer[MPIF_HEADER_LENGTH], data, copy_start_length);
-    uint32_t byte_length = count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH;
+    uint32_t byte_length = count*typewidth*sizeof(uint32_t);// + MPIF_HEADER_LENGTH;
     int total_send = 0;
     int total_packets = 0;
     struct timespec sleep;
@@ -505,45 +505,79 @@ void send_internal(
     {
       large_packet = true;
     }
+    ret = sendto(udp_sock, &buffer, copy_start_length + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+#ifdef KVM_CORRECTION
+    if(total_packets == 0)
+    {
+      nanosleep(&kvm_net, &kvm_net);
+    }
+#endif
+    if(ret == -1)
+    {
+      printf("error with sendto\n");
+      perror("sendto");
+      exit(EXIT_FAILURE);
+    } else {
+      total_send += ret;
+      total_packets++;
+    }
+#ifdef USE_DRAM_AWARE_TRANSMISSION
+    //allow DRAM to process
+    if(large_packet)
+    {
+      nanosleep(&sleep, &sleep);
+    }
+#endif
 
     //ensure ZRLMPI_MAX_MESSAGE_SIZE_BYTES (in case of udp)
-    for(uint32_t i = 0; i < byte_length; i+=max_udp_payload_bytes)
+    //if length is more than one packet
+    if(copy_start_length < byte_length)
     {
-      int count_of_this_message = byte_length - i; //important for last message
-      if(count_of_this_message > max_udp_payload_bytes)
+      uint8_t *data_bytes = (uint8_t*) data;
+      for(uint32_t i = (max_udp_payload_bytes-MPIF_HEADER_LENGTH); i < byte_length; i+=max_udp_payload_bytes)
       {
-        count_of_this_message = max_udp_payload_bytes;
-      }
-      if(i != 0)
-      {
-        memcpy(&buffer, &data[i/sizeof(int)], count_of_this_message);
-      }
+        //if(i == max_udp_payload_bytes)
+        //{
+        //  //adjust for header length
+        //  i -= MPIF_HEADER_LENGTH;
+        //}
+        int count_of_this_message = byte_length - i; //important for last message
+        if(count_of_this_message > max_udp_payload_bytes)
+        {
+          count_of_this_message = max_udp_payload_bytes;
+        }
+        //if(i != 0)
+        //{
+        //memcpy(&buffer, &data[(i+sizeof(int)-1)/sizeof(int)], count_of_this_message);
+        memcpy(&buffer, &data_bytes[i], count_of_this_message);
+        //}
 #ifdef DEBUG
-      printf("sending %d bytes from address %d as data junk...(%d to go)\n",count_of_this_message, i, byte_length - i);
+        printf("sending %d bytes from address %d as data junk...(%d to go)\n",count_of_this_message, i, byte_length - i);
 #endif
-      ret = sendto(udp_sock, &buffer, count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
+        ret = sendto(udp_sock, &buffer, count_of_this_message, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
 #ifdef KVM_CORRECTION
-      if(total_packets == 0)
-      {
-        nanosleep(&kvm_net, &kvm_net);
-      }
+        if(total_packets == 0)
+        {
+          nanosleep(&kvm_net, &kvm_net);
+        }
 #endif
-      if(ret == -1)
-      {
-        printf("error with sendto\n");
-        perror("sendto");
-        exit(EXIT_FAILURE);
-      } else {
-        total_send += ret;
-        total_packets++;
-      }
+        if(ret == -1)
+        {
+          printf("error with sendto\n");
+          perror("sendto");
+          exit(EXIT_FAILURE);
+        } else {
+          total_send += ret;
+          total_packets++;
+        }
 #ifdef USE_DRAM_AWARE_TRANSMISSION
-      //allow DRAM to process
-      if(large_packet)
-      {
-        nanosleep(&sleep, &sleep);
-      }
+        //allow DRAM to process
+        if(large_packet)
+        {
+          nanosleep(&sleep, &sleep);
+        }
 #endif
+      }
     }
     //res = sendto(udp_sock, &buffer, count*4 + MPIF_HEADER_LENGTH, 0, (sockaddr*)&rank_socks[destination], sizeof(rank_socks[destination]));
     //std::cout << res << " bytes sent for DATA" <<std::endl;
@@ -666,6 +700,9 @@ void recv_internal(
     }
   }
 
+#ifdef DEBUG2
+    std::cout << "received " << res << " bytes as DATA" << std::endl;
+#endif
   //copy only the number of bytes the sender send us but at most count*4
   if(ret > count*typewidth*sizeof(uint32_t))
   {
@@ -673,6 +710,8 @@ void recv_internal(
   } else {
     memcpy(data, &buffer[MPIF_HEADER_LENGTH], ret);
   }
+
+  free(buffer);
 
   //send ACK
   header = MPI_Header();

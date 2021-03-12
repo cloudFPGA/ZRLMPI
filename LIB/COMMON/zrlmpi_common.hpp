@@ -84,8 +84,8 @@ struct MPI_Header {
  * MPI_Op operations
  */
 
-void MPI_SUM_INTEGER(int32_t *accum, int32_t *source, uint16_t length);
-void MPI_SUM_FLOAT(float *accum, float *source, uint16_t length);
+void MPI_SUM_INTEGER(int32_t *accum, int32_t *source, uint32_t length);
+void MPI_SUM_FLOAT(float *accum, float *source, uint32_t length);
 
 /*
  * Utility functions
