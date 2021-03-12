@@ -79,7 +79,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   MPI_Header header = MPI_Header();
 
   bool copyToCache = false, checkedCache = false;
-  int ret = 0, res = 0, cache_i = 0;
+  int ret = 0, res = 0; //cache_i = 0;
 
   bool multiple_packet_mode = false;
   bool is_data_packet = false;
@@ -102,6 +102,11 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     is_data_packet = true;
     //no chache
     checkedCache = true;
+  }
+  if(expSrcRank >= MPI_CLUSTER_SIZE_MAX)
+  {
+    printf("ERROR: invalid expected src rank: %d\n", expSrcRank);
+    return -1;
   }
 
   uint32_t orig_header_size = 0x0;
@@ -129,11 +134,6 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     //but not for data
     if(!checkedCache && !is_data_packet)
     {
-      //thanks to BSP, we have only one possible position
-      //if(expSrcRank < MPI_CLUSTER_SIZE_MAX)
-      //{
-      //  cache_i = expSrcRank;
-      //}
 
       //if(cache_i >= MPI_CLUSTER_SIZE_MAX || cache_num == 0)
       //if(cache_i >= cache_iter || cache_num == 0)
@@ -145,24 +145,16 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 #ifdef DEBUG2
       printf("checking cache entry %d\n", expSrcRank);
 #endif
+      //thanks to BSP, we have only one possible position
       if(skip_cache_entry[expSrcRank])
       {
 #ifdef DEBUG2
         printf("\tskipping entry.\n");
 #endif
-        //  cache_i++;
-        //if(expSrcRank < MPI_CLUSTER_SIZE_MAX)
-        //{
           checkedCache = true;
-        //}
         continue;
       }
       header = header_recv_cache[expSrcRank];
-      //cache_i++;
-      //if(expSrcRank < MPI_CLUSTER_SIZE_MAX)
-      //{
-      //  checkedCache = true;
-      //}
 
     } else {
 
@@ -267,16 +259,16 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
     }
 
-//    if(!copyToCache && checkedCache)
-//    {
-//      if(ntohl(src_addr.sin_addr.s_addr) != expAddr)
-//      {
-//#ifdef DEBUG
-//        printf("Header does not match ipAddress: Expected %ld, got %ld \n", expAddr, ntohl(src_addr.sin_addr.s_addr));
-//#endif
-//        copyToCache = true;
-//      }
-//    }
+    if(!copyToCache && checkedCache)
+    {
+      if(ntohl(src_addr.sin_addr.s_addr) != expAddr)
+      {
+#ifdef DEBUG
+        printf("Header does not match ipAddress: Expected %ld, got %ld \n", expAddr, ntohl(src_addr.sin_addr.s_addr));
+#endif
+        copyToCache = true;
+      }
+    }
 
     if(!copyToCache && header.src_rank != expSrcRank)
     {
@@ -332,7 +324,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       //  }
       //}
 #ifdef DEBUG
-      printf("put header to cache (%d)\n",actual_header_rank);
+      printf("put header to cache (%d)\n", actual_header_rank);
 #endif
       cache_num++;
     }
@@ -345,8 +337,9 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       skip_cache_entry[expSrcRank] = true;
       cache_num--;
     }
-// in all cases
-      checkedCache = true;
+    // in all cases
+    checkedCache = true;
+    
     if(!copyToCache)
     {//we got what we wanted
       received_length += res;
