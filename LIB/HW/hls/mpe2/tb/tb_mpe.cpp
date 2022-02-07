@@ -87,6 +87,7 @@ int main(){
   NetworkWord tmp64 = NetworkWord();
   //Axis<8>  tmp8 = Axis<8>();
   Axis<64>  tmp64_2 = Axis<64>();
+  ap_uint<64> tmp64_2_tdata = 0x0;
   own_rank = 1;
 
   //MPI_send()
@@ -104,20 +105,21 @@ int main(){
 
   for(int i = 0; i< (17+7)/8; i++)
   {
-    tmp64_2.tdata = 0x0;
+    tmp64_2_tdata = 0x0;
     for(int k = 0; k<8; k++)
     {
-      tmp64_2.tdata |= ((ap_uint<64>) msg[i*8+k]) << (7-k)*8;
+      tmp64_2_tdata |= ((ap_uint<64>) msg[i*8+k]) << (7-k)*8;
       //printf("tdata construction: %#0llx\n", (uint64_t) tmp64_2.tdata);
     }
+    tmp64_2.setTData(tmp64_2_tdata);
     if(i >= ((17+7)/8)-1)
     {
-      tmp64_2.tlast = 1;
+      tmp64_2.setTLast(1);
     } else {
-      tmp64_2.tlast = 0;
+      tmp64_2.setTLast(0);
     }
-    tmp64_2.tkeep = 0xFF;
-    printf("TB: write MPI data: %#0llx (last %d)\n", (uint64_t) tmp64_2.tdata, (int) tmp64_2.tlast);
+    tmp64_2.setTKeep(0xFF);
+    printf("TB: write MPI data: %#0llx (last %d)\n", (uint64_t) tmp64_2.getTData(), (int) tmp64_2.getTLast());
     MPI_data_in.write(tmp64_2);
 
     stepDut();
@@ -419,18 +421,18 @@ int main(){
       break;
     }
 
-    printf("MPI read data: %#0llx, i: %d, tlast %d\n", (unsigned long long) tmp64_2.tdata, i, (int) tmp64_2.tlast);
+    printf("MPI read data: %#0llx, i: %d, tlast %d\n", (unsigned long long) tmp64_2.getTData(), i, (int) tmp64_2.getTLast());
 
     // tlast => i=11 
     //assert( !(tmp8.tlast == 1) || i==11);
     if(i == ((17+7)/8)-1)
     {
-      assert(tmp64_2.tlast == 1);
+      assert(tmp64_2.getTLast() == 1);
     }
     //assert(((int) tmp8.tdata) == msg[i]);
     for(int k = 0; k<8; k++)
     {
-      uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> (7-k)*8);
+      uint8_t cur_byte = (uint8_t) (tmp64_2.getTData() >> (7-k)*8);
       //uint8_t cur_byte = (uint8_t) (tmp64_2.tdata >> k*8);
       printf("cur byte: %02x\n", cur_byte);
       printf("should be: %02x\n", (uint8_t) msg[i*8+k]);
