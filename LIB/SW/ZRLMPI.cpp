@@ -36,6 +36,13 @@ static timestamp_t get_timestamp()
   return now.tv_usec + (timestamp_t)now.tv_sec*1000000;
 }
 
+static void printUsage(const char* argv0)
+{
+  fprintf(stderr, "Usage: %s <tcp|udp> <host-address> <cluster-size> <own-rank> <ip-rank-1> <ip-rank-2> <...> <ip-rank-n> [<possible> <MPI> <app> <arguments>]\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
+  exit(EXIT_FAILURE);
+}
+
+
 sockaddr_in rank_socks[MPI_CLUSTER_SIZE_MAX + 1];
 int udp_sock = 0;
 int cluster_size = 0;
@@ -158,7 +165,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 
     } else {
 
-      //then wait for network 
+      //then wait for network
       header = MPI_Header();
       if(payload_length > 0)
       {
@@ -220,7 +227,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 #endif
         //copyToCache = true;
         continue;
-      } 
+      }
       else if(ret != 0 && recv_packets_cnt > 0 && multiple_packet_mode)
       {//is the continuation of a data packet
 #ifdef DEBUG
@@ -315,7 +322,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
       skip_cache_entry[actual_header_rank] = false;
       //if (cache_iter >= MPI_CLUSTER_SIZE_MAX)
       //{
-      //  //some type of clean 
+      //  //some type of clean
       //  //TODO
       //  cache_iter = 0;
       //  for(int i = 0; i< MPI_CLUSTER_SIZE_MAX; i++)
@@ -339,7 +346,7 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
     }
     // in all cases
     checkedCache = true;
-    
+
     if(!copyToCache)
     {//we got what we wanted
       received_length += res;
@@ -347,12 +354,12 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
 #ifdef DEBUG2
       printf("we've got what we wanted: received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
 #endif
-      if(!multiple_packet_mode 
+      if(!multiple_packet_mode
           || (received_length >= expected_length)
         )
       {
         break;
-      } 
+      }
       //else: continue
     }
 
@@ -383,20 +390,6 @@ int array_count(const std::string &v, const std::vector<std::string> &array)
   return count(array.begin(), array.end(), v);
 }
 
-
-void MPI_Init()
-{
-  //clock_begin = clock();
-  t0 = get_timestamp();
-  //we are all set 
-  return;
-}
-
-
-void MPI_Init(int* argc, char*** argv)
-{
-  MPI_Init();
-}
 
 
 void MPI_Comm_rank(MPI_Comm communicator, int* rank)
@@ -431,7 +424,7 @@ void send_internal(
 
   while(true)
   {
-    header = MPI_Header(); 
+    header = MPI_Header();
     header.dst_rank = destination;
     //header.src_rank = MPI_OWN_RANK;
     header.src_rank = own_rank;
@@ -474,7 +467,7 @@ void send_internal(
   {
 
     //Send data
-    header = MPI_Header(); 
+    header = MPI_Header();
     header.dst_rank = destination;
     //header.src_rank = MPI_OWN_RANK;
     header.src_rank = own_rank;
@@ -656,7 +649,7 @@ void recv_internal(
   //uint8_t buffer[(ZRLMPI_MAX_MESSAGE_SIZE_BYTES+400)*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32]; //+32 to avoid stack corruption TODO
   uint8_t *buffer = (uint8_t*) malloc(count*typewidth*sizeof(uint32_t) + MPIF_HEADER_LENGTH + 32);
   int res;
-  MPI_Header header = MPI_Header(); 
+  MPI_Header header = MPI_Header();
 
   while(true)
   {
@@ -774,24 +767,6 @@ void MPI_Recv(
 }
 
 
-void MPI_Finalize()
-{
-  close(udp_sock);
-  //TODO 
-  //clock_t clock_end = clock();
-  timestamp_t t1 = get_timestamp();
-  //double elapsed_time = (double)(clock_end - clock_begin) / CLOCKS_PER_SEC;
-  double elapsed_time_secs = (double)(t1 - t0) / 1000000.0L;
-  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
-  printf("\tZRLMPI execution time: %lfs\n", elapsed_time_secs); 
-  printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
-  return;
-}
-
-
-
-
-
 int resolvehelper(const char* hostname, int family, const char* service, sockaddr_in* pAddr)
 {
   int result;
@@ -810,32 +785,33 @@ int resolvehelper(const char* hostname, int family, const char* service, sockadd
   return result;
 }
 
-static void printUsage(const char* argv0)
+
+void MPI_Init()
 {
-  fprintf(stderr, "Usage: %s <tcp|udp> <host-address> <cluster-size> <own-rank> <ip-rank-1> <ip-rank-2> <...> <ip-rank-n> [<possible> <MPI> <app> <arguments>]\nCluster size must be at least two and smaller than %d.\n",argv0, MPI_CLUSTER_SIZE_MAX);
-  exit(EXIT_FAILURE);
+  //clock_begin = clock();
+  t0 = get_timestamp();
+  //we are all set
+  return;
 }
 
 
-
-int main(int argc, char **argv)
+void MPI_Init(int* argc, char*** argv)
 {
-
-  if(argc < 6 || atoi(argv[3]) < 2 || atoi(argv[3]) > MPI_CLUSTER_SIZE_MAX)
+  if(*argc < 6 || atoi(*argv[3]) < 2 || atoi(*argv[3]) > MPI_CLUSTER_SIZE_MAX)
   {
-    printUsage(argv[0]);
+    printUsage(*argv[0]);
   }
 
   //char protocol[4];
-  char *protocol = argv[1];
-  char* host_address = argv[2];
-  cluster_size = atoi(argv[3]);
-  own_rank = atoi(argv[4]);
+  char *protocol = *argv[1];
+  char* host_address = *argv[2];
+  cluster_size = atoi(*argv[3]);
+  own_rank = atoi(*argv[4]);
   //own_rank = MPI_OWN_RANK;
   if(own_rank < 0)
   {
     fprintf(stderr, "invaldi own-rank given.\n");
-    printUsage(argv[0]);
+    printUsage(*argv[0]);
   }
 
   if(strncmp("udp",protocol,3) == 0)
@@ -851,23 +827,8 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   } else {
     fprintf(stderr,"invalid protocol given: %s.\n",protocol);
-    printUsage(argv[0]);
+    printUsage(*argv[0]);
   }
-
-  //generating argc and argv for MPI app
-  int argc_mpi_app = argc - cluster_size - 4 + 1; //+1 for own argv[0]
-  if(argc_mpi_app <= 0)
-  {
-    argc_mpi_app = 1;
-  }
-  char *argv_mpi_app[argc_mpi_app];
-  argv_mpi_app[0] = argv[0];
-  for(int a = 1; a < argc_mpi_app; a++)
-  {
-    argv_mpi_app[a] = argv[cluster_size + 4];
-  } 
-
-
 
 
   int result = 0;
@@ -903,13 +864,13 @@ int main(int argc, char **argv)
       rank_ip_addrs.push_back(host_address);
       continue;
     }
-    if(i+5+offset >= argc)
+    if(i+5+offset >= *argc)
     { //if CPU is rank0, avoid out_of_bounce reference (nullptr)
       break;
     }
     sockaddr_in addrDest = {};
     uint16_t rank_port = MPI_PORT;
-    std::string rank_addr = std::string(argv[5 + i + offset]);
+    std::string rank_addr = std::string(*argv[5 + i + offset]);
     //increment port, if IP is alreadu used
     int multiple = array_count(rank_addr, rank_ip_addrs);
     if(multiple > 0)
@@ -934,7 +895,7 @@ int main(int argc, char **argv)
 
   //now, listen on this port
   std::cout << "I'm rank " << own_rank << " on address " << host_address << " and listening on port: " << own_port << std::endl;
-  sockaddr_in addrListen = {}; 
+  sockaddr_in addrListen = {};
   addrListen.sin_family = AF_INET;
   //addrListen.sin_port = htons(MPI_PORT);
   addrListen.sin_port = htons(own_port);
@@ -955,7 +916,7 @@ int main(int argc, char **argv)
   ////ifr.ifr_addr.sa_family = AF_INET;
   //memcpy(&ifr.ifr_addr, &addrListen, sizeof(addrListen));
   //strcpy(ifr.ifr_name, "vpn0");
-  //if (ioctl(sock, SIOCGIFMTU, (caddr_t)&ifr) < 0) 
+  //if (ioctl(sock, SIOCGIFMTU, (caddr_t)&ifr) < 0)
   //{
   //  perror("ioctl");
   //  exit(EXIT_FAILURE);
@@ -1011,10 +972,49 @@ int main(int argc, char **argv)
   printf("[kvm network correction enbabled]\n");
 #endif
 
+  //set timer?
+  MPI_Init();
+}
+
+
+void MPI_Finalize()
+{
+  close(udp_sock);
+  //TODO
+  //clock_t clock_end = clock();
+  timestamp_t t1 = get_timestamp();
+  //double elapsed_time = (double)(clock_end - clock_begin) / CLOCKS_PER_SEC;
+  double elapsed_time_secs = (double)(t1 - t0) / 1000000.0L;
+  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
+  printf("\tZRLMPI execution time: %lfs\n", elapsed_time_secs);
+  printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
+  return;
+}
+
+
+int main(int argc, char **argv)
+{
+
+  MPI_Init(&argc, &argv);
+
+  //generating argc and argv for MPI app
+  int argc_mpi_app = argc - cluster_size - 4 + 1; //+1 for own argv[0]
+  if(argc_mpi_app <= 0)
+  {
+    argc_mpi_app = 1;
+  }
+  char *argv_mpi_app[argc_mpi_app];
+  argv_mpi_app[0] = argv[0];
+  for(int a = 1; a < argc_mpi_app; a++)
+  {
+    argv_mpi_app[a] = argv[cluster_size + 4];
+  }
+
+
   printf("Number of arguments for MPI APP: %d\n", argc_mpi_app);
 
   std::cerr << "----- starting MPI app -----" << std::endl;
-  //call actual MPI code 
+  //call actual MPI code
   app_main(argc_mpi_app, argv_mpi_app);
 
 
