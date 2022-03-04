@@ -795,23 +795,25 @@ void MPI_Init()
 }
 
 
-void MPI_Init(int* argc, char*** argv)
+void MPI_Init(int* argcp, char*** argvp)
 {
-  if(*argc < 6 || atoi(*argv[3]) < 2 || atoi(*argv[3]) > MPI_CLUSTER_SIZE_MAX)
+  int argc = *argcp;
+  char** argv = *argvp;
+  if(argc < 6 || atoi(argv[3]) < 2 || atoi(argv[3]) > MPI_CLUSTER_SIZE_MAX)
   {
-    printUsage(*argv[0]);
+    printUsage(argv[0]);
   }
 
   //char protocol[4];
-  char *protocol = *argv[1];
-  char* host_address = *argv[2];
-  cluster_size = atoi(*argv[3]);
-  own_rank = atoi(*argv[4]);
+  char *protocol = argv[1];
+  char* host_address = argv[2];
+  cluster_size = atoi(argv[3]);
+  own_rank = atoi(argv[4]);
   //own_rank = MPI_OWN_RANK;
   if(own_rank < 0)
   {
     fprintf(stderr, "invaldi own-rank given.\n");
-    printUsage(*argv[0]);
+    printUsage(argv[0]);
   }
 
   if(strncmp("udp",protocol,3) == 0)
@@ -827,7 +829,7 @@ void MPI_Init(int* argc, char*** argv)
     exit(EXIT_FAILURE);
   } else {
     fprintf(stderr,"invalid protocol given: %s.\n",protocol);
-    printUsage(*argv[0]);
+    printUsage(argv[0]);
   }
 
 
@@ -864,13 +866,13 @@ void MPI_Init(int* argc, char*** argv)
       rank_ip_addrs.push_back(host_address);
       continue;
     }
-    if(i+5+offset >= *argc)
+    if(i+5+offset >= argc)
     { //if CPU is rank0, avoid out_of_bounce reference (nullptr)
       break;
     }
     sockaddr_in addrDest = {};
     uint16_t rank_port = MPI_PORT;
-    std::string rank_addr = std::string(*argv[5 + i + offset]);
+    std::string rank_addr = std::string(argv[5 + i + offset]);
     //increment port, if IP is alreadu used
     int multiple = array_count(rank_addr, rank_ip_addrs);
     if(multiple > 0)
