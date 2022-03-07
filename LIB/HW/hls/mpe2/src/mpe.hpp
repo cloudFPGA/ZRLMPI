@@ -77,7 +77,7 @@ void mpe_main(
 
     ap_uint<32> *own_rank,
     // ----- for debugging  ------
-    //ap_uint<32> *MMIO_out,
+    ap_uint<64> *MMIO_out,
 
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,

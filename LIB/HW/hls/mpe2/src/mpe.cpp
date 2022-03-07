@@ -958,6 +958,7 @@ void pMpeGlobal(
     stream<MPI_Interface> &siMPIif,
     stream<MPI_Feedback> &soMPIFeB,
     ap_uint<32> *own_rank,
+    ap_uint<32> *cluster_size,
     //stream<Axis<64> >     &sFifoDataTX,
     stream<Axis<128> >     &sFifoDataTX,
     stream<NodeId>        &sDeqSendDestId,
@@ -1061,9 +1062,12 @@ void pMpeGlobal(
           header_cache_valid[i] = false;
         }
         cache_invalidated = true;
-        fsmMpeState = IDLE;
+        //fsmMpeState = IDLE;
       } else {
-        fsmMpeState = IDLE;
+        if(*cluster_size != 0)
+        {//apparently, this is necessary to avoid unwanted optimizations
+          fsmMpeState = IDLE;
+        }
       }
       break;
     case IDLE:
@@ -1971,6 +1975,7 @@ void mpe_main(
     ap_uint<32>                   *po_rx_ports,
 
     ap_uint<32> *own_rank,
+    ap_uint<32> *cluster_size,
     // ----- for debugging  ------
     ap_uint<64> *MMIO_out,
 
@@ -1993,6 +1998,7 @@ void mpe_main(
 #pragma HLS INTERFACE ap_ovld register port=po_rx_ports name=poROL_NRC_Rx_ports
 
 #pragma HLS INTERFACE ap_vld register port=own_rank name=piFMC_rank
+#pragma HLS INTERFACE ap_vld register port=cluster_size name=piFMC_size
 
 #pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 
@@ -2071,7 +2077,7 @@ void mpe_main(
   // MPE GLOBAL STATE
   // (put the slow process last...)
 
-  pMpeGlobal(po_rx_ports, siMPIif, soMPIFeB, own_rank, sFifoDataTX,
+  pMpeGlobal(po_rx_ports, siMPIif, soMPIFeB, own_rank, cluster_size, sFifoDataTX,
       sDeqSendDestId, sDeqSendDone, sFifoTcpIn, sFifoTcpMetaIn,
       sFifoMpiDataIn, sFifoDataRX,
       sExpectedLength, sDeqRecvDone, MMIO_out);
