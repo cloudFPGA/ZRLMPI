@@ -972,7 +972,7 @@ void pMpeGlobal(
     stream<uint32_t>  &sExpectedLength, //in LINES!
     stream<bool>      &sDeqRecvDone,
     // ----- for debugging  ------
-    ap_uint<32> *MMIO_out
+    ap_uint<64> *MMIO_out
     )
 {
   //-- DIRECTIVES FOR THIS PROCESS ------------------------------------------
@@ -1957,6 +1957,7 @@ void pMpeGlobal(
   *MMIO_out |= ((uint32_t) ret) << 8;
   *MMIO_out |= ((uint32_t) expected_call) << 16;
   *MMIO_out |= ((uint32_t) expected_type) << 24;
+  *MMIO_out |= ((uint64_t) expected_src_rank) << 32;
 
 }
 
@@ -1971,7 +1972,7 @@ void mpe_main(
 
     ap_uint<32> *own_rank,
     // ----- for debugging  ------
-    ap_uint<32> *MMIO_out,
+    ap_uint<64> *MMIO_out,
 
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,
