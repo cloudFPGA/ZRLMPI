@@ -287,7 +287,7 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
     printf("Header type missmatch! Expected %d, got %d!\n",(int) expected_type, (int) header.type);
     unexpected_header = true;
   }
-  //check data type 
+  //check data type
   //if((currentDataType == MPI_INT && header.call != MPI_RECV_INT) || (currentDataType == MPI_FLOAT && header.call != MPI_RECV_FLOAT))
   else if(header.call != expected_call)
   {
@@ -846,7 +846,7 @@ void pDeqSend(
         soTcp_data.write(word);
       }
       break;
-    
+
   case DEQ_WRITE:
       if( !soTcp_data.full() && !sFifoDataTX.empty()
         )
@@ -970,7 +970,9 @@ void pMpeGlobal(
     //stream<uint64_t> &sFifoDataRX,
     stream<Axis<128> > &sFifoDataRX,
     stream<uint32_t>  &sExpectedLength, //in LINES!
-    stream<bool>      &sDeqRecvDone
+    stream<bool>      &sDeqRecvDone,
+    // ----- for debugging  ------
+    ap_uint<32> *MMIO_out
     )
 {
   //-- DIRECTIVES FOR THIS PROCESS ------------------------------------------
@@ -1043,7 +1045,7 @@ void pMpeGlobal(
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
-  uint8_t ret;
+  static uint8_t ret; //TODO: tmp static
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -1095,7 +1097,7 @@ void pMpeGlobal(
             expected_src_rank = currentInfo.rank;
             break;
           case MPI_BARRIER:
-            //TODO not yet implemented 
+            //TODO not yet implemented
             break;
         }
       }
@@ -1190,7 +1192,7 @@ void pMpeGlobal(
 
     case WAIT4CLEAR_CACHE_LOOKUP:
       //check cache first
-      if(getCache(header_cache, header_cache_valid, 
+      if(getCache(header_cache, header_cache_valid,
             bytes_c1, header, metaSrc, expected_type, expected_call, expected_src_rank))
       {
         fsmMpeState = WAIT4CLEAR_CACHE;
@@ -1269,7 +1271,7 @@ void pMpeGlobal(
           } else {
             ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
             if(ret == 0)
-            {//got CLEAR_TO_SEND 
+            {//got CLEAR_TO_SEND
               printf("Got CLEAR to SEND\n");
               fsmMpeState = SEND_DATA_START;
             } else {
@@ -1292,7 +1294,7 @@ void pMpeGlobal(
           && !sDeqSendDestId.full()
          )
       {
-        header = MPI_Header(); 
+        header = MPI_Header();
         //MPI_Interface info = siMPIif.read();
         MPI_Interface info = currentInfo;
         header.dst_rank = info.rank;
@@ -1408,7 +1410,7 @@ void pMpeGlobal(
 
     case WAIT4ACK_CACHE_LOOKUP:
       //check cache first
-      if(getCache(header_cache, header_cache_valid, 
+      if(getCache(header_cache, header_cache_valid,
             bytes_c2, header, metaSrc, expected_type, expected_call, expected_src_rank))
       {
         fsmMpeState = WAIT4ACK_CACHE;
@@ -1522,10 +1524,10 @@ void pMpeGlobal(
       expected_type = SEND_REQUEST;
       fsmMpeState = WAIT4REQ_CACHE_LOOKUP;
       break;
-    
+
     case WAIT4REQ_CACHE_LOOKUP:
       //check cache first
-      if(getCache(header_cache, header_cache_valid, 
+      if(getCache(header_cache, header_cache_valid,
             bytes_c3, header, metaSrc, expected_type, expected_call, expected_src_rank))
       {
         fsmMpeState = WAIT4REQ_CACHE;
@@ -1533,7 +1535,7 @@ void pMpeGlobal(
         fsmMpeState = WAIT4REQ;
       }
       break;
-   
+
     case WAIT4REQ_CACHE:
       ret = checkHeader(bytes_c3, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
       if(ret == 0)
@@ -1591,7 +1593,7 @@ void pMpeGlobal(
             ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
             if(ret == 0)
             {
-              //got SEND_REQUEST 
+              //got SEND_REQUEST
               printf("Got SEND REQUEST\n");
               fsmMpeState = ASSEMBLE_CLEAR;
             } else {
@@ -1613,7 +1615,7 @@ void pMpeGlobal(
           && !sDeqSendDestId.full()
         )
       {
-        header = MPI_Header(); 
+        header = MPI_Header();
         header.dst_rank = currentInfo.rank;
         header.src_rank = *own_rank;
         header.size = 0;
@@ -1870,7 +1872,7 @@ void pMpeGlobal(
       {
         printf("Read completed.\n");
 
-        header = MPI_Header(); 
+        header = MPI_Header();
         header.dst_rank = currentInfo.rank;
         header.src_rank = *own_rank;
         header.size = 0;
@@ -1951,6 +1953,11 @@ void pMpeGlobal(
   }
   printf("fsmMpeState after FSM: %d\n", fsmMpeState);
 
+  *MMIO_out = (uint8_t) fsmMpeState;
+  *MMIO_out |= ((uint32_t) ret) << 8;
+  *MMIO_out |= ((uint32_t) expected_call) << 16;
+  *MMIO_out |= ((uint32_t) expected_type) << 24;
+
 }
 
 
@@ -1964,7 +1971,7 @@ void mpe_main(
 
     ap_uint<32> *own_rank,
     // ----- for debugging  ------
-    //ap_uint<32> *MMIO_out,
+    ap_uint<32> *MMIO_out,
 
     // ----- MPI_Interface -----
     stream<MPI_Interface> &siMPIif,
@@ -1986,7 +1993,7 @@ void mpe_main(
 
 #pragma HLS INTERFACE ap_vld register port=own_rank name=piFMC_rank
 
-  //#pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
+#pragma HLS INTERFACE ap_ovld register port=MMIO_out name=poMMIO
 
 #pragma HLS INTERFACE ap_fifo port=siMPIif
 #pragma HLS DATA_PACK     variable=siMPIif
@@ -2058,7 +2065,7 @@ void mpe_main(
   // DEQUEUE FSM RECV
 
   pDeqRecv(sFifoDataRX, soMPI_data, sExpectedLength, sDeqRecvDone);
-  
+
   //===========================================================
   // MPE GLOBAL STATE
   // (put the slow process last...)
@@ -2066,7 +2073,7 @@ void mpe_main(
   pMpeGlobal(po_rx_ports, siMPIif, soMPIFeB, own_rank, sFifoDataTX,
       sDeqSendDestId, sDeqSendDone, sFifoTcpIn, sFifoTcpMetaIn,
       sFifoMpiDataIn, sFifoDataRX,
-      sExpectedLength, sDeqRecvDone);
+      sExpectedLength, sDeqRecvDone, MMIO_out);
 
 }
 
