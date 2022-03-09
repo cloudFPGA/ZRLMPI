@@ -1046,7 +1046,7 @@ void pMpeGlobal(
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
-  static uint8_t ret; //TODO: tmp static
+  uint8_t ret;
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
@@ -1747,7 +1747,7 @@ void pMpeGlobal(
           fsmMpeState = RECV_DATA_START_1;
         }
       } else {
-        if(!soMPIFeB.full())
+        if(!soMPIFeB.full() && !sFifoDataRX.full() )
         {
           protocol_timeout_cnt--;
           if(protocol_timeout_cnt == 0 && protocol_timeout_inc < ZRLMPI_PROTOCOL_MAX_INC)
@@ -1757,6 +1757,8 @@ void pMpeGlobal(
             {
               //re-start receive completely
               soMPIFeB.write(ZRLMPI_FEEDBACK_FAIL);
+              //signal fail, some kind of "poisson pill"
+              sFifoDataRX.write(Axis<128>(0x0,0x0,0x1));
               fsmMpeState = RECV_DATA_START;
               receive_right_data_started = false;
               expect_more_data = false;
