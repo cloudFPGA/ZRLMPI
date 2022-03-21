@@ -2,8 +2,13 @@
 
 #DEPS := $(shell find ./src/ -type f)
 DEPS := $(shell find ./src/ )
-IP_GUARD=$(usedRoleDir).ip_guard
-IP_GUARD_FORCE=$(usedRoleDir).ip_guard_delete_to_force_tcl_export
+ifeq ($(usedRoleDir),to-be-defined)
+	IP_GUARD=$(usedRole2Dir)/.ip_guard
+	IP_GUARD_FORCE=$(usedRole2Dir)/.ip_guard_delete_to_force_tcl_export
+else
+	IP_GUARD=$(usedRoleDir)/.ip_guard
+	IP_GUARD_FORCE=$(usedRoleDir)/.ip_guard_delete_to_force_tcl_export
+endif
 
 
 .PHONY: all csim cosim cosim_view clean assert_env

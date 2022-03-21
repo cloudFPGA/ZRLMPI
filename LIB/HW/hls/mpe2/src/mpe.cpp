@@ -1046,7 +1046,7 @@ void pMpeGlobal(
 
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
-  uint8_t ret;
+  uint8_t ret = 0x0;
 
   *po_rx_ports = 0x1; //currently work only with default ports...
 
