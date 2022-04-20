@@ -1034,6 +1034,8 @@ void pMpeGlobal(
 
   static mpeState after_drain_recovery_state = MPE_RESET;
 
+  static uint64_t individual_basis_timeout = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
+
   // #pragma HLS STREAM variable=sFifoHeaderCache depth=64
   //#pragma HLS STREAM variable=sFifoHeaderCache depth=2048 //HEADER_CACHE_LENTH*MPIF_HEADER_LENGTH
 #pragma HLS array_partition variable=bytes complete dim=0
@@ -1061,6 +1063,7 @@ void pMpeGlobal(
         {
           header_cache_valid[i] = false;
         }
+        individual_basis_timeout = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_STEPS_CYCLES * *own_rank);
         cache_invalidated = true;
         //fsmMpeState = IDLE;
       } else {
@@ -1184,7 +1187,7 @@ void pMpeGlobal(
           //last_checked_cache_line = 0;
           header = MPI_Header();
           expected_call = MPI_RECV_INT;
-          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
+          protocol_timeout_cnt = individual_basis_timeout + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
           if(currentDataType == MPI_FLOAT)
           {
             expected_call = MPI_RECV_FLOAT;
@@ -1402,7 +1405,7 @@ void pMpeGlobal(
           header = MPI_Header();
           //last_checked_cache_line = 0;
           expected_call = MPI_RECV_INT;
-          protocol_timeout_cnt = PROTOCOL_ACK_DELAY_FACTOR * ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
+          protocol_timeout_cnt = PROTOCOL_ACK_DELAY_FACTOR * individual_basis_timeout + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
           if(currentDataType == MPI_FLOAT)
           {
             expected_call = MPI_RECV_FLOAT;
@@ -1695,7 +1698,7 @@ void pMpeGlobal(
         if(sDeqSendDone.read())
         {
           fsmMpeState = RECV_DATA_START;
-          protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
+          protocol_timeout_cnt = individual_basis_timeout + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
           receive_right_data_started = false;
           expect_more_data = false;
           current_data_src_node_id = 0xFFF;
@@ -1848,7 +1851,7 @@ void pMpeGlobal(
           if(enqueue_recv_total_cnt < exp_recv_count_enqueue) //not <=
           {//we expect more
             fsmMpeState = RECV_DATA_START;
-            protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
+            protocol_timeout_cnt = individual_basis_timeout + (ZRLMPI_PROTOCOL_TIMEOUT_CYCLES * protocol_timeout_inc * ZRLMPI_PROTOCOL_TIMEOUT_INC_FACTOR);
             receive_right_data_started = true;
             //so timeout also for multiple packets
             expect_more_data = true;
