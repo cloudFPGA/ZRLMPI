@@ -477,6 +477,7 @@ void pEnqMpiData(
 #pragma HLS reset variable=enqMpiDataFsm
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   static uint64_t first_line = 0;
+  static uint8_t first_tkeep = 0;
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
   switch(enqMpiDataFsm)
@@ -492,13 +493,15 @@ void pEnqMpiData(
           ap_uint<128> tmp_tdata = 0;
           tmp_tdata |= (ap_uint<128>) inWord.getTData();
           tmp.setTData(tmp_tdata);
-          tmp.setTKeep(0xFF);
+          //tmp.setTKeep(0xFF);
+          tmp.setTKeep(inWord.getTKeep());
           tmp.setTLast(1);
           sFifoMpiDataIn.write(tmp);
         printf("[pEnqMpiData] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.getTKeep(), (unsigned long long) tmp.getTData(), (int) tmp.getTLast());
           //stay here
         } else {
           first_line = inWord.getTData();
+          first_tkeep = inWord.getTKeep();
           enqMpiDataFsm = DEQ_WRITE_2;
         }
       }
@@ -512,7 +515,10 @@ void pEnqMpiData(
         tmp_tdata |= (ap_uint<128>) first_line;
         tmp_tdata |= ((ap_uint<128>) inWord.getTData()) << 64;
         tmp.setTData(tmp_tdata);
-        tmp.setTKeep(0xFFFF);
+        uint16_t tmp_tkeep = (uint16_t) first_tkeep;
+        tmp_tkeep |= ((uint16_t) inWord.getTKeep()) << 8;
+        //tmp.setTKeep(0xFFFF);
+        tmp.setTKeep(tmp_tkeep);
         tmp.setTLast(inWord.getTLast());
         printf("[pEnqMpiData] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.getTKeep(), (unsigned long long) tmp.getTData(), (int) tmp.getTLast());
         sFifoMpiDataIn.write(tmp);
@@ -541,6 +547,7 @@ void pEnqTcpIn(
 #pragma HLS reset variable=enqTcpDataFsm
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
   static uint64_t first_line = 0;
+  static uint8_t first_tkeep = 0;
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
   switch(enqTcpDataFsm)
@@ -561,13 +568,15 @@ void pEnqTcpIn(
           ap_uint<128> tmp_tdata = 0;
           tmp_tdata |= (ap_uint<128>) inWord.getTData();
           tmp.setTData(tmp_tdata);
-          tmp.setTKeep(0xFF);
+          //tmp.setTKeep(0xFF);
+          tmp.setTKeep(inWord.getTKeep());
           tmp.setTLast(1);
           printf("[pEnqTcpIn] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.getTKeep(), (unsigned long long) tmp.getTData(), (int) tmp.getTLast());
           sFifoTcpIn.write(tmp);
           //stay here
         } else {
           first_line = inWord.tdata;
+          first_tkeep = inWord.getTKeep();
           enqTcpDataFsm = DEQ_WRITE_2;
         }
       }
@@ -583,13 +592,15 @@ void pEnqTcpIn(
           ap_uint<128> tmp_tdata = 0;
           tmp_tdata |= (ap_uint<128>) inWord.getTData();
           tmp.setTData(tmp_tdata);
-          tmp.setTKeep(0xFF);
+          //tmp.setTKeep(0xFF);
+          tmp.setTKeep(inWord.getTKeep());
           tmp.setTLast(1);
           printf("[pEnqTcpIn] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.getTKeep(), (unsigned long long) tmp.getTData(), (int) tmp.getTLast());
           sFifoTcpIn.write(tmp);
           enqTcpDataFsm = DEQ_START;
         } else {
           first_line = inWord.tdata;
+          first_tkeep = inWord.getTKeep();
           enqTcpDataFsm = DEQ_WRITE_2;
         }
       }
@@ -603,7 +614,10 @@ void pEnqTcpIn(
         tmp_tdata |= (ap_uint<128>) first_line;
         tmp_tdata |= ((ap_uint<128>) inWord.getTData()) << 64;
         tmp.setTData(tmp_tdata);
-        tmp.setTKeep(0xFFFF);
+        uint16_t tmp_tkeep = (uint16_t) first_tkeep;
+        tmp_tkeep |= ((uint16_t) inWord.getTKeep()) << 8;
+        //tmp.setTKeep(0xFFFF);
+        tmp.setTKeep(tmp_tkeep);
         tmp.setTLast(inWord.getTLast());
         printf("[pEnqTcpIn] tkeep %#04x, tdata %#032llx, tlast %d\n",(int) tmp.getTKeep(), (unsigned long long) tmp.getTData(), (int) tmp.getTLast());
         sFifoTcpIn.write(tmp);
@@ -640,6 +654,7 @@ void pDeqRecv(
   static uint32_t expected_recv_count = 0;
   static uint32_t recv_total_cnt = 0;
   static uint64_t second_line = 0;
+  static uint8_t second_tkeep = 0;
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
 
 
@@ -666,9 +681,11 @@ void pDeqRecv(
 
         uint64_t new_data = (uint64_t) (inWord.getTData());
         second_line = (uint64_t) (inWord.getTData() >> 64);
+        second_tkeep = (uint8_t) (inWord.getTKeep() >> 8);
 
         tmp.setTData(new_data);
-        tmp.setTKeep(0xFF);
+        //tmp.setTKeep(0xFF);
+        tmp.setTKeep((uint8_t) inWord.getTKeep());
 
         recv_total_cnt++; //we are counting LINES!
         //if(tmp.tlast == 1)
@@ -696,7 +713,8 @@ void pDeqRecv(
       {
         Axis<64> tmp = Axis<64>();
         tmp.setTData(second_line);
-        tmp.setTKeep(0xFF);
+        //tmp.setTKeep(0xFF);
+        tmp.setTKeep(second_tkeep);
 
         recv_total_cnt++; //we are counting LINES!
         //if(tmp.tlast == 1)
@@ -750,6 +768,7 @@ void pDeqSend(
   static uint32_t current_packet_line_cnt = 0x0;
   static NodeId current_send_dst_id = 0xFFF;
   static uint64_t second_line = 0;
+  static uint8_t second_tkeep = 0;
   static bool go_to_done = false;
   static bool start_with_second_line = false;
   //-- LOCAL DATAFLOW VARIABLES ---------------------------------------------
@@ -788,13 +807,16 @@ void pDeqSend(
 
           uint64_t new_data = (uint64_t) (inWord.getTData());
           second_line = (uint64_t) (inWord.getTData() >> 64);
+          second_tkeep = (uint8_t) (inWord.getTKeep() >> 8);
           word.setTData(new_data);
           word.setTLast(inWord.getTLast());
+          word.setTKeep((uint8_t) inWord.getTKeep());
         } else {
           word.setTData(second_line);
+          word.setTKeep(second_tkeep);
           word.setTLast(0);
         }
-        word.setTKeep(0xFF);
+        //word.setTKeep(0xFF);
 
         //check before we split in parts
         if(word.getTLast() == 1)
@@ -862,8 +884,10 @@ void pDeqSend(
 
         uint64_t new_data = (uint64_t) (inWord.getTData());
         second_line = (uint64_t) (inWord.getTData() >> 64);
+        second_tkeep = (uint8_t) (inWord.getTKeep() >> 8);
         word.setTData(new_data);
-        word.setTKeep(0xFF);
+        //word.setTKeep(0xFF);
+        word.setTKeep((uint8_t) inWord.getTKeep());
         word.setTLast(inWord.getTLast());
 
         //check before we split in parts
@@ -916,7 +940,8 @@ void pDeqSend(
         //word.tkeep = 0x0;
 
         word.setTData(second_line);
-        word.setTKeep(0xFF);
+        //word.setTKeep(0xFF);
+        word.setTKeep(second_tkeep);
         word.setTLast(0);
 
         if(go_to_done)
@@ -1802,6 +1827,8 @@ void pMpeGlobal(
             //valid header && valid source
             //expected_recv_count = header.size;
             //uint16_t expected_length_in_lines = (header.size+7)/8;
+            //TODO: verify with currentInfo.count...is it really what we expect?
+            //  ok, the other node is also controlled by us, so we can trust it
             uint32_t expected_length_in_lines = (uint32_t) (header.size+1)/2;
             //uint32_t expected_length_in_lines = (uint32_t) (header.size+(WPL-1))/WPL;
             //here, we count the original networklines -> so 2 is correct
