@@ -979,9 +979,14 @@ void MPI_Init(int* argcp, char*** argvp)
 }
 
 
-void MPI_Finalize()
+void ZRLMPI_cleanup()
 {
   close(udp_sock);
+}
+
+void MPI_Finalize()
+{
+  ZRLMPI_cleanup();
   //TODO
   //clock_t clock_end = clock();
   timestamp_t t1 = get_timestamp();

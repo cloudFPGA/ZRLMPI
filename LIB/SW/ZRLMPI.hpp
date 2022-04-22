@@ -45,6 +45,8 @@ void MPI_Recv(
     MPI_Comm communicator,
     MPI_Status* status);
 
+void ZRLMPI_cleanup();
+
 void MPI_Finalize();
 
 //void MPI_Barrier(MPI_Comm communicator);
