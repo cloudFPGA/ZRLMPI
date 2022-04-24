@@ -693,8 +693,8 @@ void recv_internal(
     }
   }
 
-#ifdef DEBUG2
-    std::cout << "received " << res << " bytes as DATA" << std::endl;
+#ifdef DEBUG
+    std::cout << "received " << ret << " bytes as DATA payload" << std::endl;
 #endif
   //copy only the number of bytes the sender send us but at most count*4
   if(ret > count*typewidth*sizeof(uint32_t))
@@ -951,7 +951,7 @@ void MPI_Init(int* argcp, char*** argvp)
   int real_buffer_size = 0;
   socklen_t len2 = sizeof(real_buffer_size);
   err = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &real_buffer_size, &len2);
-#ifdef DEBUG2
+#ifdef DEBUG
   printf("got %d as buffer size (requested %d)\n",real_buffer_size/2, recvBufSize);
 #endif
   if(real_buffer_size/2 != recvBufSize)
