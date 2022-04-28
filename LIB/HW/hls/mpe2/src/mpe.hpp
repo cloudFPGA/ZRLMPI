@@ -45,13 +45,21 @@ using namespace hls;
 
 
 enum mpeState {MPE_RESET = 0, IDLE, START_SEND, START_SEND_1, SEND_REQ,
+  //               0           1     2               3           4
   WAIT4CLEAR_CACHE_LOOKUP, WAIT4CLEAR_CACHE, WAIT4CLEAR, WAIT4CLEAR_1,
+  //   5                       6               7             8
   SEND_DATA_START, SEND_DATA_START_1, SEND_DATA_RD, SEND_DATA_WRD,
+  // 9                    10                11         12
   WAIT4ACK_CACHE_LOOKUP, WAIT4ACK_CACHE, WAIT4ACK_CACHE_2, WAIT4ACK, WAIT4ACK_1,
+  //   13                  14              15               16           17
   START_RECV, WAIT4REQ_CACHE_LOOKUP, WAIT4REQ_CACHE, WAIT4REQ, WAIT4REQ_1, ASSEMBLE_CLEAR,
+  //   18              19                    20         21         22          23
   ASSEMBLE_CLEAR_1, SEND_CLEAR, RECV_DATA_START, RECV_DATA_START_1,
+  //    24               25         26                27
   RECV_DATA_RD, RECV_DATA_WRD, RECV_DATA_DONE, SEND_ACK_0, SEND_ACK,
+  //   28           29              30            31          32
   MPE_DRAIN_DATA_STREAM};
+  //   33
 
 
 enum mpiType {MPI_INT = 0, MPI_FLOAT};
