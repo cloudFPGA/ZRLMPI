@@ -368,10 +368,11 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
   if(multiple_packet_mode || is_data_packet)
   {
     received_length -= MPIF_HEADER_LENGTH;
-    if(received_length != orig_header_size*sizeof(uint32_t))
+    //if(received_length != orig_header_size*sizeof(uint32_t))
+    if(received_length < (orig_header_size-1)*sizeof(uint32_t) || received_length > orig_header_size*sizeof(uint32_t))
     {
 //#ifdef DEBUG2
-      printf("\t[WARNING] received DATA length (%d) doesn't match header size (%d)!\n", received_length, orig_header_size);
+      printf("\t[WARNING] received DATA length (%d) doesn't match header size (%ld)!\n", received_length, orig_header_size*sizeof(uint32_t));
 //#endif
     }
     return received_length;
