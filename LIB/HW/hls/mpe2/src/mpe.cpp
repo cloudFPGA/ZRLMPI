@@ -1238,7 +1238,7 @@ void pMpeGlobal(
       if(ret == 0)
       {//found desired header
         printf("Cache HIT\n");
-        //delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+        //chache invalidation later
         fsmMpeState = SEND_DATA_START;
       } else {
         printf("\tCache MISS (wrong type)\n");
@@ -1456,7 +1456,7 @@ void pMpeGlobal(
       if(ret == 0)
       {//found desired header
         printf("Cache HIT\n");
-        //delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+        //cache invalidation below
         fsmMpeState = WAIT4ACK_CACHE_2;
       } else {
         printf("\tCache MISS (wrong type)\n");
@@ -1528,6 +1528,8 @@ void pMpeGlobal(
             ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, false, expected_src_rank);
             if(ret == 0)
             {
+              //to be sure: delete respective cache line
+              delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
               printf("ACK received.\n");
               soMPIFeB.write(ZRLMPI_FEEDBACK_OK);
               fsmMpeState = IDLE;
@@ -1573,7 +1575,7 @@ void pMpeGlobal(
       if(ret == 0)
       {//found desired header
         printf("Cache HIT\n");
-        //delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
+        //delete cache below
         fsmMpeState = ASSEMBLE_CLEAR;
       } else {
         printf("\tCache MISS (wrong type)\n");
@@ -1848,11 +1850,19 @@ void pMpeGlobal(
             //read_timeout_cnt = 0;
           } else {
             //we received another header and add it to the cache
-            if(ret == 1)
+            //but here TLAST check
+            if(tmp.getTLast() != 1)
             {
-              add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
+              fsmMpeState = MPE_DRAIN_DATA_STREAM;
+              after_drain_recovery_state = RECV_DATA_START;
+            } else {
+              if(ret == 1)
+              {
+                add_cache_bytes(header_cache, header_cache_valid, bytes, header.src_rank);
+              }
+              //else really invalid data?
+              fsmMpeState = RECV_DATA_START;
             }
-            fsmMpeState = RECV_DATA_START;
           }
         }
       }
@@ -1970,6 +1980,8 @@ void pMpeGlobal(
         {
           soMPIFeB.write(ZRLMPI_FEEDBACK_OK);
           fsmMpeState = IDLE;
+          //to be sure: delete remaining cache line
+          delete_cache_line(header_cache, header_cache_valid, expected_src_rank);
         }
       }
       break;
