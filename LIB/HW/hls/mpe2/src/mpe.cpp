@@ -1007,12 +1007,12 @@ void pMpeGlobal(
 #pragma HLS pipeline II=2
   //-- STATIC CONTROL VARIABLES (with RESET) --------------------------------
   static mpeState fsmMpeState = MPE_RESET;
-  static bool cache_invalidated = false;
+  //static bool cache_invalidated = false;
   static uint64_t protocol_timeout_cnt = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES;
   static uint32_t protocol_timeout_inc = 0;
 
 #pragma HLS reset variable=fsmMpeState
-#pragma HLS reset variable=cache_invalidated
+//#pragma HLS reset variable=cache_invalidated
 #pragma HLS reset variable=protocol_timeout_cnt
 #pragma HLS reset variable=protocol_timeout_inc
   //-- STATIC DATAFLOW VARIABLES --------------------------------------------
@@ -1082,21 +1082,21 @@ void pMpeGlobal(
   {
     default:
     case MPE_RESET:
-      if(!cache_invalidated)
+      //if(!cache_invalidated)
+      //{
+      for(int i = 0; i < HEADER_CACHE_LENGTH; i++)
       {
-        for(int i = 0; i < HEADER_CACHE_LENGTH; i++)
-        {
-          header_cache_valid[i] = false;
-        }
-        individual_basis_timeout = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_STEPS_CYCLES * *own_rank);
-        cache_invalidated = true;
-        //fsmMpeState = IDLE;
-      } else {
-        if(*cluster_size != 0)
-        {//apparently, this is necessary to avoid unwanted optimizations
-          fsmMpeState = IDLE;
-        }
+        header_cache_valid[i] = false;
       }
+      individual_basis_timeout = ZRLMPI_PROTOCOL_TIMEOUT_CYCLES + (ZRLMPI_PROTOCOL_TIMEOUT_STEPS_CYCLES * ((uint64_t) *own_rank));
+      //cache_invalidated = true;
+      //  //fsmMpeState = IDLE;
+      //} else {
+      if(*cluster_size != 0)
+      {//apparently, this is necessary to avoid unwanted optimizations
+        fsmMpeState = IDLE;
+      }
+      //}
       break;
     case IDLE:
       expected_src_rank = 0xFFF;
@@ -1111,10 +1111,12 @@ void pMpeGlobal(
           case MPI_SEND_INT:
             currentDataType = MPI_INT;
             fsmMpeState = START_SEND;
+            expected_src_rank = currentInfo.rank;
             break;
           case MPI_SEND_FLOAT:
             currentDataType = MPI_FLOAT;
             fsmMpeState = START_SEND;
+            expected_src_rank = currentInfo.rank;
             break;
           case MPI_RECV_INT:
             currentDataType = MPI_INT;
@@ -1147,7 +1149,7 @@ void pMpeGlobal(
         header.call = static_cast<mpiCall>((int) currentInfo.mpi_call);
         header.type = SEND_REQUEST;
 
-        expected_src_rank = header.dst_rank;
+        //expected_src_rank = header.dst_rank;
 
         headerToBytes(header, bytes);
 
@@ -1335,7 +1337,7 @@ void pMpeGlobal(
         header.call = static_cast<mpiCall>((int) info.mpi_call);
         header.type = DATA;
 
-        expected_src_rank = header.dst_rank;
+        //expected_src_rank = header.dst_rank;
 
         headerToBytes(header, bytes);
 
