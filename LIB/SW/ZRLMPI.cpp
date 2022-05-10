@@ -56,6 +56,13 @@ int cache_num = 0;
 bool skip_cache_entry[MPI_CLUSTER_SIZE_MAX];
 uint32_t max_udp_payload_bytes = 0;
 
+#ifdef MEASURE_PROTOCOL_WAIT
+uint64_t total_recv_call_time = 0;
+uint64_t wait_request_time = 0;
+uint64_t wait_clear_time = 0;
+uint64_t total_recv_call_numbers = 0;
+#endif
+
 //clock_t clock_begin = 0;
 timestamp_t t0 = 0;
 
@@ -174,7 +181,24 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
         printf("received_length: %d; recv_packets_cnt %d\n", received_length, recv_packets_cnt);
 #endif
         uint8_t *start_address = buffer + received_length;
+#ifdef MEASURE_PROTOCOL_WAIT
+        timestamp_t tr0 = get_timestamp();
+#endif
         res = recvfrom(udp_sock, start_address, expected_length, 0, (sockaddr*)&src_addr, &slen);
+#ifdef MEASURE_PROTOCOL_WAIT
+        timestamp_t tr1 = get_timestamp();
+        uint64_t rt = tr1 - tr0;
+        total_recv_call_time += rt;
+        if(expType == SEND_REQUEST)
+        {
+          wait_request_time += rt;
+        }
+        else if(expType == CLEAR_TO_SEND)
+        {
+          wait_clear_time += rt;
+        }
+        total_recv_call_numbers++;
+#endif
         ret = bytesToHeader(start_address, header);
 #ifdef DEBUG3
         //for debugging
@@ -190,7 +214,24 @@ int receiveHeader(unsigned long expAddr, packetType expType, mpiCall expCall, ui
         //printf("\n");
 #endif
       } else {
+#ifdef MEASURE_PROTOCOL_WAIT
+        timestamp_t tr0 = get_timestamp();
+#endif
         res = recvfrom(udp_sock, &bytes, MPIF_HEADER_LENGTH, 0, (sockaddr*)&src_addr, &slen);
+#ifdef MEASURE_PROTOCOL_WAIT
+        timestamp_t tr1 = get_timestamp();
+        uint64_t rt = tr1 - tr0;
+        total_recv_call_time += rt;
+        if(expType == SEND_REQUEST)
+        {
+          wait_request_time += rt;
+        }
+        else if(expType == CLEAR_TO_SEND)
+        {
+          wait_clear_time += rt;
+        }
+        total_recv_call_numbers++;
+#endif
         ret = bytesToHeader(bytes, header);
       }
 
@@ -985,17 +1026,35 @@ void ZRLMPI_cleanup()
   close(udp_sock);
 }
 
-void MPI_Finalize()
+void ZRLMPI_print_stats()
 {
-  ZRLMPI_cleanup();
-  //TODO
   //clock_t clock_end = clock();
   timestamp_t t1 = get_timestamp();
   //double elapsed_time = (double)(clock_end - clock_begin) / CLOCKS_PER_SEC;
   double elapsed_time_secs = (double)(t1 - t0) / 1000000.0L;
   printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
-  printf("\tZRLMPI execution time: %lfs\n", elapsed_time_secs);
+  printf("  ---- ZRLMPI runtime statistics ----\n");
+  printf("\tZRLMPI total execution time: %lfs\n", elapsed_time_secs);
+#ifdef MEASURE_PROTOCOL_WAIT
+  //convert counters to seconds
+  double total_recv_call_s = ((double) total_recv_call_time) / 1000000.0L;
+  double wait_request_s = ((double) wait_request_time) / 1000000.0L;
+  double wait_clear_s = ((double) wait_clear_time) / 1000000.0L;
+  printf("\trecvfrom total time: %lfs\n", total_recv_call_s);
+  printf("\t  |_ from this: wait for SEND_REQUEST time: %lfs\n", wait_request_s);
+  printf("\t  |_ from this: wait for CLEAR_TO_SEND time: %lfs\n", wait_clear_s);
+  printf("\ttotal number of recvfrom calls: %lld\n", total_recv_call_numbers);
+  double time_per_recv = total_recv_call_s / ((double) total_recv_call_numbers);
+  printf("\tavg. per recvfrom call: %lfs\n", time_per_recv);
+#endif
   printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
+}
+
+void MPI_Finalize()
+{
+  ZRLMPI_cleanup();
+  //TODO
+  ZRLMPI_print_stats();
   return;
 }
 
