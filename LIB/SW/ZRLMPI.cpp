@@ -1033,8 +1033,8 @@ void ZRLMPI_print_stats()
   timestamp_t t1 = get_timestamp();
   //double elapsed_time = (double)(clock_end - clock_begin) / CLOCKS_PER_SEC;
   double elapsed_time_secs = (double)(t1 - t0) / 1000000.0L;
-  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
-  printf("  ---- ZRLMPI runtime statistics ----\n");
+  printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
+  printf("\t\t---- ZRLMPI runtime statistics ----\n");
   printf("\tZRLMPI total execution time: %lfs\n", elapsed_time_secs);
 #ifdef MEASURE_PROTOCOL_WAIT
   //convert counters to seconds
@@ -1048,7 +1048,7 @@ void ZRLMPI_print_stats()
   double time_per_recv = total_recv_call_s / ((double) total_recv_call_numbers);
   printf("\tavg. per recvfrom call: %lfs\n", time_per_recv);
 #endif
-  printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
+  printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
 }
 
 
