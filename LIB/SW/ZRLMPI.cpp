@@ -860,7 +860,9 @@ void MPI_Init(int* argcp, char*** argvp)
 
   if(strncmp("udp",protocol,3) == 0)
   {
+#ifdef DEBUG
     printf("using udp...\n");
+#endif
     use_udp = true;
   } else if(strncmp("tcp",protocol,3) == 0)
   {
@@ -923,7 +925,9 @@ void MPI_Init(int* argcp, char*** argvp)
       rank_port += multiple;
     }
     rank_ip_addrs.push_back(rank_addr);
+#ifdef DEBUG
     std::cout << "rank " << i <<" addr: " << rank_addr << " port: " << rank_port << std::endl;
+#endif
     //result = resolvehelper(rank_addr.c_str(), AF_INET, MPI_SERVICE, &addrDest);
     const char *service_name = std::to_string(rank_port).c_str();
     result = resolvehelper(rank_addr.c_str(), AF_INET, service_name, &addrDest);
@@ -938,7 +942,8 @@ void MPI_Init(int* argcp, char*** argvp)
   }
 
   //now, listen on this port
-  std::cout << "I'm rank " << own_rank << " on address " << host_address << " and listening on port: " << own_port << std::endl;
+  std::cout << "[ZRLMPI] I'm rank " << own_rank << " on address " << host_address << " and listening on port: " << own_port << std::endl;
+  std::cout << "[ZRLMPI] Cluster size is: " << cluster_size << std::endl;
   sockaddr_in addrListen = {};
   addrListen.sin_family = AF_INET;
   //addrListen.sin_port = htons(MPI_PORT);
