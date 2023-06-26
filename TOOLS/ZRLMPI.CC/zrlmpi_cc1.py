@@ -183,9 +183,6 @@ def zrlmpi_regex_before_cc(inputSWOnly, inputHW, hw_out_file, sw_out_file):
 
 def gcc_file_parsing(own_dir, tmp_dir, hw_input_file, orig_header, hw_header_file, hw_out_file):
     working_dir = own_dir + "/" + tmp_dir
-    # PATCH pycparser FIXME
-    patch_cmd = "cp {}/pycparser_patch/_fake_defines.h {}/pycparser/utils/fake_libc_include/_fake_defines.h".\
-        format(own_dir, own_dir)
     os.popen(patch_cmd).read()
     # link correct header
     ln_command = "ln -s {}/{} {}/{}".format(working_dir, os.path.basename(hw_header_file), working_dir,
