@@ -1,6 +1,9 @@
-ZRLMPI
+ZRLMPI protocol
 =============
-**MPI for cloudFPGA** (from the Zurich Research Laboratory (ZRL))
+IBM cloudFPGA MPI subset for network-attached FPGAS (ZRLMPI).
+Developed at the Zurich Research Laboratory (ZRL).
+
+In the following, there is a brief description of the interfaces and protocols offered by the ZRLMPI library.
 
 
 C/HLS calls
