@@ -9,6 +9,12 @@ Introduction
 This is a implementation of a subset of the [MPI standard](https://en.wikipedia.org/wiki/Message_Passing_Interface) for network-attached FPGAs using HLS libraries and the concept of [transpilation](https://ieeexplore.ieee.org/abstract/document/9307074).
 
 ZRLMPI is also a **cloudFPGA addon (cFa)** to enable ZRLMPI on clodFPGA using the [cFDK](https://github.com/cloudFPGA/cFDK), as explained [below](#Enable-cFa-ZRLMPI).
+Additionally, ZRLMPI is used as hardware-agnostic communication framework within the [IBM cloudFPGA Distributed Operator Set Architectures (DOSA)](https://github.com/cloudFPGA/DOSA) compiler.
+
+The goal of ZRLMPI is to bring CPUs and FPGAs to work together efficiently using a single source of code. It is a proof-of-concept implementation to show that it is possible and beneficial to take existing MPI-based applications that were developed for CPU clusters, and execute them on a reconfigurable heterogeneous HPC cluster without any code modifications.
+
+The concepts of ZRLMPI are explained in our two papers [here (PDF)](https://0xcaffee.blog/posts/attachments/FCCM20.pdf) and [here (PDF)](https://0xcaffee.blog/posts/attachments/H2RC20.pdf).
+A brief description of the developed interfaces and protocol is documented in [./doc/ZRLMPI_protocol.md](./doc/ZRLMPI_protocol.md). A detailed description of the protocol can be found [here](https://doi.org/10.5281/zenodo.7957659).
 
 
 Citation
