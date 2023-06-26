@@ -1,7 +1,0 @@
-#!/bin/bash 
-
-OWN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-
-#make -C $OWN_DIR/unifdef/ 
-python3 $OWN_DIR/zrlmpi_cc1.py $1 $2 $3
