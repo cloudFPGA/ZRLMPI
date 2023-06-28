@@ -1,6 +1,21 @@
+# /*******************************************************************************
+#  * Copyright 2018 -- 2023 IBM Corporation
+#  *
+#  * Licensed under the Apache License, Version 2.0 (the "License");
+#  * you may not use this file except in compliance with the License.
+#  * You may obtain a copy of the License at
+#  *
+#  *     http://www.apache.org/licenses/LICENSE-2.0
+#  *
+#  * Unless required by applicable law or agreed to in writing, software
+#  * distributed under the License is distributed on an "AS IS" BASIS,
+#  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  * See the License for the specific language governing permissions and
+#  * limitations under the License.
+# *******************************************************************************/
+
 #  *
 #  *                       cloudFPGA
-#  *     Copyright IBM Research, All Rights Reserved
 #  *    =============================================
 #  *     Created: Jan 2020
 #  *     Authors: FAB, WEI, NGL
@@ -559,17 +574,6 @@ class MpiSignatureNameSearcher(object):
         else:
             for c in n:
                 self.visit(c)
-    #
-    # def visit_IdentifierType(self, n):
-    #     return ' '.join(n.names)
-    #
-    # def _visit_expr(self, n):
-    #     if isinstance(n, c_ast.InitList):
-    #         return '{' + self.visit(n) + '}'
-    #     elif isinstance(n, c_ast.ExprList):
-    #         return '(' + self.visit(n) + ')'
-    #     else:
-    #         return self.visit(n)
 
     def visit_Decl(self, n, no_type=False):
         if self.search_for_decls is not None:
@@ -593,100 +597,6 @@ class MpiSignatureNameSearcher(object):
             for c in n:
                 self.visit(c)
 
-    # def visit_DeclList(self, n):
-    #     s = self.visit(n.decls[0])
-    #     if len(n.decls) > 1:
-    #         s += ', ' + ', '.join(self.visit_Decl(decl, no_type=True)
-    #                               for decl in n.decls[1:])
-    #     return s
-    #
-    # def visit_Typedef(self, n):
-    #     for c in n:
-    #         self.visit(c)
-    #
-    # def visit_Cast(self, n):
-    #     s = '(' + self._generate_type(n.to_type) + ')'
-    #     return s + ' ' + self._parenthesize_unless_simple(n.expr)
-    #
-    # def visit_ExprList(self, n):
-    #     visited_subexprs = []
-    #     for expr in n.exprs:
-    #         visited_subexprs.append(self._visit_expr(expr))
-    #     return ', '.join(visited_subexprs)
-    #
-    # def visit_InitList(self, n):
-    #     visited_subexprs = []
-    #     for expr in n.exprs:
-    #         visited_subexprs.append(self._visit_expr(expr))
-    #     return ', '.join(visited_subexprs)
-    #
-    # def visit_Enum(self, n):
-    #     return self._generate_struct_union_enum(n, name='enum')
-    #
-    # def visit_Enumerator(self, n):
-    #     if not n.value:
-    #         return '{indent}{name},\n'.format(
-    #             indent=self._make_indent(),
-    #             name=n.name,
-    #         )
-    #     else:
-    #         return '{indent}{name} = {value},\n'.format(
-    #             indent=self._make_indent(),
-    #             name=n.name,
-    #             value=self.visit(n.value),
-    #         )
-    #
-    # def visit_FuncDef(self, n):
-    #     decl = self.visit(n.decl)
-    #     self.indent_level = 0
-    #     body = self.visit(n.body)
-    #     if n.param_decls:
-    #         knrdecls = ';\n'.join(self.visit(p) for p in n.param_decls)
-    #         return decl + '\n' + knrdecls + ';\n' + body + '\n'
-    #     else:
-    #         return decl + '\n' + body + '\n'
-    #
-    # def visit_FileAST(self, n):
-    #     s = ''
-    #     for ext in n.ext:
-    #         if isinstance(ext, c_ast.FuncDef):
-    #             s += self.visit(ext)
-    #         elif isinstance(ext, c_ast.Pragma):
-    #             s += self.visit(ext) + '\n'
-    #         else:
-    #             s += self.visit(ext) + ';\n'
-    #     return s
-    #
-    # def visit_Compound(self, n):
-    #     s = self._make_indent() + '{\n'
-    #     self.indent_level += 2
-    #     if n.block_items:
-    #         s += ''.join(self._generate_stmt(stmt) for stmt in n.block_items)
-    #     self.indent_level -= 2
-    #     s += self._make_indent() + '}\n'
-    #     return s
-    #
-    # def visit_CompoundLiteral(self, n):
-    #     return '(' + self.visit(n.type) + '){' + self.visit(n.init) + '}'
-    #
-    #
-    # def visit_EmptyStatement(self, n):
-    #     return ';'
-    #
-    # def visit_ParamList(self, n):
-    #     return ', '.join(self.visit(param) for param in n.params)
-    #
-    # def visit_Return(self, n):
-    #     s = 'return'
-    #     if n.expr: s += ' ' + self.visit(n.expr)
-    #     return s + ';'
-    #
-    # def visit_Break(self, n):
-    #     return 'break;'
-    #
-    # def visit_Continue(self, n):
-    #     return 'continue;'
-    #
     def visit_TernaryOp(self, n):
         if self.search_for_decls is not None:
             self.visit_If(n)
@@ -814,53 +724,4 @@ class MpiSignatureNameSearcher(object):
         else:
             for c in n:
                 self.visit(c)
-
-    # def visit_Switch(self, n):
-    #     s = 'switch (' + self.visit(n.cond) + ')\n'
-    #     s += self._generate_stmt(n.stmt, add_indent=True)
-    #     return s
-    #
-    # def visit_Case(self, n):
-    #     s = 'case ' + self.visit(n.expr) + ':\n'
-    #     for stmt in n.stmts:
-    #         s += self._generate_stmt(stmt, add_indent=True)
-    #     return s
-    #
-    # def visit_Default(self, n):
-    #     s = 'default:\n'
-    #     for stmt in n.stmts:
-    #         s += self._generate_stmt(stmt, add_indent=True)
-    #     return s
-    #
-    # def visit_Label(self, n):
-    #     return n.name + ':\n' + self._generate_stmt(n.stmt)
-    #
-    # def visit_Goto(self, n):
-    #     return 'goto ' + n.name + ';'
-    #
-    # def visit_EllipsisParam(self, n):
-    #     return '...'
-    #
-    # def visit_Struct(self, n):
-    #     return self._generate_struct_union_enum(n, 'struct')
-    #
-    # def visit_Typename(self, n):
-    #     return self._generate_type(n.type)
-    #
-    # def visit_Union(self, n):
-    #     return self._generate_struct_union_enum(n, 'union')
-    #
-    # def visit_NamedInitializer(self, n):
-    #     s = ''
-    #     for name in n.name:
-    #         if isinstance(name, c_ast.ID):
-    #             s += '.' + name.name
-    #         else:
-    #             s += '[' + self.visit(name) + ']'
-    #     s += ' = ' + self._visit_expr(n.expr)
-    #     return s
-    #
-    # def visit_FuncDecl(self, n):
-    #     return self._generate_type(n)
-    #
 

@@ -71,3 +71,4 @@ if __name__ == "__main__":
         translate_to_c(sys.argv[1])
     else:
         print("Please provide a filename as argument")
+

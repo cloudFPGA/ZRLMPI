@@ -1,6 +1,21 @@
+# /*******************************************************************************
+#  * Copyright 2018 -- 2023 IBM Corporation
+#  *
+#  * Licensed under the Apache License, Version 2.0 (the "License");
+#  * you may not use this file except in compliance with the License.
+#  * You may obtain a copy of the License at
+#  *
+#  *     http://www.apache.org/licenses/LICENSE-2.0
+#  *
+#  * Unless required by applicable law or agreed to in writing, software
+#  * distributed under the License is distributed on an "AS IS" BASIS,
+#  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  * See the License for the specific language governing permissions and
+#  * limitations under the License.
+# *******************************************************************************/
+
 #  *
 #  *                       cloudFPGA
-#  *     Copyright IBM Research, All Rights Reserved
 #  *    =============================================
 #  *     Created: Jan 2020
 #  *     Authors: FAB, WEI, NGL
@@ -9,10 +24,6 @@
 #  *        Visitor searching for buffer definitions and compare values of variables
 #  *
 #  *
-
-# based on
-#   https://github.com/eliben/pycparser/blob/master/pycparser/c_generator.py
-#   and https://github.com/eliben/pycparser/blob/master/pycparser/c_ast.py
 
 
 from pycparser import c_ast
@@ -690,165 +701,4 @@ class MpiConstantFoldingVisitor(object):
     #
     # def visit_Goto(self, n):
     #     return 'goto ' + n.name + ';'
-    #
-    # def visit_EllipsisParam(self, n):
-    #     return '...'
-    #
-    # def visit_Struct(self, n):
-    #     return self._generate_struct_union_enum(n, 'struct')
-    #
-    # def visit_Typename(self, n):
-    #     return self._generate_type(n.type)
-    #
-    # def visit_Union(self, n):
-    #     return self._generate_struct_union_enum(n, 'union')
-    #
-    # def visit_NamedInitializer(self, n):
-    #     s = ''
-    #     for name in n.name:
-    #         if isinstance(name, c_ast.ID):
-    #             s += '.' + name.name
-    #         else:
-    #             s += '[' + self.visit(name) + ']'
-    #     s += ' = ' + self._visit_expr(n.expr)
-    #     return s
-    #
-    # def visit_FuncDecl(self, n):
-    #     return self._generate_type(n)
-    #
-    # def _generate_struct_union_enum(self, n, name):
-    #     """ Generates code for structs, unions, and enums. name should be
-    #         'struct', 'union', or 'enum'.
-    #     """
-    #     if name in ('struct', 'union'):
-    #         members = n.decls
-    #         body_function = self._generate_struct_union_body
-    #     else:
-    #         assert name == 'enum'
-    #         members = None if n.values is None else n.values.enumerators
-    #         body_function = self._generate_enum_body
-    #     s = name + ' ' + (n.name or '')
-    #     if members is not None:
-    #         # None means no members
-    #         # Empty sequence means an empty list of members
-    #         s += '\n'
-    #         s += self._make_indent()
-    #         self.indent_level += 2
-    #         s += '{\n'
-    #         s += body_function(members)
-    #         self.indent_level -= 2
-    #         s += self._make_indent() + '}'
-    #     return s
-    #
-    # def _generate_struct_union_body(self, members):
-    #     return ''.join(self._generate_stmt(decl) for decl in members)
-    #
-    # def _generate_enum_body(self, members):
-    #     # `[:-2] + '\n'` removes the final `,` from the enumerator list
-    #     return ''.join(self.visit(value) for value in members)[:-2] + '\n'
-    #
-    # def _generate_stmt(self, n, add_indent=False):
-    #     """ Generation from a statement node. This method exists as a wrapper
-    #         for individual visit_* methods to handle different treatment of
-    #         some statements in this context.
-    #     """
-    #     typ = type(n)
-    #     if add_indent: self.indent_level += 2
-    #     indent = self._make_indent()
-    #     if add_indent: self.indent_level -= 2
-    #
-    #     if typ in (
-    #             c_ast.Decl, c_ast.Assignment, c_ast.Cast, c_ast.UnaryOp,
-    #             c_ast.BinaryOp, c_ast.TernaryOp, c_ast.FuncCall, c_ast.ArrayRef,
-    #             c_ast.StructRef, c_ast.Constant, c_ast.ID, c_ast.Typedef,
-    #             c_ast.ExprList):
-    #         # These can also appear in an expression context so no semicolon
-    #         # is added to them automatically
-    #         #
-    #         return indent + self.visit(n) + ';\n'
-    #     elif typ in (c_ast.Compound,):
-    #         # No extra indentation required before the opening brace of a
-    #         # compound - because it consists of multiple lines it has to
-    #         # compute its own indentation.
-    #         #
-    #         return self.visit(n)
-    #     else:
-    #         return indent + self.visit(n) + '\n'
-    #
-    # def _generate_decl(self, n):
-    #     """ Generation from a Decl node.
-    #     """
-    #     s = ''
-    #     if n.funcspec: s = ' '.join(n.funcspec) + ' '
-    #     if n.storage: s += ' '.join(n.storage) + ' '
-    #     s += self._generate_type(n.type)
-    #     return s
-    #
-    # def _generate_type(self, n, modifiers=[]):
-    #     """ Recursive generation from a type node. n is the type node.
-    #         modifiers collects the PtrDecl, ArrayDecl and FuncDecl modifiers
-    #         encountered on the way down to a TypeDecl, to allow proper
-    #         generation from it.
-    #     """
-    #     typ = type(n)
-    #     #~ print(n, modifiers)
-    #
-    #     if typ == c_ast.TypeDecl:
-    #         s = ''
-    #         if n.quals: s += ' '.join(n.quals) + ' '
-    #         s += self.visit(n.type)
-    #
-    #         nstr = n.declname if n.declname else ''
-    #         # Resolve modifiers.
-    #         # Wrap in parens to distinguish pointer to array and pointer to
-    #         # function syntax.
-    #         #
-    #         for i, modifier in enumerate(modifiers):
-    #             if isinstance(modifier, c_ast.ArrayDecl):
-    #                 if (i != 0 and isinstance(modifiers[i - 1], c_ast.PtrDecl)):
-    #                     nstr = '(' + nstr + ')'
-    #                 nstr += '[' + self.visit(modifier.dim) + ']'
-    #             elif isinstance(modifier, c_ast.FuncDecl):
-    #                 if (i != 0 and isinstance(modifiers[i - 1], c_ast.PtrDecl)):
-    #                     nstr = '(' + nstr + ')'
-    #                 nstr += '(' + self.visit(modifier.args) + ')'
-    #             elif isinstance(modifier, c_ast.PtrDecl):
-    #                 if modifier.quals:
-    #                     nstr = '* %s %s' % (' '.join(modifier.quals), nstr)
-    #                 else:
-    #                     nstr = '*' + nstr
-    #         if nstr: s += ' ' + nstr
-    #         return s
-    #     elif typ == c_ast.Decl:
-    #         return self._generate_decl(n.type)
-    #     elif typ == c_ast.Typename:
-    #         return self._generate_type(n.type)
-    #     elif typ == c_ast.IdentifierType:
-    #         return ' '.join(n.names) + ' '
-    #     elif typ in (c_ast.ArrayDecl, c_ast.PtrDecl, c_ast.FuncDecl):
-    #         return self._generate_type(n.type, modifiers + [n])
-    #     else:
-    #         return self.visit(n)
-    #
-    # def _parenthesize_if(self, n, condition):
-    #     """ Visits 'n' and returns its string representation, parenthesized
-    #         if the condition function applied to the node returns True.
-    #     """
-    #     s = self._visit_expr(n)
-    #     if condition(n):
-    #         return '(' + s + ')'
-    #     else:
-    #         return s
-    #
-    # def _parenthesize_unless_simple(self, n):
-    #     """ Common use case for _parenthesize_if
-    #     """
-    #     return self._parenthesize_if(n, lambda d: not self._is_simple_node(d))
-    #
-    # def _is_simple_node(self, n):
-    #     """ Returns True for nodes that are "simple" - i.e. nodes that always
-    #         have higher precedence than operators.
-    #     """
-    #     return isinstance(n, (c_ast.Constant, c_ast.ID, c_ast.ArrayRef,
-    #                           c_ast.StructRef, c_ast.FuncCall))
     #

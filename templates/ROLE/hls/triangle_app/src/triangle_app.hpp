@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2016 -- 2020 IBM Corporation
+ * Copyright 2016 -- 2023 IBM Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 //  *
 //  *                       cloudFPGA
-//  *     Copyright IBM Research, All Rights Reserved
 //  *    =============================================
 //  *     Created: May 2019
 //  *     Authors: FAB, WEI, NGL

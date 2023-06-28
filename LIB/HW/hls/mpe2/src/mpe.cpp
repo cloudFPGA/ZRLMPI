@@ -1,3 +1,18 @@
+/*******************************************************************************
+ * Copyright 2018 -- 2023 IBM Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*******************************************************************************/
 
 #include "mpe.hpp"
 #include <stdint.h>
@@ -42,183 +57,6 @@ uint8_t extractByteCnt(Axis<64> currWord)
   }
   return ret;
 }
-
-
-//uint16_t get_next_cache_line(
-//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
-//    bool header_cache_valid[HEADER_CACHE_LENGTH],
-//    uint16_t start_value,
-//    ap_uint<256> &next_cache_line
-//    )
-//{
-//#pragma HLS inline off
-////#pragma HLS pipeline II=1
-//
-//  uint16_t ret = INVALID_CACHE_LINE_NUMBER;
-//  for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
-//    //for(uint16_t i = start_value; i < HEADER_CACHE_LENGTH; i++)
-//  {
-//#pragma HLS unroll
-//    if(i < start_value)
-//    {
-//      continue;
-//    }
-//    if(header_cache_valid[i])
-//    {
-//      next_cache_line = header_cache[i];
-//      ret = i;
-//      break;
-//    }
-//  }
-//  return ret;
-//}
-
-//returns the ZERO-based bit position (so 0 for LSB)
-//0xFE for no bit
-//uint8_t getRightmostBitPos(ap_uint<64> num)
-//{
-//#pragma HLS INLINE// off
-//  ap_uint<64> one_hot = num & -num;
-//  if(one_hot == 0)
-//  {
-//    return 0xFE;
-//  }
-//  uint8_t pos = 0;
-//  for (int i = 0; i < 64; i++)
-//  {
-//#pragma HLS unroll
-//    if(one_hot <= 1)
-//    {
-//      break;
-//    }
-//    pos++;
-//    one_hot >>= 1;
-//  }
-//  //printf("[NAL:RigthmostBit] returning %d for input %d\n", (int) pos, (int) num);
-//  return pos;
-//}
-//
-////returns the ZERO-based bit position (so 0 for LSB)
-//uint8_t getRightmostFREEPos(ap_uint<64> num)
-//{
-//#pragma HLS INLINE// off
-//  ap_uint<64> one_hot = num & -num;
-//  if(one_hot == 0)
-//  {
-//    return 0;
-//  }
-//  uint8_t pos = 0;
-//  for (int i = 0; i < 64; i++)
-//  {
-//#pragma HLS unroll
-//    if(one_hot == 0)
-//    {
-//      break;
-//    }
-//    pos++;
-//    one_hot >>= 1;
-//  }
-//  //printf("[NAL:RigthmostBit] returning %d for input %d\n", (int) pos, (int) num);
-//  return pos;
-//}
-//
-//uint64_t array_to_vector(bool header_cache_valid[HEADER_CACHE_LENGTH])
-//{
-//#pragma HLS inline
-//
-//#ifndef __SYNTHESIS__
-//  if(HEADER_CACHE_LENGTH != 64)
-//  {
-//    printf("ERROR: Header cache is only working for pipeline II=1 with length 64");
-//    exit(-1);
-//  }
-//#endif
-//
-//  uint64_t ret = 0;
-//  for(int i = 0; i<64; i++)
-//  {
-//    #pragma HLS unroll
-//    if(header_cache_valid[i])
-//    {
-//      ret |= ((uint64_t) 1) << (64 - i);
-//    }
-//  }
-//return ret;
-//
-//}
-
-//uint16_t get_next_cache_line(
-//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
-//    bool header_cache_valid[HEADER_CACHE_LENGTH],
-//    uint16_t start_value,
-//    ap_uint<256> &next_cache_line
-//    )
-//{
-//#pragma HLS inline
-////#pragma HLS pipeline II=1
-//
-//  uint64_t encoded_vec = array_to_vector(header_cache_valid);
-//  //printf("\t\t\t\tencoded vec: %#016llx\n",encoded_vec);
-//
-//  uint64_t start_value_encoded = (0xFFFFFFFFFFFFFFFF) << start_value;
-//
-//  encoded_vec &= start_value_encoded;
-//  //printf("\t\t\t\tencoded vec with start value: %#016llx, start value %d\n",encoded_vec, start_value);
-//
-//  uint8_t pos = getRightmostBitPos(encoded_vec);
-//  //printf("\t\t\t\t[get_next_cache_line] pos: %d\n",pos);
-//  if(pos == 0xFE)
-//  {
-//    return INVALID_CACHE_LINE_NUMBER;
-//  }
-//  if(pos < HEADER_CACHE_LENGTH)
-//  {
-//    next_cache_line = header_cache[pos];
-//  }
-//  return pos;
-//}
-//
-//void add_cache_line(
-//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
-//    bool header_cache_valid[HEADER_CACHE_LENGTH],
-//    ap_uint<256> &new_cache_line
-//    )
-//{
-//#pragma HLS inline //off
-//
-//  uint64_t encoded_vec = array_to_vector(header_cache_valid);
-//  //printf("\t\t\t\tencoded vec: %#016llx\n",encoded_vec);
-//
-//  uint8_t pos = getRightmostFREEPos(encoded_vec);
-//  //printf("\t\t\t\t[add_cache_line] pos: %d\n",pos);
-//
-//  if( pos < HEADER_CACHE_LENGTH )
-//  {
-//      header_cache[pos] = new_cache_line;
-//      header_cache_valid[pos] = true;
-//  }
-//
-//}
-
-//void add_cache_line(
-//    ap_uint<256> header_cache[HEADER_CACHE_LENGTH],
-//    bool header_cache_valid[HEADER_CACHE_LENGTH],
-//    ap_uint<256> &new_cache_line
-//    )
-//{
-//#pragma HLS inline off
-//  for(uint16_t i = 0; i < HEADER_CACHE_LENGTH; i++)
-//  {
-//#pragma HLS unroll
-//    if(!header_cache_valid[i])
-//    {
-//      header_cache[i] = new_cache_line;
-//      header_cache_valid[i] = true;
-//      break;
-//    }
-//  }
-//
-//}
 
 
 void add_cache_line(
@@ -303,60 +141,6 @@ uint8_t checkHeader(ap_uint<8> bytes[MPIF_HEADER_LENGTH], MPI_Header &header, Ne
   return 0;
 }
 
-//mpeState checkCache(
-//    uint16_t    &last_checked_cache_line,
-//    ap_uint<256>  header_cache[HEADER_CACHE_LENGTH],
-//    bool      header_cache_valid[HEADER_CACHE_LENGTH],
-//    ap_uint<8>    bytes[MPIF_HEADER_LENGTH],
-//    MPI_Header    &header,
-//    NetworkMeta   &metaSrc,
-//    packetType      expected_type,
-//    mpiCall         expected_call,
-//    uint32_t        expected_src_rank,
-//    const mpeState  found_state,
-//    const mpeState  miss_state,
-//    const mpeState  stay_state
-//    )
-//{
-//#pragma HLS inline off
-////#pragma HLS pipeline II=1
-//
-//
-//  ap_uint<256> next_cache_line = 0x0;
-//  uint16_t next_cache_line_number = INVALID_CACHE_LINE_NUMBER;
-//  uint8_t ret = 255;
-//  mpeState ret_val = IDLE;
-//
-//  next_cache_line_number = get_next_cache_line(header_cache, header_cache_valid,
-//      last_checked_cache_line, next_cache_line);
-//  if(next_cache_line_number != INVALID_CACHE_LINE_NUMBER)
-//  {
-//    printf("check cache line %d\n", (uint16_t) next_cache_line_number);
-//    last_checked_cache_line = next_cache_line_number;
-//    printf("check cache entry: ");
-//    for(int j = 0; j < MPIF_HEADER_LENGTH; j++)
-//    {
-//#pragma HLS unroll
-//      bytes[j] = (uint8_t) (next_cache_line >> (31-j)*8);
-//      printf("%02x", (int) bytes[j]);
-//    }
-//    printf("\n");
-//    ret = checkHeader(bytes, header, metaSrc, expected_type, expected_call, true, expected_src_rank);
-//    if(ret == 0)
-//    {//found desired header
-//      printf("Cache HIT\n");
-//      ret_val = found_state;
-//      delete_cache_line(header_cache, header_cache_valid, last_checked_cache_line);
-//    } else {
-//      //else, we continue
-//      ret_val = stay_state;
-//    }
-//    last_checked_cache_line++;
-//  } else {
-//    ret_val = miss_state;
-//  }
-//  return ret_val;
-//}
 
 bool getCache(
     ap_uint<256>  header_cache[HEADER_CACHE_LENGTH],
@@ -2129,6 +1913,5 @@ void mpe_main(
       sExpectedLength, sDeqRecvDone, MMIO_out);
 
 }
-
 
 

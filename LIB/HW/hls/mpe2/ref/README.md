@@ -1,6 +1,8 @@
 NOTE
 ==========
 
-This ./ref foler is to store important auto generated files for comparsion with current one. 
+This `./ref` folder is here to store important auto generated files for comparison with current builds.
 
-I.e. if e.g. addresses of the AXI4Lite Interface changes, make should fail...
+For example, if addresses of the `AXI4Lite` interface changes, make should fail.
+
+
