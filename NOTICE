@@ -9,7 +9,7 @@ service names might be trademarks of IBM or other companies. A current list
 of IBM trademarks is available on ibm.com/trademark .
 
 ZRLMPI includes software developed by the following (BSD 3-Clause license):
-- unifed: Copyright (c)  2002 - 2015 Tony Finch (see also ./TOOLS/ZRLMPI.CC/unifdef/COPYING)
-- pycparser: Copyright (c) 2008-2020, Eli Bendersky (as git submodule, see also ./TOOLS/ZRLMPI.CC/pycparser/LICENSE)
+- unifdef: Copyright (c)  2002 -- 2015 Tony Finch (see also ./TOOLS/ZRLMPI.CC/unifdef/COPYING)
+- pycparser: Copyright (c) 2008 -- 2020, Eli Bendersky (as git submodule, see also ./TOOLS/ZRLMPI.CC/pycparser/LICENSE)
 
 
