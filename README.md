@@ -1,12 +1,12 @@
 ZRLMPI
 ===================
-**IBM cloudFPGA MPI subset for network-attached FPGAS (ZRLMPI)**
+**IBM cloudFPGA message-passing interface for network-attached FPGAS (ZRLMPI)**
 
 
 Introduction
 ------------------
 
-This is a implementation of a subset of the [MPI standard](https://en.wikipedia.org/wiki/Message_Passing_Interface) for network-attached FPGAs using HLS libraries and the concept of [transpilation](https://ieeexplore.ieee.org/abstract/document/9307074).
+This is a implementation of a subset of the [message-passing interface (MPI) standard](https://en.wikipedia.org/wiki/Message_Passing_Interface) for network-attached FPGAs using HLS libraries and the concept of [transpilation](https://ieeexplore.ieee.org/abstract/document/9307074).
 
 ZRLMPI is also a **cloudFPGA addon (cFa)** to enable ZRLMPI on clodFPGA using the [cFDK](https://github.com/cloudFPGA/cFDK), as explained [below](#Enable-cFa-ZRLMPI).
 Additionally, ZRLMPI is used as hardware-agnostic communication framework within the [IBM cloudFPGA Distributed Operator Set Architectures (DOSA)](https://github.com/cloudFPGA/DOSA) compiler.
