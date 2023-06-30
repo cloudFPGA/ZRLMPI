@@ -2,6 +2,7 @@ ZRLMPI
 ===================
 **IBM cloudFPGA message-passing interface for network-attached FPGAS (ZRLMPI)**
 
+![ZRLMPI framework](./doc/zrlmpi_framework.png)
 
 Introduction
 ------------------
